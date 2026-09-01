@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>История изменений: {{ channel.name }} — {{ metric }} за {{ day }}</h1>
+<table class="tbl">
+<tr><th>Когда получено</th><th>Значение</th><th>Статус</th><th>Источник</th><th>Run</th></tr>
+{% for s in snaps %}
+<tr><td>{{ s.fetched_at }}</td><td>{{ s.value if s.value is not none else 'NULL' }}</td><td>{{ s.status }}</td><td>{{ s.source }}</td><td>{{ s.run_id }}</td></tr>
+{% endfor %}
+</table>
+<p class="muted">Всегда можно ответить, почему значение изменилось: хранится что пришло, когда, из какого источника и каким запуском.</p>
+{% endblock %}

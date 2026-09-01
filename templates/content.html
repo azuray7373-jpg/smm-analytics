@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Экран 3 — Контент</h1>
+<form class="filters" method="get">
+  <input type="hidden" name="start" value="{{ period[0] }}"><input type="hidden" name="end" value="{{ period[1] }}">
+  <select name="platform"><option value="">Платформа</option>{% for p in platforms %}<option {% if request.args.get('platform')==p %}selected{% endif %}>{{ p }}</option>{% endfor %}</select>
+  <select name="format"><option value="">Формат</option>{% for f in formats %}<option {% if request.args.get('format')==f %}selected{% endif %}>{{ f }}</option>{% endfor %}</select>
+  <select name="rubric"><option value="">Рубрика</option>{% for r in rubrics %}<option {% if request.args.get('rubric')==r %}selected{% endif %}>{{ r }}</option>{% endfor %}</select>
+  <select name="sort">
+    {% for s in ['reach','views','ERR','likes','comments','saves','shares','subs','registrations','CV'] %}
+    <option value="{{ s }}" {% if sort==s %}selected{% endif %}>Сорт: {{ s }}</option>{% endfor %}
+  </select>
+  <button>Фильтровать</button>
+</form>
+<table class="tbl">
+<tr><th>Дата</th><th>Канал</th><th>Формат</th><th>Название</th><th>Рубрика (AI)</th><th>Тип (AI)</th><th>CTA</th><th>Длит.</th><th>Охват</th><th>ERR</th><th>Сохран.</th><th>Репосты</th><th>Подписки</th><th>Регистр.</th><th>CV</th></tr>
+{% for i in items %}
+{% set tags = (i.item.ai_tags | fromjson) if i.item.ai_tags else {} %}
+<tr>
+  <td>{{ i.item.published_at.strftime('%d.%m') if i.item.published_at }}</td>
+  <td>{{ i.item.channel.name }}</td>
+  <td>{{ i.item.format }}</td>
+  <td><a href="{{ i.item.link }}" target="_blank">{{ i.item.title or '(без названия)' }}</a></td>
+  <td>{{ tags.get('рубрика', '—') }}</td>
+  <td>{{ tags.get('продающий_тип', '—') }}</td>
+  <td>{{ tags.get('есть_регистрационный_CTA') and '✅' or '—' }}</td>
+  <td>{{ i.item.duration_sec or '—' }}</td>
+  <td>{{ '{:,.0f}'.format(i.reach) }}</td>
+  <td>{{ '%.2f'|format(i.ERR or 0) }}%</td>
+  <td>{{ '{:,.0f}'.format(i.saves) }}</td>
+  <td>{{ '{:,.0f}'.format(i.shares) }}</td>
+  <td>{{ '{:,.0f}'.format(i.subs) }}</td>
+  <td>{{ '{:,.0f}'.format(i.registrations) }}</td>
+  <td>{{ '%.3f'|format(i.CV or 0) }}%</td>
+</tr>
+{% endfor %}
+</table>
+{% endblock %}

@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Настройки источников и AI</h1>
+<form method="post" class="box">
+  {% for k in values %}
+  <label>{{ k }} <input name="{{ k }}" value="{{ values[k] }}" style="width:60%"></label><br>
+  {% endfor %}
+  <br><button>Сохранить</button>
+</form>
+<p class="muted">ai_base_url/ai_model — любой OpenAI-совместимый API. youtube_api_key + youtube_channel_id включают живой сбор YouTube. livedune_token — коннектор Лайфдюн (запрос per-day статистик). getcourse_api_key — лиды/заказы/оплаты.</p>
+{% endblock %}

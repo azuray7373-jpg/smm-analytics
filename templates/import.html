@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Импорт CSV (официальные выгрузки)</h1>
+<p>Схема приоритета по ТЗ: официальный API → официальный XLSX/CSV → браузер-робот → ручной ввод. Этот экран — второй уровень.</p>
+<form method="post" enctype="multipart/form-data" class="box">
+  <input type="file" name="file" accept=".csv,.txt,.tsv" required>
+  <button>Загрузить</button>
+</form>
+<h3>Формат файлов</h3>
+<pre class="json">Статистика канала:
+date,channel_id,metric,value[,status]
+2026-08-20,5,reach,15000,MANUAL
+
+Регистрации:
+date,registrations,utm_source,utm_medium,utm_campaign,landing,count
+2026-08-20,yes,instagram,reels,webinar_sept,/reg,42</pre>
+<p class="muted">channel_id смотрите на экране «Каналы» (id в URL истории метрики) или в настройках.</p>
+{% endblock %}

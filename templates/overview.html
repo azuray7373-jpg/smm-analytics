@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% macro delta_badge(d, unit='%') %}
+  {% if d and d.d is not none %}
+    {% set sign = '+' if d.d >= 0 else '−' %}
+    <span class="badge {{ 'up' if d.d >= 0 else 'down' }}">{{ sign }}{{ '%.1f'|format(d.d|abs) if unit == 'п.п.' else '%d'|format(d.d|abs) }}{{ unit }}</span>
+  {% else %}<span class="badge na">н/д</span>{% endif %}
+{% endmacro %}
+
+{% block content %}
+<h1>Экран 1 — Всё вместе <small>({{ p.start }} — {{ p.end }})</small></h1>
+
+<div class="cards">
+  <div class="card"><h3>Охват</h3><div class="big">{{ '{:,.0f}'.format(p.agg.reach or 0) }}</div>{{ delta_badge(p.deltas.reach) }}</div>
+  <div class="card"><h3>Просмотры</h3><div class="big">{{ '{:,.0f}'.format(p.agg.views or 0) }}</div>{{ delta_badge(p.deltas.views) }}</div>
+  <div class="card"><h3>Регистрации</h3><div class="big">{{ '{:,.0f}'.format(p.registrations) }}</div>{{ delta_badge(p.deltas.registrations) }}</div>
+  <div class="card"><h3>ERR</h3><div class="big">{{ '%.2f'|format(p.ind.ERR or 0) }}%</div>{{ delta_badge(p.deltas.ERR, 'п.п.') }}</div>
+  <div class="card"><h3>ER</h3><div class="big">{{ '%.2f'|format(p.ind.ER or 0) }}%</div><span class="badge na">—</span></div>
+  <div class="card"><h3>CV из охвата</h3><div class="big">{{ '%.3f'|format(p.ind.CV_reach or 0) }}%</div>{{ delta_badge(p.deltas.CV_reach, 'п.п.') }}</div>
+  <div class="card"><h3>CTR открытий</h3><div class="big">{{ '%.1f'|format(p.ind.open_CTR or 0) }}%</div></div>
+  <div class="card"><h3>Дочитывания</h3><div class="big">{{ '%.1f'|format(p.ind.read_through or 0) }}%</div></div>
+  <div class="card"><h3>Подписчики (на конец)</h3><div class="big">{{ '{:,.0f}'.format(p.agg.followers_end or 0) }}</div>{{ delta_badge(p.deltas.followers_end, '') }}</div>
+  <div class="card"><h3>Чистый прирост</h3><div class="big">{{ '{:,.0f}'.format(p.agg.subscribed - p.agg.unsubscribed) }}</div>{{ delta_badge(p.deltas.net_growth, '') }}</div>
+  <div class="card"><h3>Рост аудитории</h3><div class="big">{{ '%.2f'|format(p.ind.audience_growth_pct or 0) }}%</div></div>
+  <div class="card"><h3>Взаимодействия</h3><div class="big">{{ '{:,.0f}'.format(p.ind.interactions) }}</div></div>
+</div>
+
+{% if p.data_statuses %}
+<div class="warnbox">Статусы данных: {{ p.data_statuses|tojson }}</div>
+{% endif %}
+
+<h2>Динамика охвата и регистраций по дням</h2>
+<canvas id="chart" height="90"></canvas>
+<script>
+new Chart(document.getElementById('chart'), {
+  type: 'line',
+  data: { labels: {{ chart.labels|tojson }},
+    datasets: [
+      { label: 'Охват', data: {{ chart.reach|tojson }}, yAxisID: 'y', tension: .3 },
+      { label: 'Регистрации', data: {{ chart.regs|tojson }}, yAxisID: 'y1', tension: .3 }
+    ]},
+  options: { scales: { y: { position: 'left' }, y1: { position: 'right', grid: { drawOnChartArea: false } } } }
+});
+</script>
+
+{% if report %}
+<h2>Вывод недели (AI)</h2>
+<div class="aireport">{{ report.ai_text }}</div>
+{% if report.controller_text %}<div class="controller"><b>AI-контролёр:</b> {{ report.controller_text }}</div>{% endif %}
+{% endif %}
+{% endblock %}

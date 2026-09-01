@@ -1,0 +1,338 @@
+# -*- coding: utf-8 -*-
+import json, os, threading
+from datetime import date, datetime
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, Response
+
+from db import db, Channel, MetricSnapshot, ContentItem, ContentStat, Registration, \
+    ManualNote, Report, Notification, Setting, RunLog, get_setting, set_setting
+import calc, connectors, reports, seed, getcourse
+
+app = Flask(__name__)
+app.secret_key = os.environ.get("SECRET_KEY", "dev-change-me")
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///smm.db").replace("postgres://", "postgresql://")
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {"pool_pre_ping": True}
+db.init_app(app)
+
+
+@app.template_filter("fromjson")
+def _fromjson(s):
+    try:
+        return json.loads(s or "{}")
+    except Exception:
+        return {}
+
+
+@app.route("/reports/view/<int:id>")
+def report_view(id):
+    return render_template("report_view.html", r=Report.query.get_or_404(id))
+
+
+@app.context_processor
+def inject_globals():
+    from flask import request as _req
+    unread = Notification.query.filter_by(is_read=False).count()
+    period = None
+    try:
+        s, e = _req.args.get("start"), _req.args.get("end")
+        if s and e:
+            period = (s, e)
+    except Exception:
+        pass
+    if not period:
+        import calc as _calc
+        period = _calc.week_bounds(date.today())
+    return {"channels": Channel.query.filter_by(is_active=True).all(),
+            "unread_notifications": unread, "period": period}
+
+
+# ---------------- Дашборд: 5 экранов ----------------
+
+@app.route("/")
+def overview():
+    """Экран 1. Всё вместе — основные KPI всей системы."""
+    d = _period_from_args()
+    p = calc.period_report(*d)
+    chart = _chart_series(*d)
+    return render_template("overview.html", p=p, period=d, chart=chart,
+                           report=_latest_report("weekly"))
+
+
+@app.route("/channels")
+def channels_screen():
+    """Экран 2. Каналы — сравнение 11 аккаунтов."""
+    d = _period_from_args()
+    rows = []
+    for ch in Channel.query.filter_by(is_active=True).all():
+        rows.append({"ch": ch, "p": calc.period_report(*d, ch.id)})
+    return render_template("channels.html", rows=rows, period=d)
+
+
+@app.route("/content")
+def content_screen():
+    """Экран 3. Контент — все материалы и их эффективность."""
+    d = _period_from_args()
+    q = ContentItem.query
+    f_platform = request.args.get("platform")
+    f_format = request.args.get("format")
+    f_rubric = request.args.get("rubric")
+    items = calc.content_stats_for_period(*d)
+    def match(it):
+        ci = it["item"]
+        tags = json.loads(ci.ai_tags or "{}")
+        if f_platform and ci.channel.platform != f_platform: return False
+        if f_format and ci.format != f_format: return False
+        if f_rubric and tags.get("рубрика") != f_rubric: return False
+        return True
+    items = [i for i in items if match(i)]
+    sort = request.args.get("sort", "reach")
+    items.sort(key=lambda x: (x.get(sort) if x.get(sort) is not None else -1), reverse=True)
+    rubrics = sorted({t.get("рубрика") for t in (json.loads(i["item"].ai_tags or "{}") for i in items) if t.get("рубрика")})
+    return render_template("content.html", items=items[:100], period=d, sort=sort,
+                           platforms=sorted({i["item"].channel.platform for i in items}),
+                           formats=sorted({i["item"].format for i in items if i["item"].format}),
+                           rubrics=rubrics)
+
+
+@app.route("/registrations")
+def registrations_screen():
+    """Экран 4. Регистрации: источник → канал → CV."""
+    d = _period_from_args()
+    q = Registration.query.filter(Registration.date >= d[0], Registration.date <= d[1], Registration.status == "OK")
+    by_source = {}
+    for r in q.all():
+        s = by_source.setdefault(r.utm_source or "(нет)", {"count": 0, "landings": {}})
+        s["count"] += r.count or 0
+        s["landings"][r.landing or "—"] = s["landings"].get(r.landing or "—", 0) + (r.count or 0)
+    total = sum(v["count"] for v in by_source.values())
+    cv_rows = []
+    agg, _ = calc.aggregate(*d)
+    total_reach = agg.get("reach")
+    for src, v in sorted(by_source.items(), key=lambda x: -x[1]["count"]):
+        plat = calc.UTM_TO_PLATFORM.get(src.lower())
+        ch_reach = None
+        if plat:
+            for ch in Channel.query.filter_by(platform=plat).all():
+                a, _ = calc.aggregate(*d, ch.id)
+                ch_reach = (ch_reach or 0) + (a.get("reach") or 0)
+        cv_rows.append({"source": src, "platform": plat or "—", "count": v["count"],
+                        "share": v["count"] / total * 100 if total else None,
+                        "reach": ch_reach, "CV": (v["count"] / ch_reach * 100) if ch_reach else None})
+    return render_template("registrations.html", rows=cv_rows, total=total,
+                           total_reach=total_reach,
+                           total_cv=total / total_reach * 100 if total_reach else None, period=d)
+
+
+@app.route("/ai")
+def ai_screen():
+    """Экран 5. AI-аналитика."""
+    weekly = Report.query.filter_by(rtype="weekly").order_by(Report.end.desc()).all()
+    monthly = Report.query.filter_by(rtype="monthly").order_by(Report.end.desc()).all()
+    anomalies = [n for n in Notification.query.filter(Notification.level == "warn").order_by(Notification.created_at.desc()).limit(20)]
+    return render_template("ai.html", weekly=weekly, monthly=monthly, anomalies=anomalies)
+
+
+# ---------------- Отчёты и операции ----------------
+
+@app.route("/reports")
+def reports_list():
+    reps = Report.query.order_by(Report.end.desc()).limit(50).all()
+    return render_template("reports.html", reports=reps)
+
+
+@app.route("/reports/generate", methods=["POST"])
+def generate():
+    rtype = request.form.get("rtype", "weekly")
+    anchor = datetime.strptime(request.form.get("anchor", date.today().isoformat()), "%Y-%m-%d").date()
+    rep = reports.generate_report(rtype, anchor)
+    flash(f"Отчёт за {rep.start}–{rep.end} сформирован.")
+    return redirect(url_for("reports_list"))
+
+
+@app.route("/collect", methods=["POST"])
+def collect():
+    results = connectors.run_daily_collection()
+    flash("Сбор данных выполнен: " + "; ".join(results))
+    return redirect(request.referrer or url_for("overview"))
+
+
+@app.route("/import", methods=["GET", "POST"])
+def import_csv():
+    if request.method == "POST":
+        f = request.files.get("file")
+        if not f or not f.filename:
+            flash("Файл не выбран")
+        elif not f.filename.lower().endswith((".csv", ".txt", ".tsv")):
+            flash("Нужен CSV/XLSX-экспорт в текстовом виде")
+        else:
+            n = connectors.import_csv_channel(f)
+            flash(f"Импортировано строк: {n}")
+        return redirect(url_for("import_csv"))
+    return render_template("import.html")
+
+
+@app.route("/manual", methods=["GET", "POST"])
+def manual():
+    if request.method == "POST":
+        if request.form.get("kind") == "note":
+            db.session.add(ManualNote(
+                period_start=datetime.strptime(request.form["period_start"], "%Y-%m-%d").date(),
+                period_end=datetime.strptime(request.form["period_end"], "%Y-%m-%d").date(),
+                product=request.form.get("product"), goal=request.form.get("goal"),
+                kpi=request.form.get("kpi"), events=request.form.get("events")))
+            db.session.commit()
+            flash("Контекст периода сохранён")
+            return redirect(url_for("manual"))
+        ch_id = int(request.form["channel_id"])
+        d = datetime.strptime(request.form["date"], "%Y-%m-%d").date()
+        run_id = connectors.start_run("manual_entry")
+        cnt = 0
+        for m in connectors.DAILY_METRICS:
+            v = request.form.get(m, "").strip()
+            if v != "":
+                connectors.save_metric(run_id, ch_id, d, m, float(v.replace(" ", "").replace(",", ".")), "manual", status="MANUAL")
+                cnt += 1
+        connectors.finish_run(run_id, f"вручную {cnt} метрик")
+        flash(f"Сохранено метрик: {cnt}")
+        return redirect(url_for("manual"))
+    notes = ManualNote.query.order_by(ManualNote.period_start.desc()).limit(20).all()
+    return render_template("manual.html", notes=notes, metrics=connectors.DAILY_METRICS)
+
+
+@app.route("/settings", methods=["GET", "POST"])
+def settings():
+    keys = ["ai_api_key", "ai_base_url", "ai_model", "youtube_api_key", "youtube_channel_id",
+            "livedune_token", "gc_account", "gc_api_key"]
+    if request.method == "POST":
+        for k in keys:
+            set_setting(k, request.form.get(k, ""))
+        db.session.commit()
+        flash("Настройки сохранены")
+        return redirect(url_for("settings"))
+    return render_template("settings.html", values={k: get_setting(k) for k in keys})
+
+
+@app.route("/getcourse")
+def getcourse_screen():
+    """Экран 4 (расширение): заказы и оплаты из GetCourse, воронка, новичок/старичок."""
+    d = _period_from_args()
+    f = getcourse.funnel(*d)
+    logs = RunLog.query.filter(RunLog.kind == "gc_sync").order_by(RunLog.started_at.desc()).limit(10).all()
+    return render_template("getcourse.html", f=f, period=d, logs=logs,
+                           configured=getcourse.configured())
+
+
+@app.route("/getcourse/sync", methods=["POST"])
+def getcourse_sync():
+    days = int(request.form.get("days", 5))
+    months = int(request.form.get("months", 0))
+    if not getcourse.configured():
+        flash("Не задан API-ключ GetCourse (экран «Настройки»)")
+        return redirect(url_for("getcourse_screen"))
+    getcourse.sync_getcourse(days=days, backfill_months=months, threaded=True)
+    flash("Синхронизация GetCourse запущена в фоне; результат появится через 1–3 минуты "
+          "(экспорты ГК выполняются по одному, при занятости — повторные попытки).")
+    return redirect(url_for("getcourse_screen"))
+
+
+@app.route("/notifications")
+def notifications():
+    ns = Notification.query.order_by(Notification.created_at.desc()).limit(100).all()
+    for n in ns:
+        n.is_read = True
+    db.session.commit()
+    return render_template("notifications.html", notifications=ns)
+
+
+@app.route("/history/<int:channel_id>/<metric>/<day>")
+def metric_history(channel_id, metric, day):
+    d = datetime.strptime(day, "%Y-%m-%d").date()
+    snaps = MetricSnapshot.query.filter_by(channel_id=channel_id, metric=metric, date=d) \
+        .order_by(MetricSnapshot.fetched_at).all()
+    return render_template("history.html", snaps=snaps, metric=metric, day=day,
+                           channel=Channel.query.get(channel_id))
+
+
+# ---------------- helpers ----------------
+
+def _period_from_args():
+    ps = request.args.get("start"); pe = request.args.get("end")
+    preset = request.args.get("preset", "week")
+    anchor = datetime.strptime(ps, "%Y-%m-%d").date() if ps else date.today()
+    if ps and pe:
+        return datetime.strptime(ps, "%Y-%m-%d").date(), datetime.strptime(pe, "%Y-%m-%d").date()
+    if preset == "month":
+        return calc.month_bounds(anchor)
+    return calc.week_bounds(anchor)
+
+
+def _chart_series(start, end):
+    days = []
+    d = start
+    while d <= end:
+        days.append(d.isoformat())
+        from datetime import timedelta
+        d += timedelta(days=1)
+    q = (db.session.query(MetricSnapshot.date, MetricSnapshot.metric, MetricSnapshot.value,
+                          db.func.max(MetricSnapshot.fetched_at))
+         .filter(MetricSnapshot.date >= start, MetricSnapshot.date <= end,
+                 MetricSnapshot.metric.in_(["reach", "registrations_daily"]))
+         .group_by(MetricSnapshot.date, MetricSnapshot.metric, MetricSnapshot.value)).all()
+    reach = {r.date.isoformat(): r.value for r in q if r.metric == "reach" and r.value}
+    regs = {}
+    for r in Registration.query.filter(Registration.date >= start, Registration.date <= end).all():
+        regs[r.date.isoformat()] = regs.get(r.date.isoformat(), 0) + (r.count or 0)
+    return {"labels": days, "reach": [reach.get(x) for x in days], "regs": [regs.get(x) for x in days]}
+
+
+def _latest_report(rtype):
+    return Report.query.filter_by(rtype=rtype).order_by(Report.end.desc()).first()
+
+
+# ---------------- планировщик ----------------
+
+def start_scheduler():
+    """Ежедневный сбор; недельный отчёт в понедельник 06:00; месячный 1-го числа 07:00."""
+    try:
+        from apscheduler.schedulers.background import BackgroundScheduler
+        from apscheduler.triggers.cron import CronTrigger
+        sched = BackgroundScheduler(daemon=True)
+        with app.app_context():
+            pass
+        def daily():
+            with app.app_context():
+                connectors.run_daily_collection()
+        def weekly():
+            with app.app_context():
+                reports.generate_report("weekly")
+        def monthly():
+            with app.app_context():
+                reports.generate_report("monthly")
+        def gc_daily():
+            with app.app_context():
+                if getcourse.configured():
+                    getcourse.sync_getcourse(days=5)
+        sched.add_job(daily, CronTrigger(hour=3))
+        sched.add_job(gc_daily, CronTrigger(hour=4))
+        sched.add_job(weekly, CronTrigger(day_of_week="mon", hour=6))
+        sched.add_job(monthly, CronTrigger(day=1, hour=7))
+        sched.start()
+    except Exception as e:
+        app.logger.warning(f"Планировщик не запущен: {e}")
+
+
+with app.app_context():
+    db.create_all()
+    # значения по умолчанию из окружения (Render env vars)
+    import os as _os
+    if _os.environ.get("GC_API_KEY") and not get_setting("gc_api_key"):
+        set_setting("gc_api_key", _os.environ["GC_API_KEY"])
+    if _os.environ.get("GC_ACCOUNT") and not get_setting("gc_account"):
+        set_setting("gc_account", _os.environ["GC_ACCOUNT"])
+    db.session.commit()
+    seed.seed()
+
+if os.environ.get("RENDER") or os.environ.get("SMM_SCHEDULER", "1") == "1":
+    start_scheduler()
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)

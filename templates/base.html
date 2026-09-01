@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SMM Аналитика</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+</head>
+<body>
+<nav class="topnav">
+  <div class="brand">📊 SMM Аналитика</div>
+  <a href="{{ url_for('overview') }}">Всё вместе</a>
+  <a href="{{ url_for('channels_screen') }}">Каналы</a>
+  <a href="{{ url_for('content_screen') }}">Контент</a>
+  <a href="{{ url_for('registrations_screen') }}">Регистрации</a>
+  <a href="{{ url_for('getcourse_screen') }}">GetCourse</a>
+  <a href="{{ url_for('ai_screen') }}">AI-аналитика</a>
+  <a href="{{ url_for('reports_list') }}">Отчёты</a>
+  <a href="{{ url_for('import_csv') }}">Импорт</a>
+  <a href="{{ url_for('manual') }}">Ручной ввод</a>
+  <a href="{{ url_for('settings') }}">Настройки</a>
+  <a href="{{ url_for('notifications') }}" class="bell">🔔{% if unread_notifications %} ({{ unread_notifications }}){% endif %}</a>
+</nav>
+<main>
+{% with msgs = get_flashed_messages() %}
+  {% for m in msgs %}<div class="flash">{{ m }}</div>{% endfor %}
+{% endwith %}
+
+<form class="filters" method="get">
+  <label>Начало <input type="date" name="start" value="{{ period[0] }}"></label>
+  <label>Конец <input type="date" name="end" value="{{ period[1] }}"></label>
+  <button>Применить</button>
+  <a class="btn" href="?preset=week">Неделя</a>
+  <a class="btn" href="?preset=month">Месяц</a>
+  <button type="submit" formaction="{{ url_for('collect') }}" formmethod="post">▶ Собрать данные сейчас</button>
+</form>
+
+{% block content %}{% endblock %}
+</main>
+<footer>Показатели рассчитываются из абсолютных данных; AI получает только рассчитанные числа.</footer>
+</body></html>

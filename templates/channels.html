@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Экран 2 — Каналы (сравнение аккаунтов)</h1>
+<p>Instagram считается и по каждому аккаунту отдельно, и агрегированно (строка «Итого Instagram»). Сумма подписчиков по платформам — не уникальная аудитория.</p>
+<table class="tbl">
+<tr><th>Канал</th><th>Платформа</th><th>Подписчики</th><th>Прирост</th><th>Охват</th><th>Просмотры</th><th>Взаимодействия</th><th>ERR</th><th>ER</th><th>CV</th><th>Регистрации</th></tr>
+{% set t_reach = namespace(v=0) %}
+{% for r in rows %}
+<tr>
+  <td><a href="{{ r.ch.url }}" target="_blank">{{ r.ch.name }}</a></td>
+  <td>{{ r.ch.platform }}</td>
+  <td>{{ '{:,.0f}'.format(r.p.agg.followers_end or 0) }}</td>
+  <td>{{ '{:,.0f}'.format(r.p.ind.net_growth) }}</td>
+  <td>{{ '{:,.0f}'.format(r.p.agg.reach or 0) }}</td>
+  <td>{{ '{:,.0f}'.format(r.p.agg.views or 0) }}</td>
+  <td>{{ '{:,.0f}'.format(r.p.ind.interactions) }}</td>
+  <td>{{ '%.2f'|format(r.p.ind.ERR or 0) }}%</td>
+  <td>{{ '%.2f'|format(r.p.ind.ER or 0) }}%</td>
+  <td>{{ '%.3f'|format(r.p.ind.CV_reach or 0) }}%</td>
+  <td>{{ '{:,.0f}'.format(r.p.registrations) }}</td>
+</tr>
+{% endfor %}
+</table>
+{% endblock %}

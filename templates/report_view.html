@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Отчёт {{ r.rtype }}: {{ r.start }} — {{ r.end }}</h1>
+<div class="aireport">{{ r.ai_text }}</div>
+<h2>Рассчитанные данные</h2>
+<pre class="json">{{ r.payload }}</pre>
+<h2>AI-контролёр</h2>
+<div class="controller">{{ r.controller_text }}</div>
+{% endblock %}

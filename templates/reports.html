@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Отчёты</h1>
+<form class="filters" method="post" action="{{ url_for('generate') }}">
+  <select name="rtype"><option value="weekly">Недельный</option><option value="monthly">Месячный</option></select>
+  <input type="date" name="anchor" value="{{ period[1] }}">
+  <button>Сформировать</button>
+</form>
+<table class="tbl">
+<tr><th>Тип</th><th>Период</th><th>Создан</th><th>AI-вывод</th><th>Контролёр</th></tr>
+{% for r in reports %}
+<tr>
+  <td>{{ r.rtype }}</td>
+  <td><a href="{{ url_for('report_view', id=r.id) }}">{{ r.start }} — {{ r.end }}</a></td>
+  <td>{{ r.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+  <td>{{ r.ai_text[:120] }}…</td>
+  <td>{{ r.controller_text[:120] }}…</td>
+</tr>
+{% endfor %}
+</table>
+{% endblock %}

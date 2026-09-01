@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Экран 4 — Регистрации: источник → канал → CV</h1>
+<div class="cards">
+  <div class="card"><h3>Регистраций за период</h3><div class="big">{{ '{:,.0f}'.format(total) }}</div></div>
+  <div class="card"><h3>Суммарный охват</h3><div class="big">{{ '{:,.0f}'.format(total_reach or 0) }}</div></div>
+  <div class="card"><h3>Общая CV</h3><div class="big">{{ '%.3f'|format(total_cv or 0) }}%</div></div>
+</div>
+<table class="tbl">
+<tr><th>UTM source</th><th>Канал</th><th>Регистрации</th><th>Доля</th><th>Охват канала</th><th>CV</th></tr>
+{% for r in rows %}
+<tr>
+  <td>{{ r.source }}</td><td>{{ r.platform }}</td>
+  <td>{{ '{:,.0f}'.format(r.count) }}</td>
+  <td>{{ '%.1f'|format(r.share or 0) }}%</td>
+  <td>{{ '{:,.0f}'.format(r.reach or 0) }}</td>
+  <td>{{ '%.3f'|format(r.CV or 0) }}%</td>
+</tr>
+{% endfor %}
+</table>
+<p class="muted">Заказы, оплаты, входящие/исходящие и новички/старички из GetCourse — на экране <a href="{{ url_for('getcourse_screen') }}">GetCourse</a>. Двойной учёт регистраций исключён: регистрации из ГК пишутся в эту же таблицу с уникальным gc_user_id.</p>
+{% endblock %}

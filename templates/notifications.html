@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Уведомления</h1>
+<ul>
+{% for n in notifications %}
+<li class="{{ n.level }}">{{ {'error':'❌','warn':'⚠️','info':'ℹ️'}.get(n.level,'•') }} {{ n.message }} <small>{{ n.created_at }}</small></li>
+{% else %}<li>Уведомлений нет.</li>{% endfor %}
+</ul>
+{% endblock %}

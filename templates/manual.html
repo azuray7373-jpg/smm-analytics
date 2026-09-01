@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Ручной ввод</h1>
+<h2>Дневная статистика канала (status = MANUAL)</h2>
+<form method="post" class="box">
+  <input type="hidden" name="kind" value="metrics">
+  <select name="channel_id" required>{% for c in channels %}<option value="{{ c.id }}">{{ c.platform }} — {{ c.name }}</option>{% endfor %}</select>
+  <input type="date" name="date" value="{{ period[1] }}" required>
+  {% for m in metrics %}<label class="mini">{{ m }} <input name="{{ m }}"></label>{% endfor %}
+  <button>Сохранить</button>
+</form>
+
+<h2>Контекст периода (продукт, цель, KPI, события)</h2>
+<form method="post" class="box">
+  <input type="hidden" name="kind" value="note">
+  <label>Начало <input type="date" name="period_start" value="{{ period[0] }}" required></label>
+  <label>Конец <input type="date" name="period_end" value="{{ period[1] }}" required></label>
+  <label>Продукт <input name="product"></label>
+  <label>Цель <input name="goal"></label>
+  <label>KPI <input name="kpi"></label>
+  <label>События (блокировки, сбои уведомлений и т.п.) <input name="events"></label>
+  <button>Сохранить</button>
+</form>
+
+<h2>Сохранённый контекст</h2>
+{% for n in notes %}
+<div class="box small">{{ n.period_start }}–{{ n.period_end }}: продукт «{{ n.product or '—' }}», цель: {{ n.goal or '—' }}, KPI: {{ n.kpi or '—' }}, события: {{ n.events or '—' }}</div>
+{% endfor %}
+{% endblock %}

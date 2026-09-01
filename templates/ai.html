@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Экран 5 — AI-аналитика</h1>
+
+<form class="filters" method="post" action="{{ url_for('generate') }}">
+  <select name="rtype"><option value="weekly">Недельный</option><option value="monthly">Месячный</option></select>
+  <input type="date" name="anchor" value="{{ period[1] }}">
+  <button>Сформировать отчёт</button>
+</form>
+
+<h2>Аномалии системы</h2>
+{% if anomalies %}
+<ul>{% for a in anomalies %}<li class="warn">{{ a.message }} <small>{{ a.created_at }}</small></li>{% endfor %}</ul>
+{% else %}<p class="muted">Аномалий не обнаружено.</p>{% endif %}
+
+<h2>Недельные выводы</h2>
+{% for r in weekly %}
+<details {% if loop.first %}open{% endif %}>
+  <summary>{{ r.start }} — {{ r.end }} ({{ r.created_at.strftime('%d.%m %H:%M') }})</summary>
+  <div class="aireport">{{ r.ai_text }}</div>
+  <div class="controller"><b>AI-контролёр:</b> {{ r.controller_text }}</div>
+</details>
+{% else %}<p class="muted">Отчётов пока нет — сформируйте первый.</p>{% endfor %}
+
+<h2>Месячные выводы</h2>
+{% for r in monthly %}
+<details>
+  <summary>{{ r.start }} — {{ r.end }}</summary>
+  <div class="aireport">{{ r.ai_text }}</div>
+  <div class="controller"><b>AI-контролёр:</b> {{ r.controller_text }}</div>
+</details>
+{% else %}<p class="muted">Месячных отчётов пока нет.</p>{% endfor %}
+{% endblock %}

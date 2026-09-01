@@ -218,10 +218,14 @@ def settings():
 def getcourse_screen():
     """Экран 4 (расширение): заказы и оплаты из GetCourse, воронка, новичок/старичок."""
     d = _period_from_args()
+    step_status = None
+    if IS_SERVERLESS and getcourse.configured():
+        getcourse.gc_start(days=5)
+        step_status = getcourse.gc_step()
     f = getcourse.funnel(*d)
     logs = RunLog.query.filter(RunLog.kind == "gc_sync").order_by(RunLog.started_at.desc()).limit(10).all()
     return render_template("getcourse.html", f=f, period=d, logs=logs,
-                           configured=getcourse.configured())
+                           configured=getcourse.configured(), step_status=step_status)
 
 
 @app.route("/getcourse/sync", methods=["POST"])
@@ -296,11 +300,12 @@ def _latest_report(rtype):
 
 @app.route("/cron")
 def cron():
-    """Внешний пинг для free-плана Render (сервисы засыпают): /cron?token=<SECRET_KEY>.
-    Запускает дневной сбор + синхронизацию GetCourse, чтобы можно было дёргать
-    любым бесплатным cron-сервисом (UptimeRobot, cron-job.org и т.п.)."""
-    if request.args.get("token") != app.secret_key:
+    """Планировщик. Vercel-крон (заголовок x-vercel-cron) — быстрый режим:
+    дневной сбор + один шаг ГК. Внешний пинг с token — полный режим (до 45с шагов)."""
+    tokens = {app.secret_key, os.environ.get("CRON_TOKEN", "")}
+    if request.args.get("token") not in tokens:
         return jsonify({"error": "invalid token"}), 403
+    fast = bool(request.headers.get("x-vercel-cron"))
     out = {}
     try:
         out["collect"] = "; ".join(connectors.run_daily_collection())
@@ -309,8 +314,9 @@ def cron():
     try:
         if getcourse.configured():
             if IS_SERVERLESS:
-                getcourse.gc_start(days=5)   # начать цикл, если прошло завершено
-                out["getcourse"] = getcourse.gc_step()
+                getcourse.gc_start(days=5)
+                out["getcourse"] = getcourse.gc_run_steps(seconds=8) if fast else \
+                    getcourse.gc_run_steps(seconds=45)
             else:
                 getcourse.sync_getcourse(days=5)
                 out["getcourse"] = "ok"

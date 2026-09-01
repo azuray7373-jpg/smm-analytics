@@ -5,6 +5,9 @@
 {% if not configured %}
 <div class="warnbox">API-ключ GetCourse не задан — укажите его на экране «Настройки» (gc_account, gc_api_key).</div>
 {% endif %}
+{% if step_status %}
+<div class="warnbox">Шаг синхронизации: {{ step_status }}</div>
+{% endif %}
 
 <form class="filters" method="post" action="{{ url_for('getcourse_sync') }}">
   <input type="hidden" name="days" value="7">

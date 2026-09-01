@@ -135,6 +135,18 @@ class GcEvent(db.Model):
     synced_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
 
 
+class GcSyncState(db.Model):
+    """Состояние пошаговой синхронизации ГК (serverless): один HTTP-шаг на вызов."""
+    __tablename__ = "gc_sync_state"
+    id = db.Column(db.Integer, primary_key=True)
+    phase = db.Column(db.String(32), default="idle")      # idle/start_users/wait_users/...
+    export_id = db.Column(db.BigInteger)
+    window_start = db.Column(db.Date)
+    window_end = db.Column(db.Date)
+    stats = db.Column(db.Text)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 class ManualNote(db.Model):
     """Ручной контекст: продукт, цель недели, KPI, события."""
     __tablename__ = "manual_notes"

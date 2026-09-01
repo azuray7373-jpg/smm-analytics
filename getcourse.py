@@ -85,13 +85,14 @@ def _records(js):
     return None
 
 
-def request_export(kind, params, run_id, max_wait=600):
-    """Запуск экспорта с ретраями по 905 + опрос готовности. Возвращает список записей."""
+def request_export(kind, params, run_id, max_wait=1200):
+    """Запуск экспорта с ретраями по 905 + опрос готовности. Возвращает список записей.
+    Лимит ExportAPI — 100 запросов за 2 часа, поэтому опрашиваем редко (30с)."""
     js = None
     for attempt in range(4):
         js = _get(kind, params)
-        if js.get("error_code") == 905 and attempt < 3:
-            time.sleep(45)
+        if js.get("error_code") in (905, 903) and attempt < 3:
+            time.sleep(60)
             continue
         break
     if not js.get("success"):
@@ -101,10 +102,10 @@ def request_export(kind, params, run_id, max_wait=600):
         raise RuntimeError(f"GetCourse {kind}: не найден export_id в {str(js)[:300]}")
     deadline = time.time() + max_wait
     while time.time() < deadline:
-        time.sleep(12)
+        time.sleep(30)
         r = _get(f"exports/{eid}", {})
-        if r.get("error_code") in (906, 907, 908) or (r.get("success") is False and not r.get("error_message")):
-            continue  # ещё формируется
+        if r.get("error_code") in (905, 903, 906, 907, 908, 909):
+            continue  # ещё формируется / файл не создан / лимит
         recs = _records(r)
         if recs is not None:
             return recs
@@ -166,12 +167,9 @@ def _log_event(entity, entity_id, payload):
                            payload=json.dumps(payload, ensure_ascii=False)))
 
 
-def sync_window(start: date, end: date, run_id):
-    """Синхронизирует пользователей, заказы и оплаты за окно дат."""
-    stats = {"users": 0, "deals": 0, "payments": 0}
-    params = {"created_at[from]": start.isoformat(), "created_at[to]": end.isoformat()}
-
-    users = request_export("users", params, run_id)
+# -*- coding: utf-8 -*-
+def _ingest_users(users, default_day):
+    n = 0
     for u in users:
         uid = _num(_f(u, "id", "user_id", "ID"))
         if uid is None:
@@ -181,17 +179,20 @@ def sync_window(start: date, end: date, run_id):
         if not reg:
             reg = Registration(count=1, gc_user_id=int(uid))
             db.session.add(reg)
-        reg.date = (created.date() if created else start)
+        reg.date = (created.date() if created else default_day)
         reg.utm_source = str(_f(u, "utm_source", "utm_source_text") or "")[:64]
         reg.utm_medium = str(_f(u, "utm_medium") or "")[:64]
         reg.utm_campaign = str(_f(u, "utm_campaign") or "")[:128]
         reg.landing = str(_f(u, "page_url", "landing", "referer", "landing_page") or "")[:255]
         reg.status = "OK"
         _log_event("user", uid, u)
-        stats["users"] += 1
-    db.session.flush()
+        n += 1
+    db.session.commit()
+    return n
 
-    deals = request_export("deals", params, run_id)
+
+def _ingest_deals(deals, default_day):
+    n = 0
     for d in deals:
         did = _num(_f(d, "id", "deal_id", "ID"))
         if did is None:
@@ -201,7 +202,7 @@ def sync_window(start: date, end: date, run_id):
         db.session.add(o)
         o.deal_number = str(_f(d, "deal_number", "number", "Номер заказа") or "")[:64]
         o.created_at = created
-        o.date = created.date() if created else start
+        o.date = created.date() if created else default_day
         o.user_id = _num(_f(d, "user_id", "userID"))
         o.email = str(_f(d, "email", "E-mail", "user_email") or "")[:255]
         o.phone = str(_f(d, "phone", "Телефон", "user_phone") or "")[:64]
@@ -217,11 +218,15 @@ def sync_window(start: date, end: date, run_id):
         o.direction = _direction(o.utm_source)
         o.updated_at = datetime.utcnow()
         _log_event("deal", did, d)
-        stats["deals"] += 1
-    db.session.flush()
+        n += 1
+    db.session.commit()
     _recompute_customer_status()
+    db.session.commit()
+    return n
 
-    payments = request_export("payments", params, run_id)
+
+def _ingest_payments(payments, default_day):
+    n = 0
     for p in payments:
         pid = _num(_f(p, "id", "payment_id", "ID"))
         if pid is None:
@@ -230,7 +235,7 @@ def sync_window(start: date, end: date, run_id):
         pay = GcPayment.query.get(int(pid)) or GcPayment(id=int(pid))
         db.session.add(pay)
         pay.created_at = created
-        pay.date = created.date() if created else start
+        pay.date = created.date() if created else default_day
         pay.user_id = _num(_f(p, "user_id", "userID"))
         pay.email = str(_f(p, "email", "E-mail", "user_email") or "")[:255]
         pay.amount = _num(_f(p, "amount", "sum", "Сумма", "price", "Сумма оплаты"))
@@ -240,9 +245,21 @@ def sync_window(start: date, end: date, run_id):
         pay.product = str(_f(p, "product_title", "product", "Название продукта") or "")[:255]
         pay.updated_at = datetime.utcnow()
         _log_event("payment", pid, p)
-        stats["payments"] += 1
+        n += 1
     db.session.commit()
-    return stats
+    return n
+
+
+def sync_window(start, end, run_id):
+    """Синхронизирует пользователей, заказы и оплаты за окно дат (блокирующий режим для VM-хостов)."""
+    params = {"created_at[from]": start.isoformat(), "created_at[to]": end.isoformat()}
+    users = request_export("users", params, run_id)
+    nu = _ingest_users(users, start)
+    deals = request_export("deals", params, run_id)
+    nd = _ingest_deals(deals, start)
+    payments = request_export("payments", params, run_id)
+    np_ = _ingest_payments(payments, start)
+    return {"users": nu, "deals": nd, "payments": np_}
 
 
 def _recompute_customer_status():
@@ -258,11 +275,109 @@ def _recompute_customer_status():
         seen.add(key)
 
 
+# --------- пошаговая синхронизация для serverless (Vercel) ---------
+# Каждый вызов gc_step() делает ровно один HTTP-запрос к ГК; состояние хранится
+# в базе и продолжается от вызова к вызову (пинг /cron раз в 5 минут).
+
+def _sync_state():
+    from db import GcSyncState
+    st = db.session.get(GcSyncState, 1)
+    if not st:
+        st = GcSyncState(id=1)
+        db.session.add(st)
+        db.session.commit()
+    return st
+
+
+def gc_start(days=5):
+    """Начать новый цикл синхронизации, если предыдущий завершён."""
+    st = _sync_state()
+    if st.phase != "idle":
+        return False
+    st.window_end = date.today()
+    st.window_start = date.today() - timedelta(days=days)
+    st.phase = "start_users"
+    st.export_id = None
+    st.stats = ""
+    db.session.commit()
+    return True
+
+
+def gc_step():
+    """Один шаг автомата. Возвращает статус для ответа /cron."""
+    st = _sync_state()
+    try:
+        if st.phase == "idle":
+            return "idle"
+        params = {"created_at[from]": st.window_start.isoformat(),
+                  "created_at[to]": st.window_end.isoformat()} if st.window_start else {}
+        if st.phase.startswith("start_"):
+            kind = st.phase.split("_", 1)[1]
+            js = _get(kind, params)
+            msg = str(js.get("error_message") or "")
+            if js.get("error_code") in (903, 905, 906) or "подписан" in msg:
+                return f"очередь ГК занята/лимит, повтор позже ({js.get('error_code')} {msg[:60]})"
+            if not js.get("success"):
+                st.phase = "idle"
+                db.session.commit()
+                raise RuntimeError(str(js)[:200])
+            st.export_id = _find_export_id(js)
+            st.phase = "wait_" + kind
+            st.updated_at = datetime.utcnow()
+            db.session.commit()
+            return f"экспорт {kind} запущен (#{st.export_id})"
+        if st.phase.startswith("wait_"):
+            kind = st.phase.split("_", 1)[1]
+            r = _get(f"exports/{st.export_id}", {})
+            if r.get("error_code") in (903, 905, 906, 907, 908, 909):
+                return f"файл {kind} ещё формируется ({r.get('error_code')})"
+            recs = _records(r)
+            if recs is None:
+                raise RuntimeError(f"exports/{st.export_id}: {str(r)[:200]}")
+            default = st.window_start or date.today()
+            if kind == "users":
+                n = _ingest_users(recs, default)
+            elif kind == "deals":
+                n = _ingest_deals(recs, default)
+            else:
+                n = _ingest_payments(recs, default)
+            st.stats = (st.stats or "") + f"{kind}={n}; "
+            nxt = {"users": "start_deals", "deals": "start_payments", "payments": "idle"}
+            st.phase = nxt[kind]
+            st.export_id = None
+            st.updated_at = datetime.utcnow()
+            db.session.commit()
+            if st.phase == "idle":
+                db.session.add(Notification(level="info",
+                    message=f"GetCourse: синхронизация завершена ({st.stats})"))
+                db.session.commit()
+                return f"готово: {st.stats}"
+            return f"загружено {kind}={n}, далее {st.phase}"
+    except Exception as e:
+        db.session.add(Notification(level="error",
+            message=f"Ошибка шага синхронизации ГК: {e}"))
+        db.session.commit()
+        return f"ошибка: {e}"
+    return "idle"
+
+
+def gc_run_steps(seconds=35):
+    """Выполнять шаги, пока есть время (кнопка/долгий вызов в пределах maxDuration)."""
+    import time as _t
+    deadline = _t.time() + seconds
+    last = "idle"
+    gc_start(days=5)
+    while _t.time() < deadline:
+        last = gc_step()
+        if last.startswith("готово") or last.startswith("ошибка"):
+            break
+        _t.sleep(20)
+    return last
+
+
 def sync_getcourse(days=5, backfill_months=0, threaded=False):
-    """Ежедневная синхронизация: последние N дней (запаздывающие статусы пересобираются).
-    backfill_months: догрузка истории помесячно (кнопка на экране GetCourse)."""
+    """Блокирующая синхронизация для VM-хостов (обычный режим с ожиданием готовности экспортов)."""
     def _run():
-        run_id = None
         try:
             r = RunLog(kind="gc_sync", status="OK")
             db.session.add(r)
@@ -271,15 +386,6 @@ def sync_getcourse(days=5, backfill_months=0, threaded=False):
             end = date.today()
             start = end - timedelta(days=days)
             stats = sync_window(start, end, run_id)
-            for m in range(backfill_months):
-                me = (end.replace(day=1) - timedelta(days=1)) if m == 0 else \
-                     ((end.replace(day=1) - timedelta(days=1)).replace(day=1) - timedelta(days=1))
-                ms = me.replace(day=1)
-                stats_m = sync_window(ms, me, run_id)
-                for k in stats_m:
-                    stats[k] = stats.get(k, 0) + stats_m[k]
-                end = ms - timedelta(days=1)
-                start = end - timedelta(days=days)
             r.details = f"users={stats['users']} deals={stats['deals']} payments={stats['payments']}"
             db.session.commit()
             db.session.add(Notification(level="info", message=(
@@ -287,7 +393,8 @@ def sync_getcourse(days=5, backfill_months=0, threaded=False):
                 f"заказов {stats['deals']}, оплат {stats['payments']}.")))
             db.session.commit()
         except Exception as e:
-            db.session.add(Notification(level="error", message=f"Ошибка синхронизации GetCourse: {e}"))
+            db.session.add(Notification(level="error",
+                message=f"Ошибка синхронизации GetCourse: {e}"))
             db.session.commit()
             raise
     if threaded:
@@ -296,8 +403,6 @@ def sync_getcourse(days=5, backfill_months=0, threaded=False):
     _run()
     return "завершена"
 
-
-# --------- агрегаты для дашборда и отчётов ---------
 
 def funnel(start: date, end: date):
     """Воронка и разрезы за период: регистрации -> заказы -> оплаты."""

@@ -35,6 +35,7 @@ def seed(db_uri=None):
             db.session.add(Channel(platform=p, name=n, url=u))
         db.session.commit()
 
+    days_total = int(os.environ.get("SMM_DEMO_DAYS", "70"))
     if os.environ.get("SMM_DEMO", "1") != "1" or MetricSnapshot.query.count() > 0:
         db.session.commit()
         return
@@ -54,7 +55,7 @@ def seed(db_uri=None):
             base = BASE_FOLLOWERS.get(ch.platform, 10000)
         fol[ch.id] = base
 
-    for day_n in range(70, -1, -1):
+    for day_n in range(days_total, -1, -1):
         d = today - timedelta(days=day_n)
         for ch in chans:
             trend = 1 + (70 - day_n) * 0.0012 * random.uniform(0.5, 1.5)

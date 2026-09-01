@@ -7,9 +7,12 @@ from db import db, Channel, MetricSnapshot, ContentItem, ContentStat, Registrati
     ManualNote, Report, Notification, Setting, RunLog, get_setting, set_setting
 import calc, connectors, reports, seed, getcourse
 
+IS_SERVERLESS = bool(os.environ.get("VERCEL"))
+
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-change-me")
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///smm.db").replace("postgres://", "postgresql://")
+_default_db = os.environ.get("DATABASE_URL") or ("sqlite:////tmp/smm.db" if IS_SERVERLESS else "sqlite:///smm.db")
+app.config["SQLALCHEMY_DATABASE_URI"] = _default_db.replace("postgres://", "postgresql://")
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {"pool_pre_ping": True}
 db.init_app(app)
 
@@ -223,14 +226,17 @@ def getcourse_screen():
 
 @app.route("/getcourse/sync", methods=["POST"])
 def getcourse_sync():
-    days = int(request.form.get("days", 5))
-    months = int(request.form.get("months", 0))
     if not getcourse.configured():
         flash("Не задан API-ключ GetCourse (экран «Настройки»)")
         return redirect(url_for("getcourse_screen"))
-    getcourse.sync_getcourse(days=days, backfill_months=months, threaded=True)
-    flash("Синхронизация GetCourse запущена в фоне; результат появится через 1–3 минуты "
-          "(экспорты ГК выполняются по одному, при занятости — повторные попытки).")
+    if IS_SERVERLESS:
+        status = getcourse.gc_run_steps(seconds=35)
+        flash(f"Синхронизация GetCourse (пошаговый режим): {status}. "
+              "Если не завершилась — продолжится при следующих пингах /cron.")
+    else:
+        getcourse.sync_getcourse(days=7, threaded=True)
+        flash("Синхронизация GetCourse запущена в фоне; результат появится через 1–3 минуты "
+              "(экспорты ГК выполняются по одному, при занятости — повторные попытки).")
     return redirect(url_for("getcourse_screen"))
 
 
@@ -302,8 +308,12 @@ def cron():
         out["collect"] = f"error: {e}"
     try:
         if getcourse.configured():
-            getcourse.sync_getcourse(days=5)
-            out["getcourse"] = "ok"
+            if IS_SERVERLESS:
+                getcourse.gc_start(days=5)   # начать цикл, если прошло завершено
+                out["getcourse"] = getcourse.gc_step()
+            else:
+                getcourse.sync_getcourse(days=5)
+                out["getcourse"] = "ok"
     except Exception as e:
         out["getcourse"] = f"error: {e}"
     return jsonify(out)
@@ -352,7 +362,7 @@ with app.app_context():
     db.session.commit()
     seed.seed()
 
-if os.environ.get("RENDER") or os.environ.get("SMM_SCHEDULER", "1") == "1":
+if not IS_SERVERLESS and (os.environ.get("RENDER") or os.environ.get("SMM_SCHEDULER", "1") == "1"):
     start_scheduler()
 
 if __name__ == "__main__":

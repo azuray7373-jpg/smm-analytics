@@ -15,7 +15,7 @@
   ],
   "crons": [
     {
-      "path": "/cron?token=96e42624548325563b9620ad52987384",
+      "path": "/cron",
       "schedule": "0 4 * * *"
     }
   ]

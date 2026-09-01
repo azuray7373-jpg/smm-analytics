@@ -300,12 +300,30 @@ def _latest_report(rtype):
 
 @app.route("/cron")
 def cron():
-    """Планировщик. Vercel-крон (заголовок x-vercel-cron) — быстрый режим:
-    дневной сбор + один шаг ГК. Внешний пинг с token — полный режим (до 45с шагов)."""
-    tokens = {app.secret_key, os.environ.get("CRON_TOKEN", "")}
-    if request.args.get("token") not in tokens:
+    """Планировщик. Два режима:
+    - с token (= SECRET_KEY или CRON_TOKEN) — полный доступ (до 45с шагов ГК);
+    - без token, но с заголовком x-vercel-cron (вызов самого Vercel) — быстрый режим,
+      не чаще раза в 20 минут (защита от подделок: лимит шагов ГК не выжечь)."""
+    tokens = {app.secret_key, os.environ.get("CRON_TOKEN", "")} - {""}
+    token_ok = request.args.get("token") in tokens
+    from db import Setting as _S
+    last_raw = get_setting("last_free_cron", "")
+    from datetime import datetime as _dt
+    last = None
+    try:
+        last = _dt.fromisoformat(last_raw) if last_raw else None
+    except ValueError:
+        last = None
+    free_ok = False
+    if not token_ok and request.headers.get("x-vercel-cron"):
+        if not last or (_dt.utcnow() - last).total_seconds() > 20 * 60:
+            free_ok = True
+    if not token_ok and not free_ok:
         return jsonify({"error": "invalid token"}), 403
-    fast = bool(request.headers.get("x-vercel-cron"))
+    fast = not token_ok
+    if free_ok:
+        set_setting("last_free_cron", _dt.utcnow().isoformat())
+        db.session.commit()
     out = {}
     try:
         out["collect"] = "; ".join(connectors.run_daily_collection())
@@ -315,8 +333,7 @@ def cron():
         if getcourse.configured():
             if IS_SERVERLESS:
                 getcourse.gc_start(days=5)
-                out["getcourse"] = getcourse.gc_run_steps(seconds=8) if fast else \
-                    getcourse.gc_run_steps(seconds=45)
+                out["getcourse"] = getcourse.gc_run_steps(seconds=8 if fast else 45)
             else:
                 getcourse.sync_getcourse(days=5)
                 out["getcourse"] = "ok"

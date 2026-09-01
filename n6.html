@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SMM Аналитика</title>
+<link rel="stylesheet" href="/static/style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+</head>
+<body>
+<nav class="topnav">
+  <div class="brand">📊 SMM Аналитика</div>
+  <a href="/">Всё вместе</a>
+  <a href="/channels">Каналы</a>
+  <a href="/content">Контент</a>
+  <a href="/registrations">Регистрации</a>
+  <a href="/getcourse">GetCourse</a>
+  <a href="/ai">AI-аналитика</a>
+  <a href="/reports">Отчёты</a>
+  <a href="/import">Импорт</a>
+  <a href="/manual">Ручной ввод</a>
+  <a href="/settings">Настройки</a>
+  <a href="/notifications" class="bell">🔔</a>
+</nav>
+<main>
+
+  
+
+
+<form class="filters" method="get">
+  <label>Начало <input type="date" name="start" value="2026-08-31"></label>
+  <label>Конец <input type="date" name="end" value="2026-09-06"></label>
+  <button>Применить</button>
+  <a class="btn" href="?preset=week">Неделя</a>
+  <a class="btn" href="?preset=month">Месяц</a>
+  <button type="submit" formaction="/collect" formmethod="post">▶ Собрать данные сейчас</button>
+</form>
+
+
+<h1>Уведомления</h1>
+<ul>
+
+<li class="error">❌ Ошибка синхронизации GetCourse: HTTPSConnectionPool(host=&#39;syrover.com&#39;, port=443): Max retries exceeded with url: /pl/api/account/users?key=jxCU7zKKRxjinJMK2iPxW6jJEy0cnvD4p5mB9FxQu4hYV3qDWsHZ1P6wWE1EF7NZkochvcR9LfqjhcnDB76jCWu31QedkMF4RPWWz4EBWxK18dbNSH1RJOR1KKQ0zQub&amp;created_at%5Bfrom%5D=2026-08-25&amp;created_at%5Bto%5D=2026-09-01 (Caused by ProxyError(&#39;Unable to connect to proxy&#39;, OSError(&#39;Tunnel connection failed: 403 Forbidden&#39;))) <small>2026-09-01 22:40:51.991295</small></li>
+
+<li class="error">❌ Ошибка синхронизации GetCourse: HTTPSConnectionPool(host=&#39;syrover.com&#39;, port=443): Max retries exceeded with url: /pl/api/account/users?key=jxCU7zKKRxjinJMK2iPxW6jJEy0cnvD4p5mB9FxQu4hYV3qDWsHZ1P6wWE1EF7NZkochvcR9LfqjhcnDB76jCWu31QedkMF4RPWWz4EBWxK18dbNSH1RJOR1KKQ0zQub&amp;created_at%5Bfrom%5D=2026-08-25&amp;created_at%5Bto%5D=2026-09-01 (Caused by ProxyError(&#39;Unable to connect to proxy&#39;, OSError(&#39;Tunnel connection failed: 403 Forbidden&#39;))) <small>2026-09-01 22:37:53.996502</small></li>
+
+</ul>
+
+</main>
+<footer>Показатели рассчитываются из абсолютных данных; AI получает только рассчитанные числа.</footer>
+</body></html>

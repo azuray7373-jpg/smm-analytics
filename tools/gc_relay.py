@@ -1,0 +1,87 @@
+# -*- coding: utf-8 -*-
+"""Релей синхронизации GetCourse -> приложение.
+
+Запускается там, где есть открытый доступ в интернет (GitHub Actions, локальный ПК):
+  1. забирает пользователей/заказы/оплаты из Export API GetCourse за окно;
+  2. отправляет их в приложение (PythonAnywhere) на POST /api/ingest.
+
+Запуск: python tools/gc_relay.py
+Env: GC_ACCOUNT (default https://syrover.com), GC_API_KEY, PA_URL, PA_INGEST_TOKEN, DAYS (default 5)
+"""
+import json, os, sys, time
+from datetime import date, timedelta
+import requests
+
+GC_ACCOUNT = os.environ.get("GC_ACCOUNT", "https://syrover.com").rstrip("/")
+KEY = os.environ.get("GC_API_KEY")
+PA_URL = os.environ.get("PA_URL", "").rstrip("/")
+TOKEN = os.environ.get("PA_INGEST_TOKEN")
+DAYS = int(os.environ.get("DAYS", "5"))
+
+
+def gc_get(path, params):
+    r = requests.get(f"{GC_ACCOUNT}/pl/api/account/{path}",
+                     params={"key": KEY, **params}, timeout=90)
+    return r.json()
+
+
+def find_export_id(js):
+    if isinstance(js, dict):
+        if isinstance(js.get("info"), dict) and js["info"].get("export_id"):
+            return js["info"]["export_id"]
+        for k in ("export_id", "exportId"):
+            if js.get(k):
+                return js[k]
+    return None
+
+
+def request_export(kind, params):
+    for attempt in range(4):
+        js = gc_get(kind, params)
+        code = js.get("error_code")
+        if code == 903:
+            print(f"{kind}: лимит API (903)"); sys.exit(2)
+        if code == 905 and attempt < 3:
+            time.sleep(60); continue
+        break
+    if not js.get("success"):
+        raise RuntimeError(f"{kind}: {js.get('error_message')}")
+    eid = find_export_id(js)
+    deadline = time.time() + 600
+    while time.time() < deadline:
+        time.sleep(45)
+        r = gc_get(f"exports/{eid}", {})
+        code = r.get("error_code")
+        if code == 903:
+            print(f"{kind}: лимит API (903) при опросе"); sys.exit(2)
+        if code in (905, 906, 907, 908, 909):
+            continue
+        info = r.get("info")
+        if isinstance(info, list) and (not info or isinstance(info[0], dict)):
+            return info
+        if isinstance(info, str) and info.startswith("["):
+            return json.loads(info)
+        raise RuntimeError(f"exports/{eid}: {str(r)[:200]}")
+    raise RuntimeError(f"exports/{eid}: превышено время ожидания")
+
+
+def main():
+    if not (KEY and PA_URL and TOKEN):
+        sys.exit("Нужны GC_API_KEY, PA_URL, PA_INGEST_TOKEN")
+    end = date.today()
+    start = end - timedelta(days=DAYS)
+    params = {"created_at[from]": start.isoformat(), "created_at[to]": end.isoformat()}
+    payload = {"window_start": start.isoformat(),
+               "users": request_export("users", params),
+               "deals": request_export("deals", params),
+               "payments": request_export("payments", params)}
+    print(f"получено: users={len(payload['users'])} deals={len(payload['deals'])} "
+          f"payments={len(payload['payments'])}")
+    r = requests.post(f"{PA_URL}/api/ingest", json=payload,
+                      headers={"X-Ingest-Token": TOKEN}, timeout=300)
+    print("ingest:", r.status_code, r.text[:200])
+    r.raise_for_status()
+
+
+if __name__ == "__main__":
+    main()

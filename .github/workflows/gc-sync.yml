@@ -1,0 +1,22 @@
+name: GetCourse sync relay
+on:
+  schedule:
+    - cron: "0 1,7,13,19 * * *"   # 4 раза в день (UTC)
+  workflow_dispatch:               # ручной запуск из вкладки Actions
+
+jobs:
+  relay:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests
+      - run: python tools/gc_relay.py
+        env:
+          GC_ACCOUNT: https://syrover.com
+          GC_API_KEY: ${{ secrets.GC_API_KEY }}
+          PA_URL: ${{ secrets.PA_URL }}
+          PA_INGEST_TOKEN: ${{ secrets.PA_INGEST_TOKEN }}
+          DAYS: "5"

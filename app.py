@@ -243,6 +243,41 @@ def getcourse_sync():
     return redirect(url_for("getcourse_screen"))
 
 
+@app.route("/api/ingest", methods=["POST"])
+def api_ingest():
+    """Приём данных GetCourse от релея (GitHub Actions / локальный скрипт).
+    Нужен, когда хостинг приложения не имеет прямого доступа к syrover.com
+    (например, бесплатный PythonAnywhere с прокси-белым списком).
+    Токен: env INGEST_TOKEN или настройка ingest_token. Тело:
+    {"users": [...], "deals": [...], "payments": [...], "window_start": "YYYY-MM-DD"}"""
+    token = os.environ.get("INGEST_TOKEN") or get_setting("ingest_token")
+    if request.headers.get("X-Ingest-Token") != token:
+        return jsonify({"error": "invalid token"}), 403
+    data = request.get_json(force=True, silent=True) or {}
+    default = date.today()
+    ws = data.get("window_start")
+    if ws:
+        try:
+            default = datetime.strptime(ws[:10], "%Y-%m-%d").date()
+        except ValueError:
+            pass
+    counts = {"users": 0, "deals": 0, "payments": 0}
+    if data.get("users"):
+        counts["users"] = getcourse._ingest_users(data["users"], default)
+    if data.get("deals"):
+        counts["deals"] = getcourse._ingest_deals(data["deals"], default)
+    if data.get("payments"):
+        counts["payments"] = getcourse._ingest_payments(data["payments"], default)
+    r = RunLog(kind="gc_relay", status="OK",
+               details=f"users={counts['users']} deals={counts['deals']} payments={counts['payments']}")
+    db.session.add(r)
+    db.session.add(Notification(level="info", message=(
+        f"GetCourse (релей): загружено пользователей {counts['users']}, "
+        f"заказов {counts['deals']}, оплат {counts['payments']}.")))
+    db.session.commit()
+    return jsonify(counts)
+
+
 @app.route("/notifications")
 def notifications():
     ns = Notification.query.order_by(Notification.created_at.desc()).limit(100).all()

@@ -85,7 +85,7 @@ def _records(js):
     return None
 
 
-def request_export(kind, params, run_id, max_wait=1200):
+def request_export(kind, params, run_id, max_wait=600):
     """Запуск экспорта с ретраями по 905 + опрос готовности. Возвращает список записей.
     Лимит ExportAPI — 100 запросов за 2 часа, поэтому опрашиваем редко (30с)."""
     js = None
@@ -104,7 +104,7 @@ def request_export(kind, params, run_id, max_wait=1200):
         raise RuntimeError(f"GetCourse {kind}: не найден export_id в {str(js)[:300]}")
     deadline = time.time() + max_wait
     while time.time() < deadline:
-        time.sleep(30)
+        time.sleep(45)
         r = _get(f"exports/{eid}", {})
         if r.get("error_code") == 903:
             raise RuntimeError("GetCourse: лимит API (903), повторите через ~2 часа")

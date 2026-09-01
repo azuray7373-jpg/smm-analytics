@@ -49,6 +49,7 @@ os.environ["GC_API_KEY"] = "{GC_KEY}"
 os.environ["SECRET_KEY"] = "{SECRET}"
 os.environ["SMM_DEMO"] = "1"
 os.environ["SMM_SCHEDULER"] = "1"
+os.environ["INGEST_TOKEN"] = "f86fa68fa6350576b50e7767551f849eabb19abb3a26d625"
 
 project = "{PROJ}"
 if project not in sys.path:

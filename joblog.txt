@@ -1,0 +1,185 @@
+﻿2026-09-01T22:50:27.1364267Z Current runner version: '2.336.0'
+2026-09-01T22:50:27.1388666Z ##[group]Runner Image Provisioner
+2026-09-01T22:50:27.1389675Z Hosted Compute Agent
+2026-09-01T22:50:27.1390332Z Version: 20260819.586
+2026-09-01T22:50:27.1391078Z Commit: 3cc4a88dfa507ef76119ad1bb3eccc6378bb2b76
+2026-09-01T22:50:27.1391859Z Build Date: 2026-08-18T23:20:18Z
+2026-09-01T22:50:27.1392554Z Worker ID: {90056c50-3818-49b8-a1f3-f62508d482de}
+2026-09-01T22:50:27.1393388Z Azure Region: westus
+2026-09-01T22:50:27.1393992Z ##[endgroup]
+2026-09-01T22:50:27.1395561Z ##[group]Operating System
+2026-09-01T22:50:27.1396293Z Ubuntu
+2026-09-01T22:50:27.1396841Z 24.04.4
+2026-09-01T22:50:27.1397485Z LTS
+2026-09-01T22:50:27.1398036Z ##[endgroup]
+2026-09-01T22:50:27.1398918Z ##[group]Runner Image
+2026-09-01T22:50:27.1399564Z Image: ubuntu-24.04
+2026-09-01T22:50:27.1400156Z Version: 20260823.283.1
+2026-09-01T22:50:27.1401557Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260823.283/images/ubuntu/Ubuntu2404-Readme.md
+2026-09-01T22:50:27.1403157Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260823.283
+2026-09-01T22:50:27.1404141Z ##[endgroup]
+2026-09-01T22:50:27.1405445Z ##[group]GITHUB_TOKEN Permissions
+2026-09-01T22:50:27.1407949Z Contents: read
+2026-09-01T22:50:27.1408962Z Metadata: read
+2026-09-01T22:50:27.1409622Z Packages: read
+2026-09-01T22:50:27.1410306Z ##[endgroup]
+2026-09-01T22:50:27.1412335Z Secret source: Actions
+2026-09-01T22:50:27.1413572Z Prepare workflow directory
+2026-09-01T22:50:27.1747713Z Prepare all required actions
+2026-09-01T22:50:27.1797436Z Getting action download info
+2026-09-01T22:50:27.5102377Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-09-01T22:50:27.6615636Z Download action repository 'actions/setup-python@v5' (SHA:a26af69be951a213d495a4c3e4e4022e16d87065)
+2026-09-01T22:50:27.8410752Z Complete job name: relay
+2026-09-01T22:50:27.9145968Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-09-01T22:50:27.9154609Z ##[group]Run actions/checkout@v4
+2026-09-01T22:50:27.9155376Z with:
+2026-09-01T22:50:27.9155872Z   repository: azuray7373-jpg/smm-analytics
+2026-09-01T22:50:27.9160057Z   token: ***
+2026-09-01T22:50:27.9160526Z   ssh-strict: true
+2026-09-01T22:50:27.9160994Z   ssh-user: git
+2026-09-01T22:50:27.9161474Z   persist-credentials: true
+2026-09-01T22:50:27.9161985Z   clean: true
+2026-09-01T22:50:27.9162451Z   sparse-checkout-cone-mode: true
+2026-09-01T22:50:27.9162994Z   fetch-depth: 1
+2026-09-01T22:50:27.9163446Z   fetch-tags: false
+2026-09-01T22:50:27.9163918Z   show-progress: true
+2026-09-01T22:50:27.9164391Z   lfs: false
+2026-09-01T22:50:27.9164854Z   submodules: false
+2026-09-01T22:50:27.9165322Z   set-safe-directory: true
+2026-09-01T22:50:27.9165852Z   allow-unsafe-pr-checkout: false
+2026-09-01T22:50:27.9166647Z ##[endgroup]
+2026-09-01T22:50:28.0168185Z Syncing repository: azuray7373-jpg/smm-analytics
+2026-09-01T22:50:28.0171308Z ##[group]Getting Git version info
+2026-09-01T22:50:28.0172757Z Working directory is '/home/runner/work/smm-analytics/smm-analytics'
+2026-09-01T22:50:28.0174690Z [command]/usr/bin/git version
+2026-09-01T22:50:28.0243912Z git version 2.55.0
+2026-09-01T22:50:28.0298744Z ##[endgroup]
+2026-09-01T22:50:28.0313467Z Temporarily overriding HOME='/home/runner/work/_temp/95d30be9-e5d5-48f2-8324-589a3fb9ca8a' before making global git config changes
+2026-09-01T22:50:28.0315876Z Adding repository directory to the temporary git global config as a safe directory
+2026-09-01T22:50:28.0318938Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/smm-analytics/smm-analytics
+2026-09-01T22:50:28.0367918Z Deleting the contents of '/home/runner/work/smm-analytics/smm-analytics'
+2026-09-01T22:50:28.0373354Z ##[group]Initializing the repository
+2026-09-01T22:50:28.0377860Z [command]/usr/bin/git init /home/runner/work/smm-analytics/smm-analytics
+2026-09-01T22:50:28.0480455Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-09-01T22:50:28.0482187Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-09-01T22:50:28.0484921Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-09-01T22:50:28.0486165Z hint: call:
+2026-09-01T22:50:28.0486885Z hint:
+2026-09-01T22:50:28.0487794Z hint: 	git config --global init.defaultBranch <name>
+2026-09-01T22:50:28.0489066Z hint:
+2026-09-01T22:50:28.0490013Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-09-01T22:50:28.0491558Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-09-01T22:50:28.0493038Z hint:
+2026-09-01T22:50:28.0493872Z hint: 	git branch -m <name>
+2026-09-01T22:50:28.0494752Z hint:
+2026-09-01T22:50:28.0495875Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-09-01T22:50:28.0497836Z Initialized empty Git repository in /home/runner/work/smm-analytics/smm-analytics/.git/
+2026-09-01T22:50:28.0501186Z [command]/usr/bin/git remote add origin https://github.com/azuray7373-jpg/smm-analytics
+2026-09-01T22:50:28.0556297Z ##[endgroup]
+2026-09-01T22:50:28.0557504Z ##[group]Disabling automatic garbage collection
+2026-09-01T22:50:28.0561117Z [command]/usr/bin/git config --local gc.auto 0
+2026-09-01T22:50:28.0595662Z ##[endgroup]
+2026-09-01T22:50:28.0596945Z ##[group]Setting up auth
+2026-09-01T22:50:28.0603487Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-09-01T22:50:28.0637763Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-09-01T22:50:28.1010704Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-09-01T22:50:28.1092168Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-09-01T22:50:28.1310338Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-01T22:50:28.1345140Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-09-01T22:50:28.1569827Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-09-01T22:50:28.1608592Z ##[endgroup]
+2026-09-01T22:50:28.1609567Z ##[group]Fetching the repository
+2026-09-01T22:50:28.1618184Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +145785eeafee2dece8d1f250a1b92458753c53a3:refs/remotes/origin/main
+2026-09-01T22:50:28.6372090Z From https://github.com/azuray7373-jpg/smm-analytics
+2026-09-01T22:50:28.6373609Z  * [new ref]         145785eeafee2dece8d1f250a1b92458753c53a3 -> origin/main
+2026-09-01T22:50:28.6379657Z ##[endgroup]
+2026-09-01T22:50:28.6380550Z ##[group]Determining the checkout info
+2026-09-01T22:50:28.6383211Z ##[endgroup]
+2026-09-01T22:50:28.6390131Z [command]/usr/bin/git sparse-checkout disable
+2026-09-01T22:50:28.6441733Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-09-01T22:50:28.6474508Z ##[group]Checking out the ref
+2026-09-01T22:50:28.6479072Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+2026-09-01T22:50:28.6563521Z Switched to a new branch 'main'
+2026-09-01T22:50:28.6569151Z branch 'main' set up to track 'origin/main'.
+2026-09-01T22:50:28.6574730Z ##[endgroup]
+2026-09-01T22:50:28.6615560Z [command]/usr/bin/git log -1 --format=%H
+2026-09-01T22:50:28.6642096Z 145785eeafee2dece8d1f250a1b92458753c53a3
+2026-09-01T22:50:28.6939213Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-09-01T22:50:28.6942393Z ##[group]Run actions/setup-python@v5
+2026-09-01T22:50:28.6943011Z with:
+2026-09-01T22:50:28.6943488Z   python-version: 3.12
+2026-09-01T22:50:28.6944037Z   check-latest: false
+2026-09-01T22:50:28.6948125Z   token: ***
+2026-09-01T22:50:28.6948828Z   update-environment: true
+2026-09-01T22:50:28.6949397Z   allow-prereleases: false
+2026-09-01T22:50:28.6949941Z   freethreaded: false
+2026-09-01T22:50:28.6950457Z ##[endgroup]
+2026-09-01T22:50:28.8266932Z ##[group]Installed versions
+2026-09-01T22:50:28.8360256Z (node:2211) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-09-01T22:50:28.8363041Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-09-01T22:50:28.8364664Z Successfully set up CPython (3.12.14)
+2026-09-01T22:50:28.8366372Z ##[endgroup]
+2026-09-01T22:50:28.8670365Z ##[group]Run pip install requests
+2026-09-01T22:50:28.8671425Z [36;1mpip install requests[0m
+2026-09-01T22:50:28.8750864Z shell: /usr/bin/bash -e {0}
+2026-09-01T22:50:28.8751817Z env:
+2026-09-01T22:50:28.8752692Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.14/x64
+2026-09-01T22:50:28.8753599Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.14/x64/lib/pkgconfig
+2026-09-01T22:50:28.8754458Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.14/x64
+2026-09-01T22:50:28.8755211Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.14/x64
+2026-09-01T22:50:28.8756497Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.14/x64
+2026-09-01T22:50:28.8757785Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.14/x64/lib
+2026-09-01T22:50:28.8759098Z ##[endgroup]
+2026-09-01T22:50:29.7099412Z Collecting requests
+2026-09-01T22:50:29.7546611Z   Downloading requests-2.34.2-py3-none-any.whl.metadata (4.8 kB)
+2026-09-01T22:50:29.8886137Z Collecting charset_normalizer<4,>=2 (from requests)
+2026-09-01T22:50:29.8913789Z   Downloading charset_normalizer-3.5.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (45 kB)
+2026-09-01T22:50:29.9184163Z Collecting idna<4,>=2.5 (from requests)
+2026-09-01T22:50:29.9211311Z   Downloading idna-3.19-py3-none-any.whl.metadata (9.2 kB)
+2026-09-01T22:50:29.9413011Z Collecting urllib3<3,>=1.26 (from requests)
+2026-09-01T22:50:29.9438351Z   Downloading urllib3-2.7.0-py3-none-any.whl.metadata (6.9 kB)
+2026-09-01T22:50:29.9609381Z Collecting certifi>=2023.5.7 (from requests)
+2026-09-01T22:50:29.9636019Z   Downloading certifi-2026.7.22-py3-none-any.whl.metadata (2.5 kB)
+2026-09-01T22:50:29.9713492Z Downloading requests-2.34.2-py3-none-any.whl (73 kB)
+2026-09-01T22:50:29.9777779Z Downloading charset_normalizer-3.5.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (248 kB)
+2026-09-01T22:50:29.9899632Z Downloading idna-3.19-py3-none-any.whl (68 kB)
+2026-09-01T22:50:29.9952590Z Downloading urllib3-2.7.0-py3-none-any.whl (131 kB)
+2026-09-01T22:50:30.0004069Z Downloading certifi-2026.7.22-py3-none-any.whl (136 kB)
+2026-09-01T22:50:30.0578238Z Installing collected packages: urllib3, idna, charset_normalizer, certifi, requests
+2026-09-01T22:50:30.2784594Z 
+2026-09-01T22:50:30.2798647Z Successfully installed certifi-2026.7.22 charset_normalizer-3.5.1 idna-3.19 requests-2.34.2 urllib3-2.7.0
+2026-09-01T22:50:30.3316352Z ##[group]Run python tools/gc_relay.py
+2026-09-01T22:50:30.3316718Z [36;1mpython tools/gc_relay.py[0m
+2026-09-01T22:50:30.3355917Z shell: /usr/bin/bash -e {0}
+2026-09-01T22:50:30.3356192Z env:
+2026-09-01T22:50:30.3356471Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.14/x64
+2026-09-01T22:50:30.3356944Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.14/x64/lib/pkgconfig
+2026-09-01T22:50:30.3357391Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.14/x64
+2026-09-01T22:50:30.3357977Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.14/x64
+2026-09-01T22:50:30.3358619Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.14/x64
+2026-09-01T22:50:30.3359035Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.14/x64/lib
+2026-09-01T22:50:30.3359427Z   GC_ACCOUNT: https://syrover.com
+2026-09-01T22:50:30.3360435Z   GC_API_KEY: ***
+2026-09-01T22:50:30.3360722Z   PA_URL: ***
+2026-09-01T22:50:30.3361054Z   PA_INGEST_TOKEN: ***
+2026-09-01T22:50:30.3361272Z   DAYS: 5
+2026-09-01T22:50:30.3361498Z ##[endgroup]
+2026-09-01T22:50:32.3778662Z users: лимит API (903)
+2026-09-01T22:50:32.3959517Z ##[error]Process completed with exit code 2.
+2026-09-01T22:50:32.4106047Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-09-01T22:50:32.4107310Z Post job cleanup.
+2026-09-01T22:50:32.4942398Z [command]/usr/bin/git version
+2026-09-01T22:50:32.4987766Z git version 2.55.0
+2026-09-01T22:50:32.5046959Z Temporarily overriding HOME='/home/runner/work/_temp/b30c38df-b2a0-4fc0-bf77-9be723c8893a' before making global git config changes
+2026-09-01T22:50:32.5049089Z Adding repository directory to the temporary git global config as a safe directory
+2026-09-01T22:50:32.5053246Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/smm-analytics/smm-analytics
+2026-09-01T22:50:32.5092190Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-09-01T22:50:32.5128716Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-09-01T22:50:32.5408471Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-09-01T22:50:32.5439263Z http.https://github.com/.extraheader
+2026-09-01T22:50:32.5455088Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-09-01T22:50:32.5494444Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-09-01T22:50:32.5756423Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-01T22:50:32.5796428Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-09-01T22:50:32.6214168Z Cleaning up orphan processes
+2026-09-01T22:50:32.6641942Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

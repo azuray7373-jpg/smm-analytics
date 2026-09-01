@@ -40,7 +40,7 @@ def request_export(kind, params):
         js = gc_get(kind, params)
         code = js.get("error_code")
         if code == 903:
-            print(f"{kind}: лимит API (903)"); sys.exit(2)
+            raise _RateLimited(f"{kind}: лимит API (903)")
         if code == 905 and attempt < 3:
             time.sleep(60); continue
         break
@@ -53,7 +53,7 @@ def request_export(kind, params):
         r = gc_get(f"exports/{eid}", {})
         code = r.get("error_code")
         if code == 903:
-            print(f"{kind}: лимит API (903) при опросе"); sys.exit(2)
+            raise _RateLimited(f"{kind}: лимит API (903) при опросе")
         if code in (905, 906, 907, 908, 909):
             continue
         info = r.get("info")
@@ -68,6 +68,24 @@ def request_export(kind, params):
 def main():
     if not (KEY and PA_URL and TOKEN):
         sys.exit("Нужны GC_API_KEY, PA_URL, PA_INGEST_TOKEN")
+    attempts = int(os.environ.get("ATTEMPTS", "5"))
+    pause = int(os.environ.get("RETRY_PAUSE", "900"))
+    for i in range(attempts):
+        try:
+            return _run_once()
+        except _RateLimited as e:
+            if i == attempts - 1:
+                print(f"лимит API ГК держится {attempts} попыток; сдaёмся до следующего запуска")
+                sys.exit(2)
+            print(f"попытка {i+1}: {e}; пауза {pause}с и повтор")
+            time.sleep(pause)
+
+
+class _RateLimited(Exception):
+    pass
+
+
+def _run_once():
     end = date.today()
     start = end - timedelta(days=DAYS)
     params = {"created_at[from]": start.isoformat(), "created_at[to]": end.isoformat()}

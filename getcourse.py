@@ -413,25 +413,28 @@ def gc_run_steps(seconds=35):
 def sync_getcourse(days=5, backfill_months=0, threaded=False):
     """Блокирующая синхронизация для VM-хостов (обычный режим с ожиданием готовности экспортов)."""
     def _run():
-        try:
-            r = RunLog(kind="gc_sync", status="OK")
-            db.session.add(r)
-            db.session.commit()
-            run_id = r.id
-            end = date.today()
-            start = end - timedelta(days=days)
-            stats = sync_window(start, end, run_id)
-            r.details = f"users={stats['users']} deals={stats['deals']} payments={stats['payments']}"
-            db.session.commit()
-            db.session.add(Notification(level="info", message=(
-                f"GetCourse: синхронизировано пользователей {stats['users']}, "
-                f"заказов {stats['deals']}, оплат {stats['payments']}.")))
-            db.session.commit()
-        except Exception as e:
-            db.session.add(Notification(level="error",
-                message=f"Ошибка синхронизации GetCourse: {e}"))
-            db.session.commit()
-            raise
+        # поток не наследует контекст Flask — создаём свой, иначе БД недоступна
+        from app import app as _app
+        with _app.app_context():
+            try:
+                r = RunLog(kind="gc_sync", status="OK")
+                db.session.add(r)
+                db.session.commit()
+                run_id = r.id
+                end = date.today()
+                start = end - timedelta(days=days)
+                stats = sync_window(start, end, run_id)
+                r.details = f"users={stats['users']} deals={stats['deals']} payments={stats['payments']}"
+                db.session.commit()
+                db.session.add(Notification(level="info", message=(
+                    f"GetCourse: синхронизировано пользователей {stats['users']}, "
+                    f"заказов {stats['deals']}, оплат {stats['payments']}.")))
+                db.session.commit()
+            except Exception as e:
+                db.session.add(Notification(level="error",
+                    message=f"Ошибка синхронизации GetCourse: {e}"))
+                db.session.commit()
+                raise
     if threaded:
         threading.Thread(target=_run, daemon=True).start()
         return "запущена в фоне"

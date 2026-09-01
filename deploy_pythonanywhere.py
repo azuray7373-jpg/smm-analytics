@@ -1,43 +1,32 @@
 # -*- coding: utf-8 -*-
-"""Развёртывание на PythonAnywhere через API (бесплатный тариф, без карты).
+"""Развёртывание на PythonAnywhere через API (free, без карты).
 
-Использование:
-    PA_TOKEN=... python deploy_pythonanywhere.py
-
-Что делает:
-  1. определяет username по токену;
-  2. загружает файлы проекта в /home/<user>/smm/;
-  3. создаёт virtualenv (python3.10);
-  4. создаёт web app <user>.pythonanywhere.com с WSGI-обёрткой
-     (пакеты ставятся при первом запуске, ключи ГК вшиты в WSGI-файл);
-  5. подключает статику и перезагружает приложение.
+PA_TOKEN=... PA_USERNAME=... GC_API_KEY=... python deploy_pythonanywhere.py
 """
 import json, os, sys, time, secrets
-import urllib.request, urllib.error
+import requests
 
+API = "https://www.pythonanywhere.com/api/v0/user/{u}"
 TOKEN = os.environ.get("PA_TOKEN")
-API = "https://www.pythonanywhere.com/api"
-PROJ = "smm"
+USER = os.environ.get("PA_USERNAME", "anazanaxus")
+DOMAIN = f"{USER}.pythonanywhere.com"
+HOME = f"/home/{USER}"
+PROJ = f"{HOME}/smm"
+GC_KEY = os.environ.get("GC_API_KEY", "")
+SECRET = os.environ.get("SECRET_KEY") or secrets.token_hex(24)
+
 EXCLUDE_DIRS = {".git", "venv", "instance", "__pycache__", ".vercel", "node_modules"}
 EXCLUDE_FILES = {".gitignore", ".cron_token", "server.log", "deploy_render.py",
-                 "deploy_pythonanywhere.py", "render.yaml", "Procfile", "vercel.json"}
-PY_VER = "python3.10"
+                 "deploy_pythonanywhere.py", "render.yaml", "Procfile", "vercel.json", "api/index.py"}
+
+S = requests.Session()
+S.headers["Authorization"] = f"Token {TOKEN}"
 
 
-def call(method, path, body=None, raw=None, headers=None, timeout=120):
-    h = {"Authorization": f"Token {TOKEN}"}
-    if headers:
-        h.update(headers)
-    data = raw if raw is not None else (json.dumps(body).encode() if body is not None else None)
-    if data is not None and "Content-Type" not in h:
-        h["Content-Type"] = "application/json"
-    req = urllib.request.Request(API + path, data=data, method=method, headers=h)
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
-            txt = r.read().decode()
-            return r.status, (json.loads(txt) if txt.strip().startswith(("{", "[")) else txt)
-    except urllib.error.HTTPError as e:
-        return e.code, e.read().decode()[:300]
+def api(method, path, **kw):
+    r = S.request(method, f"https://www.pythonanywhere.com/api/v0/user/{USER}/{path}",
+                  timeout=180, **kw)
+    return r.status_code, r.text[:300]
 
 
 def project_files(root):
@@ -48,78 +37,80 @@ def project_files(root):
             if fn in EXCLUDE_FILES:
                 continue
             full = os.path.join(dirpath, fn)
-            rel = os.path.relpath(full, root).replace("\\", "/")
-            out.append((rel, full))
+            out.append((os.path.relpath(full, root).replace("\\", "/"), full))
     return out
 
 
-def main():
-    if not TOKEN:
-        sys.exit("Нужен PA_TOKEN")
-    st, user = call("GET", "/api/v0/user/")
-    if st != 200:
-        sys.exit(f"Токен не принят: {st} {user}")
-    username = user["username"] if isinstance(user, dict) else user.get("username")
-    print("username:", username)
+WSGI = f'''# -*- coding: utf-8 -*-
+import os, sys, subprocess
 
-    home = f"/home/{username}/{PROJ}"
+os.environ["GC_ACCOUNT"] = "https://syrover.com"
+os.environ["GC_API_KEY"] = "{GC_KEY}"
+os.environ["SECRET_KEY"] = "{SECRET}"
+os.environ["SMM_DEMO"] = "1"
+os.environ["SMM_SCHEDULER"] = "1"
 
-    # 1) файлы проекта
-    st, msg = call("POST", f"/api/v0/user/{username}/files/path{home}/", body={})
-    for rel, full in project_files(os.path.dirname(os.path.abspath(__file__))):
-        content = open(full, "rb").read()
-        st, msg = call("PUT", f"/api/v0/user/{username}/files/path{home}/{rel}", raw=content,
-                       headers={"Content-Type": "application/octet-stream"})
-        if st not in (200, 201):
-            print(f"  !! {rel}: {st} {msg}")
-    print(f"файлы загружены: {len(project_files(os.path.dirname(os.path.abspath(__file__))))}")
-
-    # 2) virtualenv
-    st, msg = call("POST", f"/api/v0/user/{username}/virtualenvs/",
-                   body={"python_version": PY_VER, "path": f"{home}/venv"})
-    print("virtualenv:", st, str(msg)[:150])
-    print("  (создаётся асинхронно ~30-60с; ждём)")
-    time.sleep(60)
-
-    # 3) web app
-    domain = f"{username}.pythonanywhere.com"
-    st, msg = call("POST", f"/api/v0/user/{username}/webapps/",
-                   body={"domain": domain, "python_version": PY_VER})
-    print("webapp:", st, str(msg)[:150])
-
-    gc_key = os.environ.get("GC_API_KEY", "")
-    secret = os.environ.get("SECRET_KEY") or secrets.token_hex(24)
-    wsgi = f'''import os, sys
-os.environ.setdefault("GC_ACCOUNT", "https://syrover.com")
-os.environ.setdefault("GC_API_KEY", "{gc_key}")
-os.environ.setdefault("SECRET_KEY", "{secret}")
-os.environ.setdefault("SMM_DEMO", "1")
-os.environ.setdefault("SMM_SCHEDULER", "1")
-
-project = "{home}"
+project = "{PROJ}"
 if project not in sys.path:
     sys.path.insert(0, project)
 
-import subprocess
-subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "-r", project + "/requirements.txt"])
+marker = "{HOME}/.smm_deps_installed"
+if not os.path.exists(marker):
+    subprocess.check_call(["pip3.10", "install", "--user", "-q",
+                           "-r", project + "/requirements.txt"])
+    open(marker, "w").write("ok")
 
 from app import app as application
 '''
-    wsgi_path = f"/var/www/{username}_pythonanywhere_com_wsgi.py"
-    st, msg = call("PUT", f"/api/v0/user/{username}/files/path{wsgi_path}",
-                   raw=wsgi.encode(), headers={"Content-Type": "text/plain"})
-    print("wsgi:", st, str(msg)[:150])
 
-    # 4) конфиг webapp: virtualenv + статика
-    st, msg = call("PATCH", f"/api/v0/user/{username}/webapps/{domain}/",
-                   body={"virtualenv_path": f"{home}/venv",
-                         "static_files": [{"url": "/static/", "path": f"{home}/static"}]})
-    print("webapp config:", st, str(msg)[:200])
+
+def main():
+    files = project_files(os.path.dirname(os.path.abspath(__file__)))
+    print(f"файлов к загрузке: {len(files)}")
+
+    # 1) web app (Manual configuration, python310)
+    st, msg = api("GET", "webapps/")
+    existing = any(w.get("domain") == DOMAIN for w in json.loads(S.get(
+        f"https://www.pythonanywhere.com/api/v0/user/{USER}/webapps/").text))
+    if not existing:
+        r = S.post(f"https://www.pythonanywhere.com/api/v0/user/{USER}/webapps/",
+                   data={"domain_name": DOMAIN, "python_version": "python310"}, timeout=180)
+        print("webapp create:", r.status_code, r.text[:200])
+    else:
+        print("webapp уже существует")
+
+    # 2) файлы проекта (multipart POST, поле content)
+    for rel, full in files:
+        with open(full, "rb") as f:
+            r = S.post(f"https://www.pythonanywhere.com/api/v0/user/{USER}/files/path{PROJ}/{rel}",
+                       files={"content": (os.path.basename(full), f)}, timeout=180)
+        if r.status_code not in (200, 201):
+            print(f"  !! {rel}: {r.status_code} {r.text[:150]}")
+    print("файлы загружены")
+
+    # 3) WSGI-файл
+    r = S.post(f"https://www.pythonanywhere.com/api/v0/user/{USER}/files/path"
+               f"/var/www/{USER}_pythonanywhere_com_wsgi.py",
+               files={"content": ("wsgi.py", WSGI.encode())}, timeout=60)
+    print("wsgi:", r.status_code, r.text[:150])
+
+    # 4) статика
+    try:
+        lst = S.get(f"https://www.pythonanywhere.com/api/v0/user/{USER}/webapps/{DOMAIN}/static_files/").json()
+        have_static = isinstance(lst, list) and any(isinstance(s, dict) and s.get("url") == "/static/" for s in lst)
+    except Exception:
+        have_static = False
+    if not have_static:
+        st, msg = api("POST", f"webapps/{DOMAIN}/static_files/",
+                      json={"url": "/static/", "path": f"{PROJ}/static"})
+        print("static:", st, msg)
+    else:
+        print("static: уже есть")
 
     # 5) reload
-    st, msg = call("POST", f"/api/v0/user/{username}/webapps/{domain}/reload/", body={})
-    print("reload:", st, str(msg)[:150])
-    print(f"\nГотово: https://{domain} (первый запуск ~1-2 минуты: pip install в WSGI)")
+    st, msg = api("POST", f"webapps/{DOMAIN}/reload/")
+    print("reload:", st, msg)
+    print(f"\nURL: https://{DOMAIN} (первый запуск ставит пакеты ~1-2 мин)")
 
 
 if __name__ == "__main__":

@@ -91,7 +91,9 @@ def request_export(kind, params, run_id, max_wait=1200):
     js = None
     for attempt in range(4):
         js = _get(kind, params)
-        if js.get("error_code") in (905, 903) and attempt < 3:
+        if js.get("error_code") == 903:
+            raise RuntimeError("GetCourse: лимит API (903), повторите через ~2 часа")
+        if js.get("error_code") == 905 and attempt < 3:
             time.sleep(60)
             continue
         break
@@ -104,8 +106,10 @@ def request_export(kind, params, run_id, max_wait=1200):
     while time.time() < deadline:
         time.sleep(30)
         r = _get(f"exports/{eid}", {})
-        if r.get("error_code") in (905, 903, 906, 907, 908, 909):
-            continue  # ещё формируется / файл не создан / лимит
+        if r.get("error_code") == 903:
+            raise RuntimeError("GetCourse: лимит API (903), повторите через ~2 часа")
+        if r.get("error_code") in (905, 906, 907, 908, 909):
+            continue  # ещё формируется / файл не создан
         recs = _records(r)
         if recs is not None:
             return recs
@@ -303,9 +307,34 @@ def gc_start(days=5):
     return True
 
 
+def _rate_limited_until():
+    from db import get_setting
+    try:
+        return datetime.fromisoformat(get_setting("gc_rate_limited_until", ""))
+    except ValueError:
+        return None
+
+
+def _set_rate_limit(minutes=120):
+    from db import set_setting
+    set_setting("gc_rate_limited_until", (datetime.utcnow() + timedelta(minutes=minutes)).isoformat())
+    db.session.commit()
+
+
+def gc_status():
+    """Статус для экрана: шаг только если цикл уже идёт (не начинает новый)."""
+    st = _sync_state()
+    if st.phase == "idle":
+        return "простой: синхронизация запустится по крону или кнопке"
+    return gc_step()
+
+
 def gc_step():
     """Один шаг автомата. Возвращает статус для ответа /cron."""
     st = _sync_state()
+    until = _rate_limited_until()
+    if until and datetime.utcnow() < until:
+        return f"лимит API ГК, пауза до {until.strftime('%H:%M')} UTC"
     try:
         if st.phase == "idle":
             return "idle"
@@ -315,8 +344,11 @@ def gc_step():
             kind = st.phase.split("_", 1)[1]
             js = _get(kind, params)
             msg = str(js.get("error_message") or "")
-            if js.get("error_code") in (903, 905, 906) or "подписан" in msg:
-                return f"очередь ГК занята/лимит, повтор позже ({js.get('error_code')} {msg[:60]})"
+            if js.get("error_code") == 903 or "подписан" in msg:
+                _set_rate_limit(120)
+                return f"лимит API ГК: пауза 2 часа ({msg[:60]})"
+            if js.get("error_code") in (905, 906):
+                return f"очередь экспортов ГК занята, повтор позже ({js.get('error_code')})"
             if not js.get("success"):
                 st.phase = "idle"
                 db.session.commit()
@@ -329,7 +361,10 @@ def gc_step():
         if st.phase.startswith("wait_"):
             kind = st.phase.split("_", 1)[1]
             r = _get(f"exports/{st.export_id}", {})
-            if r.get("error_code") in (903, 905, 906, 907, 908, 909):
+            if r.get("error_code") == 903:
+                _set_rate_limit(120)
+                return "лимит API ГК: пауза 2 часа"
+            if r.get("error_code") in (905, 906, 907, 908, 909):
                 return f"файл {kind} ещё формируется ({r.get('error_code')})"
             recs = _records(r)
             if recs is None:

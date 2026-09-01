@@ -220,8 +220,7 @@ def getcourse_screen():
     d = _period_from_args()
     step_status = None
     if IS_SERVERLESS and getcourse.configured():
-        getcourse.gc_start(days=5)
-        step_status = getcourse.gc_step()
+        step_status = getcourse.gc_status()
     f = getcourse.funnel(*d)
     logs = RunLog.query.filter(RunLog.kind == "gc_sync").order_by(RunLog.started_at.desc()).limit(10).all()
     return render_template("getcourse.html", f=f, period=d, logs=logs,

@@ -288,6 +288,27 @@ def _latest_report(rtype):
     return Report.query.filter_by(rtype=rtype).order_by(Report.end.desc()).first()
 
 
+@app.route("/cron")
+def cron():
+    """Внешний пинг для free-плана Render (сервисы засыпают): /cron?token=<SECRET_KEY>.
+    Запускает дневной сбор + синхронизацию GetCourse, чтобы можно было дёргать
+    любым бесплатным cron-сервисом (UptimeRobot, cron-job.org и т.п.)."""
+    if request.args.get("token") != app.secret_key:
+        return jsonify({"error": "invalid token"}), 403
+    out = {}
+    try:
+        out["collect"] = "; ".join(connectors.run_daily_collection())
+    except Exception as e:
+        out["collect"] = f"error: {e}"
+    try:
+        if getcourse.configured():
+            getcourse.sync_getcourse(days=5)
+            out["getcourse"] = "ok"
+    except Exception as e:
+        out["getcourse"] = f"error: {e}"
+    return jsonify(out)
+
+
 # ---------------- планировщик ----------------
 
 def start_scheduler():

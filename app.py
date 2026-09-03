@@ -326,6 +326,24 @@ def generate():
     return redirect(url_for("reports_list"))
 
 
+@app.route("/admin/heal_missing")
+def heal_missing():
+    """Перемаркировать статусы за последние дни адаптивной логикой:
+    метрики, которые ни один источник никогда не давал, становятся NOT_AVAILABLE
+    (перекрывают старые MISSING свежими снапшотами). Токен как у /cron."""
+    tokens = {app.secret_key, os.environ.get("CRON_TOKEN", "")} - {""}
+    if request.args.get("token") not in tokens:
+        return jsonify({"error": "invalid token"}), 403
+    from datetime import timedelta as _td
+    run_id = connectors.start_run("heal_missing")
+    results = []
+    for back in range(1, int(request.args.get("days", 7)) + 1):
+        d = date.today() - _td(days=back)
+        results.append(connectors.mark_missing(run_id, d))
+    connectors.finish_run(run_id, "; ".join(results))
+    return jsonify({"ok": True, "days": results})
+
+
 @app.route("/livedune/sync", methods=["POST"])
 def livedune_sync():
     if not livedune.configured():

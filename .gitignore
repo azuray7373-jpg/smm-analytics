@@ -5,3 +5,4 @@ venv/
 instance/
 server.log
 *.pyc
+export_*.json

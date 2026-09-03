@@ -67,6 +67,22 @@ def generate_report(rtype="weekly", anchor=None):
     db.session.add(rep)
     for a in anomalies:
         db.session.add(Notification(level="warn", message=f"Аномалия ({start}–{end}): {a}"))
+    # алерты по конкурентам: заметные движения их охвата
+    try:
+        from db import Channel
+        from datetime import timedelta as _td
+        for ch in Channel.query.filter_by(is_competitor=True, is_active=True).all():
+            cur = calc.period_report(start, end, ch.id)["agg"].get("reach")
+            prev = calc.period_report(start - _td(days=(end - start).days + 1),
+                                      start - _td(days=1), ch.id)["agg"].get("reach")
+            if cur and prev:
+                pct = (cur - prev) / prev * 100
+                if abs(pct) >= 25:
+                    db.session.add(Notification(level="info", message=(
+                        f"Конкурент «{ch.name}»: охват {pct:+.0f}% к прошлому периоду "
+                        f"({prev:,.0f} → {cur:,.0f}).".replace(",", " "))))
+    except Exception:
+        pass
     db.session.add(Notification(level="info", message=f"Отчёт за {start}–{end} сформирован."))
     db.session.commit()
     return rep

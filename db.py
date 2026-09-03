@@ -229,3 +229,15 @@ class Hypothesis(db.Model):
     status = db.Column(db.String(16), default="active")   # active/done
     result = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class Goal(db.Model):
+    """KPI-цель: метрика, план, период. Прогресс считается из фактических данных."""
+    __tablename__ = "goals"
+    id = db.Column(db.Integer, primary_key=True)
+    metric = db.Column(db.String(16))      # reach/views/regs/err/cv/payments
+    target = db.Column(db.Float, nullable=False)
+    start = db.Column(db.Date, nullable=False)
+    end = db.Column(db.Date, nullable=False)
+    note = db.Column(db.String(255))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>📅 Контент-календарь <small>{{ month_title }}</small></h1>
+<div class="filters">
+  <a class="btn" href="?month={{ prev_m }}">← Прошлый</a>
+  <a class="btn" href="?month={{ today.strftime('%Y-%m') }}">Текущий</a>
+  <a class="btn" href="?month={{ next_m }}">Следующий →</a>
+  <span class="muted">Интенсивность ячейки = охват публикаций дня. Клик по материалу — переход к посту.</span>
+</div>
+<div class="cal-grid">
+  {% for wd in ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'] %}
+  <div class="cal-hdr">{{ wd }}</div>
+  {% endfor %}
+  {% for week in grid %}
+    {% for day in week %}
+    <div class="cal-cell {{ 'cal-empty' if not day }} {{ 'cal-today' if day == today }}">
+      {% if day %}
+      <div class="cal-date">{{ day.day }}</div>
+      {% set day_reach = (by_day.get(day) or []) | map(attribute='reach') | sum if by_day.get(day) else 0 %}
+      {% if day_reach %}
+      <div class="cal-heat" style="opacity: {{ [0.15 + day_reach / 60000, 0.85] | min }}"></div>
+      {% endif %}
+      {% for it in by_day.get(day) or [] %}
+        <a class="cal-item" href="{{ it.item.link }}" target="_blank"
+           title="{{ it.item.title or '' }} · охват {{ it.reach|numfmt }} · ERR {{ it.ERR|pctfmt }}">
+          <span class="cal-emoji">{{ {'reels':'🎬','post':'📝','story':'⚡','video':'🎥','shorts':'🎬','clip':'✂️','article':'📰'}.get(it.item.format, '📌') }}</span>
+          {{ (it.item.title or '(без названия)')[:28] }}
+        </a>
+      {% endfor %}
+      {% endif %}
+    </div>
+    {% endfor %}
+  {% endfor %}
+</div>
+<style>
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.cal-hdr { text-align: center; font-size: 11px; color: var(--muted); text-transform: uppercase;
+  letter-spacing: .06em; padding: 6px 0; }
+.cal-cell { position: relative; min-height: 92px; background: var(--card); border: 1px solid var(--border);
+  border-radius: 10px; padding: 6px; overflow: hidden; }
+.cal-empty { opacity: .35; }
+.cal-today { border-color: var(--acc); box-shadow: 0 0 0 1px var(--acc); }
+.cal-date { font-size: 11.5px; font-weight: 700; color: var(--muted); margin-bottom: 4px; position: relative; }
+.cal-heat { position: absolute; inset: 0; background: linear-gradient(135deg, #5b8cff, #8b5cf6); z-index: 0; }
+.cal-item { position: relative; z-index: 1; display: block; font-size: 10.8px; color: var(--txt);
+  text-decoration: none; background: rgba(11,16,28,.55); border-radius: 6px; padding: 2px 6px;
+  margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-item:hover { color: #fff; border: 1px solid var(--acc); }
+.cal-emoji { opacity: .9; }
+@media (max-width: 800px) {
+  .cal-grid { grid-template-columns: repeat(2, 1fr); }
+  .cal-hdr:nth-child(n+3) { display: none; }
+}
+</style>
+{% endblock %}

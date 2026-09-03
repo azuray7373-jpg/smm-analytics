@@ -70,6 +70,18 @@
 </div>
 </div>
 
+{% if hashtags %}
+<h2>#️⃣ Топ хэштегов по среднему охвату</h2>
+<table class="tbl">
+<tr><th>Хэштег</th><th>Материалов</th><th>Средний охват</th><th>Регистрации</th></tr>
+{% for t, a in hashtags[:10] %}
+<tr><td><b>#{{ t }}</b></td><td>{{ a.n }}</td>
+<td><span class="cellbar"><i style="width: {{ [(a.avg / (hashtags[0][1].avg or 1) * 100)|round|int, 100]|min }}%"></i><span>{{ a.avg|numfmt }}</span></span></td>
+<td>{{ a.regs|numfmt }}</td></tr>
+{% endfor %}
+</table>
+{% endif %}
+
 {% if compare %}
 <div class="aireport"><b>Что объединяет лучшие 10 материалов (против худших 10):</b>
 {{ compare }}</div>

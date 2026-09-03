@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>🎯 KPI-цели</h1>
+<p class="muted">Плановые показатели на период. Прогресс считается из фактических данных автоматически (как в Sprout/Rival IQ). Для текущих периодов — факт на сегодня.</p>
+
+<h2>Новая цель</h2>
+<form method="post" class="form-card">
+  <div class="fgrid" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">
+    <div class="field"><label>Метрика</label>
+      <select name="metric">
+        {% for k, v in labels.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}
+      </select></div>
+    <div class="field"><label>План</label><input name="target" inputmode="decimal" required placeholder="500000"></div>
+    <div class="field"><label>Начало</label><input type="date" name="start" value="{{ period[0] }}" required></div>
+    <div class="field"><label>Конец</label><input type="date" name="end" required></div>
+    <div class="field" style="grid-column:1/-1"><label>Комментарий</label><input name="note" placeholder="запуск ВИО, задача из плана…"></div>
+  </div>
+  <div class="form-actions"><button>➕ Добавить цель</button></div>
+</form>
+
+<h2>Прогресс</h2>
+{% for row in goals %}
+{% set g = row.g %}
+<div class="card" style="margin-bottom:12px;">
+  <h3>{{ row.label }} · {{ g.start }} — {{ g.end }}{% if g.note %} · {{ g.note }}{% endif %}</h3>
+  <div style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;">
+    <div class="big">{{ row.cur|numfmt }} <span class="muted" style="font-size:14px;">/ {{ g.target|numfmt }}</span></div>
+    {% if row.pct is not none %}
+      <span class="badge {{ 'up' if row.pct >= 100 else 'na' }}">{{ '%.0f'|format(row.pct) }}%</span>
+    {% endif %}
+    <form method="post" style="margin-left:auto;"><input type="hidden" name="delete" value="{{ g.id }}"><button>🗑</button></form>
+  </div>
+  {% if row.pct is not none %}
+  <div class="vbar"><i style="width: {{ [row.pct, 100]|min }}%; {% if row.pct >= 100 %}background:linear-gradient(90deg,#34d399,#22d3ee){% endif %}"></i></div>
+  {% endif %}
+</div>
+{% else %}<p class="muted">Целей пока нет.</p>{% endfor %}
+{% endblock %}

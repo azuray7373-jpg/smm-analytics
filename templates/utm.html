@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>🔗 UTM-конструктор</h1>
+<p class="muted">Ссылки собираются строго из нашего справочника меток — данные в аналитике будут ложиться в правильные разрезы (БК/ВИО/Авто × 13 источников × 6 размещений).</p>
+
+<form class="form-card" onsubmit="return buildUtm()">
+  <div class="fgrid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+    <div class="field" style="grid-column:1/-1"><label>Целевая ссылка (страница регистрации)</label>
+      <input id="u_base" placeholder="https://freecheese.syrover.com/ya2" required></div>
+    <div class="field"><label>utm_source (наш справочник)</label>
+      <select id="u_source">{% for s in sources %}<option>{{ s }}</option>{% endfor %}</select></div>
+    <div class="field"><label>utm_medium</label>
+      <select id="u_medium">{% for m in mediums %}<option>{{ m }}</option>{% endfor %}</select></div>
+    <div class="field"><label>utm_campaign</label>
+      <select id="u_campaign">
+        {% for c, title in campaigns.items() %}<option value="{{ c }}">{{ c }} — {{ title }}</option>
+        {% endfor %}<option value="">— своя —</option>
+      </select></div>
+    <div class="field"><label>Своя campaign (если выбрано «— своя —»)</label>
+      <input id="u_campaign_free" placeholder="webinar_oct"></div>
+    <div class="field"><label>utm_content (необяз.)</label>
+      <input id="u_content" placeholder="reel_zaqvaska"></div>
+  </div>
+  <div class="form-actions"><button>Собрать ссылку</button></div>
+</form>
+
+<div class="form-card" id="result_card" style="display:none">
+  <div class="fgroup-title">Готовая ссылка</div>
+  <div class="field"><textarea id="u_result" rows="3" readonly style="width:100%"></textarea></div>
+  <div class="form-actions">
+    <button type="button" onclick="copyUtm()">📋 Скопировать</button>
+    <span class="muted" id="copy_state"></span>
+  </div>
+  <div class="fgroup-title">Короткая версия дляStories/Taplink</div>
+  <div class="field"><textarea id="u_short" rows="2" readonly style="width:100%"></textarea></div>
+</div>
+
+<script>
+function esc(s){ return encodeURIComponent(s.trim()); }
+function buildUtm(){
+  var base = document.getElementById('u_base').value.trim();
+  if(!base){ return false; }
+  var camp = document.getElementById('u_campaign').value ||
+             document.getElementById('u_campaign_free').value;
+  var parts = [
+    'utm_source=' + esc(document.getElementById('u_source').value),
+    'utm_medium=' + esc(document.getElementById('u_medium').value)
+  ];
+  if (camp) parts.push('utm_campaign=' + esc(camp));
+  var content = document.getElementById('u_content').value;
+  if (content) parts.push('utm_content=' + esc(content));
+  var url = base + (base.indexOf('?') >= 0 ? '&' : '?') + parts.join('&');
+  document.getElementById('u_result').value = url;
+  document.getElementById('u_short').value = url.length > 90 ?
+    '⚠ ссылка длинная (' + url.length + ' симв.) — проверьте, что влезает в лимит площадки' : url;
+  document.getElementById('result_card').style.display = '';
+  return false;
+}
+function copyUtm(){
+  var t = document.getElementById('u_result');
+  t.select();
+  navigator.clipboard.writeText(t.value).then(function(){
+    document.getElementById('copy_state').textContent = 'скопировано ✓';
+    setTimeout(function(){ document.getElementById('copy_state').textContent=''; }, 2000);
+  });
+}
+</script>
+{% endblock %}

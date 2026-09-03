@@ -183,8 +183,31 @@ def comments_screen():
     d = _period_from_args()
     dig = comments_mod.digest(*d)
     recent = Comment.query.order_by(Comment.date.desc(), Comment.id.desc()).limit(50).all()
+    # тренд тональности: последние 8 недель по типам
+    from collections import defaultdict as _dd
+    from sqlalchemy import func as _f
+    from datetime import timedelta as _td
+    trend = {"labels": [], "series": _dd(list)}
+    end_w = calc.week_bounds(date.today())[1]
+    rows = db.session.query(Comment.main_type, Comment.date, _f.count(Comment.id)).filter(
+        Comment.date >= end_w - _td(days=55)).group_by(Comment.main_type, Comment.date).all()
+    weekly = _dd(lambda: _dd(int))
+    for mt, dt_, n in rows:
+        wk = calc.week_bounds(dt_)[1]
+        weekly[wk][mt] += n
+    for wk in sorted(weekly):
+        trend["labels"].append(wk.strftime("%d.%m"))
+        seen_types = set()
+        for mt, n in weekly[wk].items():
+            trend["series"][mt].append(n)
+            seen_types.add(mt)
+        for mt in list(trend["series"]):
+            if mt not in seen_types:
+                trend["series"][mt].append(0)
+    trend["series"] = dict(trend["series"])
     return render_template("comments.html", d=dig, recent=recent, period=d,
-                           ai_summary=get_setting("comments_ai_summary"))
+                           ai_summary=get_setting("comments_ai_summary"),
+                           trend=trend)
 
 
 @app.route("/comments/ai_summary", methods=["POST"])
@@ -315,6 +338,18 @@ def content_screen():
             v["avg"] = v["reach"] / v["n"] if v["n"] else 0
     best_time = {"wd": sorted(wd_stats.items(), key=lambda x: -x[1]["avg"]),
                  "hr": sorted(hr_stats.items(), key=lambda x: -x[1]["avg"])}
+    # хэштеги: топ по среднему охвату и количеству (фича Sprout/Talkwalker)
+    import re as _re
+    tags = {}
+    for i in items:
+        for t in set(_re.findall(r"#([A-Za-zА-Яа-я0-9_]{2,30})", (i["item"].text or "") + " " + (i["item"].title or ""))):
+            a = tags.setdefault(t.lower(), {"n": 0, "reach": 0, "regs": 0})
+            a["n"] += 1
+            a["reach"] += i.get("reach") or 0
+            a["regs"] += i.get("registrations") or 0
+    for v in tags.values():
+        v["avg"] = v["reach"] / v["n"] if v["n"] else 0
+    hashtags = sorted(tags.items(), key=lambda x: -x[1]["avg"])[:15]
     by_rubric, by_format = {}, {}
     for i in items:
         tags = json.loads(i["item"].ai_tags or "{}")
@@ -334,7 +369,7 @@ def content_screen():
                            formats=sorted({i["item"].format for i in items if i["item"].format}),
                            rubrics=rubrics, types=types, compare=compare_text,
                            preset=preset, by_rubric=by_rubric, by_format=by_format,
-                           best_time=best_time,
+                           best_time=best_time, hashtags=hashtags,
                            total_matched=len(items))
 
 
@@ -524,6 +559,111 @@ def ld_map_endpoint():
     for c in Channel.query.filter(Channel.ld_account_id.isnot(None)):
         m[str(c.ld_account_id)] = c.id
     return jsonify(m)
+
+
+def _metric_value(metric, start, end):
+    """Фактическое значение метрики за период (для целей и гипотез)."""
+    from datetime import timedelta as _td
+    p = cached_period_report(start, end)
+    key = {"reach": "reach", "views": "views"}.get(metric)
+    if key:
+        return p["agg"].get(key)
+    if metric == "regs":
+        return p["registrations"]
+    if metric == "err":
+        return p["ind"].get("ERR")
+    if metric == "cv":
+        return p["ind"].get("CV_reach")
+    if metric == "payments":
+        from db import GcPayment
+        from sqlalchemy import func as _f
+        return db.session.query(_f.coalesce(_f.sum(GcPayment.amount), 0)).filter(
+            GcPayment.date >= start, GcPayment.date <= end,
+            GcPayment.status == "accepted").scalar()
+    return None
+
+
+METRIC_LABELS = {"reach": "Охват", "views": "Просмотры", "regs": "Регистрации",
+                 "err": "ERR, %", "cv": "CV, %", "payments": "Оплаты, ₽"}
+
+
+@app.route("/goals", methods=["GET", "POST"])
+def goals_screen():
+    from db import Goal
+    if request.method == "POST":
+        if request.form.get("delete"):
+            g = Goal.query.get(int(request.form["delete"]))
+            if g:
+                db.session.delete(g)
+                db.session.commit()
+            return redirect(url_for("goals_screen"))
+        from datetime import datetime as _dt
+        try:
+            db.session.add(Goal(
+                metric=request.form.get("metric", "reach"),
+                target=float(str(request.form.get("target", "0")).replace(" ", "").replace(",", ".")),
+                start=_dt.strptime(request.form.get("start"), "%Y-%m-%d").date(),
+                end=_dt.strptime(request.form.get("end"), "%Y-%m-%d").date(),
+                note=request.form.get("note", "")))
+            db.session.commit()
+            flash("Цель добавлена.")
+        except Exception as e:
+            flash(f"Ошибка: {e}")
+        return redirect(url_for("goals_screen"))
+    goals = []
+    for g in Goal.query.order_by(Goal.end.desc()).limit(30):
+        cur = _metric_value(g.metric, g.start, min(g.end, date.today()))
+        pct = (cur / g.target * 100) if (cur is not None and g.target) else None
+        goals.append({"g": g, "cur": cur, "pct": pct,
+                      "label": METRIC_LABELS.get(g.metric, g.metric)})
+    return render_template("goals.html", goals=goals, period=calc.week_bounds(date.today()),
+                           labels=METRIC_LABELS)
+
+
+@app.route("/calendar")
+def calendar_screen():
+    """Контент-календарь: месяц публикаций с эффективностью (фича Metricool)."""
+    import calendar as _cal
+    from datetime import timedelta as _td
+    try:
+        y, m = (int(x) for x in (request.args.get("month") or date.today().strftime("%Y-%m")).split("-"))
+    except Exception:
+        y, m = date.today().year, date.today().month
+    first = date(y, m, 1)
+    last = date(y, m, _cal.monthrange(y, m)[1])
+    items = calc.content_stats_for_period(first - _td(days=first.weekday()), last)
+    by_day = {}
+    for it in items:
+        pt = it["item"].published_at
+        if not pt or not (first <= pt.date() <= last):
+            continue
+        by_day.setdefault(pt.date(), []).append(it)
+    grid, week = [], [None] * first.weekday()
+    d = first
+    while d <= last:
+        week.append(d)
+        if len(week) == 7:
+            grid.append(week)
+            week = []
+        d += _td(days=1)
+    if week:
+        week += [None] * (7 - len(week))
+        grid.append(week)
+    prev_m = (first - _td(days=1)).strftime("%Y-%m")
+    next_m = (last + _td(days=1)).strftime("%Y-%m")
+    RU_MONTHS = ["январь", "февраль", "март", "апрель", "май", "июнь", "июль",
+                 "август", "сентябрь", "октябрь", "ноябрь", "декабрь"]
+    return render_template("calendar.html", grid=grid, by_day=by_day,
+                           month_title=f"{RU_MONTHS[m - 1]} {y}".capitalize(),
+                           prev_m=prev_m, next_m=next_m, today=date.today())
+
+
+@app.route("/utm")
+def utm_builder():
+    import utm as utm_mod
+    return render_template("utm.html",
+                           sources=utm_mod.SOURCES, mediums=utm_mod.MEDIUMS,
+                           campaigns=utm_mod.CAMPAIGN_TYPES)
 
 
 @app.route("/hypotheses", methods=["GET", "POST"])

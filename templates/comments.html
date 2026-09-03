@@ -17,6 +17,23 @@
 </form>
 {% if ai_summary %}<div class="aireport">{{ ai_summary | mdfmt | safe }}</div>{% else %}<p class="muted">Вывод ещё не сформирован.</p>{% endif %}
 
+{% if trend.labels %}
+<h2>Тренд тональности по неделям</h2>
+<canvas id="toneChart" height="55"></canvas>
+<script>
+new Chart(document.getElementById('toneChart'), {
+  type: 'bar',
+  data: { labels: {{ trend.labels|tojson }},
+    datasets: [
+      {% for mt, arr in trend.series.items() %}
+      { label: "{{ mt }}", data: {{ arr|tojson }} },
+      {% endfor %}
+    ]},
+  options: { scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } }
+});
+</script>
+{% endif %}
+
 <h2>Импорт комментариев (CSV из кабинетов площадок)</h2>
 <form method="post" enctype="multipart/form-data" class="box">
   <input type="file" name="file" accept=".csv,.txt,.tsv" required>

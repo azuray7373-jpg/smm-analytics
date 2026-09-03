@@ -85,7 +85,8 @@ def mark_missing(run_id, d=None):
         # адаптивная применимость: метрика применима, если приходила по каналу
         # хоть раз за 60 дней (реальные возможности источников)
         ever = {r.metric for r in db.session.query(MetricSnapshot.metric).filter(
-            MetricSnapshot.channel_id == ch.id, MetricSnapshot.date >= since).distinct()}
+            MetricSnapshot.channel_id == ch.id, MetricSnapshot.date >= since,
+            MetricSnapshot.source != "demo").distinct()}
         base = PLATFORM_METRICS.get(ch.platform, set(DAILY_METRICS)) & set(DAILY_METRICS)
         applicable = (ever & set(DAILY_METRICS)) or base
         ok_today = {m for m, r in latest.items() if r.status == "OK"}

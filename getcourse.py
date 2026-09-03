@@ -226,7 +226,7 @@ def _ingest_users(users, default_day):
 def _ingest_deals(deals, default_day):
     n = 0
     for d in deals:
-        did = _num(_f(d, "id", "deal_id", "ID"))
+        did = _num(_f(d, "id", "deal_id") or _fz(d, "id заказа", "id сделки", "deal_id"))
         if did is None:
             continue
         created = _dt(_f(d, "created_at", "created", "создан", "дата создания")
@@ -249,9 +249,12 @@ def _ingest_deals(deals, default_day):
         o.status = str(_f(d, "status", "deal_status", "статус") or "")[:32]
         o.status_title = str(_f(d, "status_title", "deal_status_name", "название статуса")
                              or _fz(d, "название статуса") or "")[:64]
-        o.utm_source = str(_f(d, "utm_source", "lm_utm_source") or "")[:64]
-        o.utm_medium = str(_f(d, "utm_medium", "lm_utm_medium") or "")[:64]
-        o.utm_campaign = str(_f(d, "utm_campaign", "lm_utm_campaign") or "")[:128]
+        o.utm_source = str(_f(d, "utm_source", "lm_utm_source", "order_utm_source",
+                              "gc_system_deal_utm_source") or _fz(d, "utm_source") or "")[:64]
+        o.utm_medium = str(_f(d, "utm_medium", "lm_utm_medium", "order_utm_medium",
+                              "gc_system_deal_utm_medium") or _fz(d, "utm_medium") or "")[:64]
+        o.utm_campaign = str(_f(d, "utm_campaign", "lm_utm_campaign", "order_utm_campaign",
+                                "gc_system_deal_utm_campaign") or _fz(d, "utm_campaign") or "")[:128]
         o.direction = _direction(o.utm_source)
         o.updated_at = datetime.utcnow()
         _log_event("deal", did, d)

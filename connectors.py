@@ -72,6 +72,7 @@ def mark_missing(run_id, d=None):
     чтобы отличать '0' от 'не получено'. Итог — сводное уведомление по ТЗ."""
     d = d or date.today()
     missing_by_channel = {}
+    no_source = []
     from datetime import date as _date, timedelta as _td
     since = _date.today() - _td(days=60)
     for ch in Channel.query.filter_by(is_active=True).all():
@@ -87,19 +88,50 @@ def mark_missing(run_id, d=None):
             MetricSnapshot.channel_id == ch.id, MetricSnapshot.date >= since).distinct()}
         base = PLATFORM_METRICS.get(ch.platform, set(DAILY_METRICS)) & set(DAILY_METRICS)
         applicable = (ever & set(DAILY_METRICS)) or base
-        for m in DAILY_METRICS:
-            cur = latest.get(m)
-            if cur is not None and cur.status == "OK":
-                continue   # реальные данные есть
-            status = "MISSING" if m in applicable else "NOT_AVAILABLE"
-            if cur is not None and cur.status == status:
-                continue   # уже так помечено
-            save_metric(run_id, ch.id, d, m, None, "collector", status=status)
-        miss = [m for m in DAILY_METRICS if m in applicable
-                and (latest.get(m) is None or latest[m].status != "OK")]
-        if miss:
-            missing_by_channel[ch.name] = miss
+        ok_today = {m for m, r in latest.items() if r.status == "OK"}
+        if ok_today:
+            # источник за этот день отчитался: чего не принёс — недоступно, а не потеряно
+            miss = []
+            for m in DAILY_METRICS:
+                if m in ok_today:
+                    continue
+                cur = latest.get(m)
+                if cur is not None and cur.status == "NOT_AVAILABLE":
+                    continue
+                save_metric(run_id, ch.id, d, m, None, "collector", status="NOT_AVAILABLE")
+        elif ever:
+            # источник обычно отчитывается, но за эту дату промолчал — честный MISSING
+            miss = [m for m in sorted(applicable)
+                    if latest.get(m) is None or latest[m].status != "OK"]
+            for m in miss:
+                cur = latest.get(m)
+                if cur is not None and cur.status == "MISSING":
+                    continue
+                save_metric(run_id, ch.id, d, m, None, "collector", status="MISSING")
+            for m in DAILY_METRICS:
+                if m not in applicable:
+                    cur = latest.get(m)
+                    if cur is None or cur.status == "MISSING":
+                        save_metric(run_id, ch.id, d, m, None, "collector", status="NOT_AVAILABLE")
+            if miss:
+                missing_by_channel[ch.name] = miss
+        else:
+            # у канала нет подключённого источника вовсе (не ошибка сбора)
+            no_source.append(ch.name)
+            for m in DAILY_METRICS:
+                cur = latest.get(m)
+                if cur is not None and cur.status == "NOT_AVAILABLE":
+                    continue
+                save_metric(run_id, ch.id, d, m, None, "collector", status="NOT_AVAILABLE")
     db.session.commit()
+    if no_source:
+        exists = Notification.query.filter(
+            Notification.message.like(f"%источник не подключён за {d}%")).first()
+        if not exists:
+            db.session.add(Notification(level="warn", message=(
+                f"⚠ По каналам без источника данных за {d}: {', '.join(no_source)} — "
+                "подключите коннектор или вносите CSV/вручную (экраны «Импорт»/«Ручной ввод»).")))
+            db.session.commit()
     if missing_by_channel:
         exists = Notification.query.filter(
             Notification.message.like(f"%не получены данные за {d}%")).first()

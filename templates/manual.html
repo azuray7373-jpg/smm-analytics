@@ -1,29 +1,74 @@
 {% extends "base.html" %}
 {% block content %}
 <h1>Ручной ввод</h1>
-<h2>Дневная статистика канала (status = MANUAL)</h2>
-<form method="post" class="box">
+
+<h2>Дневная статистика канала <span class="muted">(сохраняется со статусом MANUAL)</span></h2>
+<form method="post" class="form-card">
   <input type="hidden" name="kind" value="metrics">
-  <select name="channel_id" required>{% for c in channels %}<option value="{{ c.id }}">{{ c.platform }} — {{ c.name }}</option>{% endfor %}</select>
-  <input type="date" name="date" value="{{ period[1] }}" required>
-  {% for m in metrics %}<label class="mini">{{ m }} <input name="{{ m }}"></label>{% endfor %}
-  <button>Сохранить</button>
+  <div class="fgrid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
+    <div class="field">
+      <label>Канал</label>
+      <select name="channel_id" required>
+        {% for c in channels %}<option value="{{ c.id }}">{{ {'instagram':'📸','youtube':'▶️','telegram':'✈️','vk':'🔵','tiktok':'🎵','dzen':'◉','max':'💬'}.get(c.platform, '📡') }} {{ c.platform }} — {{ c.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label>Дата</label>
+      <input type="date" name="date" value="{{ period[1] }}" required>
+    </div>
+  </div>
+
+  <div class="fgroup-title">👥 Аудитория</div>
+  <div class="fgrid">
+    <div class="field"><label>Подписчики на конец дня</label><input name="followers" inputmode="numeric" placeholder="followers"></div>
+    <div class="field"><label>Подписались</label><input name="subscribed" inputmode="numeric" placeholder="subscribed"></div>
+    <div class="field"><label>Отписались</label><input name="unsubscribed" inputmode="numeric" placeholder="unsubscribed"></div>
+  </div>
+
+  <div class="fgroup-title">👁 Охват и показы</div>
+  <div class="fgrid">
+    <div class="field"><label>Охват</label><input name="reach" inputmode="numeric" placeholder="reach"></div>
+    <div class="field"><label>Просмотры</label><input name="views" inputmode="numeric" placeholder="views"></div>
+    <div class="field"><label>Показы/впечатления</label><input name="impressions" inputmode="numeric" placeholder="impressions"></div>
+  </div>
+
+  <div class="fgroup-title">❤️ Вовлечённость</div>
+  <div class="fgrid">
+    <div class="field"><label>Лайки</label><input name="likes" inputmode="numeric" placeholder="likes"></div>
+    <div class="field"><label>Комментарии</label><input name="comments" inputmode="numeric" placeholder="comments"></div>
+    <div class="field"><label>Сохранения</label><input name="saves" inputmode="numeric" placeholder="saves"></div>
+    <div class="field"><label>Репосты</label><input name="shares" inputmode="numeric" placeholder="shares"></div>
+    <div class="field"><label>Реакции</label><input name="reactions" inputmode="numeric" placeholder="reactions"></div>
+  </div>
+
+  <div class="fgroup-title">📖 Открытия и дочитывания</div>
+  <div class="fgrid">
+    <div class="field"><label>Открытия</label><input name="opens" inputmode="numeric" placeholder="opens"></div>
+    <div class="field"><label>Дочитывания</label><input name="reads" inputmode="numeric" placeholder="reads"></div>
+  </div>
+
+  <div class="form-actions">
+    <button>💾 Сохранить метрики</button>
+    <span class="muted">Заполняйте только известные поля — пустые не трогаем (останутся прежние статусы).</span>
+  </div>
 </form>
 
-<h2>Контекст периода (продукт, цель, KPI, события)</h2>
-<form method="post" class="box">
+<h2>Контекст периода <span class="muted">(учитывается AI в отчётах)</span></h2>
+<form method="post" class="form-card">
   <input type="hidden" name="kind" value="note">
-  <label>Начало <input type="date" name="period_start" value="{{ period[0] }}" required></label>
-  <label>Конец <input type="date" name="period_end" value="{{ period[1] }}" required></label>
-  <label>Продукт <input name="product"></label>
-  <label>Цель <input name="goal"></label>
-  <label>KPI <input name="kpi"></label>
-  <label>События (блокировки, сбои уведомлений и т.п.) <input name="events"></label>
-  <button>Сохранить</button>
+  <div class="fgrid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+    <div class="field"><label>Начало</label><input type="date" name="period_start" value="{{ period[0] }}" required></div>
+    <div class="field"><label>Конец</label><input type="date" name="period_end" value="{{ period[1] }}" required></div>
+    <div class="field"><label>Продукт</label><input name="product" placeholder="что продвигаем"></div>
+    <div class="field"><label>Цель недели</label><input name="goal" placeholder="главная цель"></div>
+    <div class="field"><label>Плановые KPI</label><input name="kpi" placeholder="например: 500 регистраций"></div>
+    <div class="field" style="grid-column:1/-1"><label>События (блокировки, сбои уведомлений, смена алгоритма…)</label><input name="events"></div>
+  </div>
+  <div class="form-actions"><button>💾 Сохранить контекст</button></div>
 </form>
 
 <h2>Сохранённый контекст</h2>
 {% for n in notes %}
 <div class="box small">{{ n.period_start }}–{{ n.period_end }}: продукт «{{ n.product or '—' }}», цель: {{ n.goal or '—' }}, KPI: {{ n.kpi or '—' }}, события: {{ n.events or '—' }}</div>
-{% endfor %}
+{% else %}<p class="muted">Пока пусто.</p>{% endfor %}
 {% endblock %}

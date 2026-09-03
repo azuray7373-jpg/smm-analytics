@@ -918,8 +918,29 @@ with app.app_context():
     db.session.commit()
     seed.seed()
 
+def prewarm():
+    """Прогрев кэшей тяжёлых расчётов после старта — первый посетитель не ждёт."""
+    import threading
+    def _warm():
+        import time as _t
+        _t.sleep(3)
+        with app.app_context():
+            try:
+                d = calc.week_bounds(date.today())
+                calc.weekly_series(8)
+                calc.growth_points(*d)
+                getcourse.funnel(*d)
+                _chart_series(*d)
+                for ch in Channel.query.filter_by(is_active=True).all():
+                    calc.period_report(*d, ch.id)
+            except Exception:
+                pass
+    threading.Thread(target=_warm, daemon=True).start()
+
+
 if not IS_SERVERLESS and (os.environ.get("RENDER") or os.environ.get("SMM_SCHEDULER", "1") == "1"):
     start_scheduler()
+    prewarm()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)

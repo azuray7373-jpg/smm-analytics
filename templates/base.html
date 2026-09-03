@@ -6,6 +6,24 @@
 <title>SMM Аналитика</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<div id="loadbar" style="position:fixed;top:0;left:0;height:3px;width:0;
+     background:linear-gradient(90deg,#5b8cff,#7c5bff);z-index:99;transition:width .3s"></div>
+<script>
+document.addEventListener('click', function(e){
+  var a = e.target.closest('a[href]:not([href^="#"]):not([target])');
+  if(!a) return;
+  var bar = document.getElementById('loadbar');
+  bar.style.width = '70%';
+});
+window.addEventListener('pageshow', function(){
+  document.getElementById('loadbar').style.width = '100%';
+  setTimeout(function(){ var b=document.getElementById('loadbar'); b.style.transition='none'; b.style.width='0';
+    setTimeout(function(){ b.style.transition='width .3s'; },50); }, 150);
+});
+window.addEventListener('beforeunload', function(){
+  document.getElementById('loadbar').style.width = '70%';
+});
+</script>
 </head>
 <body>
 <nav class="topnav">

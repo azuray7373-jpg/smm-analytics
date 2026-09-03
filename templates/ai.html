@@ -1,23 +1,39 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Экран 5 — AI-аналитика</h1>
+<h1>Экран 5 — AI-аналитика <small>модель: {{ values_model or 'встроенная (задайте ключ в Настройках)' }}</small></h1>
 
-<form class="filters" method="post" action="{{ url_for('generate') }}">
-  <select name="rtype"><option value="weekly">Недельный</option><option value="monthly">Месячный</option></select>
-  <input type="date" name="anchor" value="{{ period[1] }}">
-  <button>Сформировать отчёт</button>
-</form>
+<div class="filters">
+  <form method="post" action="{{ url_for('ai_reclassify') }}">
+    <button>🧠 Переанализировать контент (AI-классификация)</button>
+  </form>
+  <form method="post" action="{{ url_for('generate') }}">
+    <input type="hidden" name="rtype" value="weekly">
+    <input type="hidden" name="anchor" value="{{ period[1] }}">
+    <button>✨ Сформировать вывод недели</button>
+  </form>
+  <form method="post" action="{{ url_for('generate') }}">
+    <input type="hidden" name="rtype" value="monthly">
+    <input type="hidden" name="anchor" value="{{ period[1] }}">
+    <button>📅 Сформировать месячный отчёт</button>
+  </form>
+</div>
+{% if not values_model %}
+<div class="warnbox">LLM не подключена: отчёты пишет встроенный аналитик на тех же числах. Добавьте ai_api_key в «Настройках».</div>
+{% endif %}
 
 <h2>Аномалии системы</h2>
 {% if anomalies %}
-<ul>{% for a in anomalies %}<li class="warn">{{ a.message }} <small>{{ a.created_at }}</small></li>{% endfor %}</ul>
+<ul>
+{% for a in anomalies %}<li class="warn">{{ a.message }} <small>{{ a.created_at }}</small></li>
+{% endfor %}
+</ul>
 {% else %}<p class="muted">Аномалий не обнаружено.</p>{% endif %}
 
 <h2>Недельные выводы</h2>
 {% for r in weekly %}
 <details {% if loop.first %}open{% endif %}>
   <summary>{{ r.start }} — {{ r.end }} ({{ r.created_at.strftime('%d.%m %H:%M') }})</summary>
-  <div class="aireport">{{ r.ai_text }}</div>
+  <div class="aireport">{{ r.ai_text | mdfmt | safe }}</div>
   <div class="controller"><b>AI-контролёр:</b> {{ r.controller_text }}</div>
 </details>
 {% else %}<p class="muted">Отчётов пока нет — сформируйте первый.</p>{% endfor %}
@@ -26,7 +42,7 @@
 {% for r in monthly %}
 <details>
   <summary>{{ r.start }} — {{ r.end }}</summary>
-  <div class="aireport">{{ r.ai_text }}</div>
+  <div class="aireport">{{ r.ai_text | mdfmt | safe }}</div>
   <div class="controller"><b>AI-контролёр:</b> {{ r.controller_text }}</div>
 </details>
 {% else %}<p class="muted">Месячных отчётов пока нет.</p>{% endfor %}

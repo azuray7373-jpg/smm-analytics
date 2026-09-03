@@ -35,6 +35,44 @@ def _numfmt(v):
         return "н/д"
 
 
+@app.template_filter("mdfmt")
+def _mdfmt(text):
+    """Мини-markdown для AI-текстов: заголовки, списки, жирный."""
+    import html as _h
+    import re as _re
+    if not text:
+        return ""
+    esc = _h.escape(str(text))
+    esc = _re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", esc)
+    out, in_list = [], False
+    for line in esc.split("\n"):
+        l = line.strip()
+        if l.startswith("### "):
+            if in_list:
+                out.append("</ul>")
+                in_list = False
+            out.append(f"<h4>{l[4:]}</h4>")
+        elif l.startswith("## "):
+            if in_list:
+                out.append("</ul>")
+                in_list = False
+            out.append(f"<h3>{l[3:]}</h3>")
+        elif l.startswith("- "):
+            if not in_list:
+                out.append("<ul>")
+                in_list = True
+            out.append(f"<li>{l[2:]}</li>")
+        else:
+            if in_list:
+                out.append("</ul>")
+                in_list = False
+            if l:
+                out.append(f"<p>{l}</p>")
+    if in_list:
+        out.append("</ul>")
+    return "".join(out)
+
+
 @app.template_filter("pctfmt")
 def _pctfmt(v, nd=2):
     try:
@@ -212,7 +250,9 @@ def ai_screen():
     weekly = Report.query.filter_by(rtype="weekly").order_by(Report.end.desc()).all()
     monthly = Report.query.filter_by(rtype="monthly").order_by(Report.end.desc()).all()
     anomalies = [n for n in Notification.query.filter(Notification.level == "warn").order_by(Notification.created_at.desc()).limit(20)]
-    return render_template("ai.html", weekly=weekly, monthly=monthly, anomalies=anomalies)
+    model = get_setting("ai_model") if get_setting("ai_api_key") else ""
+    return render_template("ai.html", weekly=weekly, monthly=monthly, anomalies=anomalies,
+                           values_model=model)
 
 
 # ---------------- Отчёты и операции ----------------
@@ -292,7 +332,8 @@ def settings():
         db.session.commit()
         flash("Настройки сохранены")
         return redirect(url_for("settings"))
-    return render_template("settings.html", values={k: get_setting(k) for k in keys})
+    return render_template("settings.html", values={k: get_setting(k) for k in keys},
+                           webhook_token=os.environ.get("INGEST_TOKEN") or get_setting("ingest_token"))
 
 
 @app.route("/getcourse")
@@ -387,6 +428,138 @@ def api_ingest():
     return jsonify(counts)
 
 
+@app.route("/api/gc-webhook", methods=["GET", "POST"])
+def gc_webhook():
+    """Приём мгновенных событий из процессов Геткурса («Вызвать URL»).
+    Токен: заголовок X-Ingest-Token или параметр token.
+    Типы: user | deal | payment. Параметры сливаются из query, form и JSON."""
+    token = os.environ.get("INGEST_TOKEN") or get_setting("ingest_token")
+    args = {k: v for k, v in request.args.items()}
+    if request.form:
+        args.update(request.form.to_dict())
+    j = request.get_json(silent=True)
+    if isinstance(j, dict):
+        args.update(j)
+    if args.get("token") != token and request.headers.get("X-Ingest-Token") != token:
+        return jsonify({"error": "invalid token"}), 403
+    t = (args.get("type") or "").lower()
+    from datetime import datetime as _dtx
+    def _val(*names):
+        for n in names:
+            for k, v in args.items():
+                if k.lower() == n.lower() and v not in (None, ""):
+                    return v
+        return None
+    def _dateval(*names):
+        v = _val(*names)
+        if not v:
+            return date.today()
+        for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+            try:
+                return _dtx.strptime(str(v)[:19].replace("T", " "), fmt).date()
+            except ValueError:
+                continue
+        return date.today()
+    try:
+        if t == "user":
+            uid = int(float(_val("gc_id", "user_id", "id") or 0))
+            if uid:
+                reg = Registration.query.filter_by(gc_user_id=uid).first()
+                if not reg:
+                    reg = Registration(count=1, gc_user_id=uid)
+                    db.session.add(reg)
+                reg.date = _dateval("created", "created_at", "Создан")
+                reg.utm_source = str(_val("utm_source") or "")[:64]
+                reg.utm_medium = str(_val("utm_medium") or "")[:64]
+                reg.utm_campaign = str(_val("utm_campaign") or "")[:128]
+                reg.landing = str(_val("landing", "page_url") or "")[:255]
+                reg.status = "OK"
+                getcourse._log_event("user", uid, dict(args))
+        elif t == "deal":
+            did = int(float(_val("deal_id", "gc_id", "id") or 0))
+            if did:
+                o = GcOrder.query.get(did) or GcOrder(id=did)
+                db.session.add(o)
+                o.date = _dateval("created", "created_at", "Создан")
+                o.created_at = getcourse._dt(_val("created", "created_at", "Создан"))
+                o.user_id = getcourse._num(_val("user_id", "gc_user_id"))
+                o.email = str(_val("email") or "")[:255]
+                o.phone = str(_val("phone", "Телефон") or "")[:64]
+                o.product = str(_val("product", "Название предложения") or "")[:255]
+                o.amount = getcourse._num(_val("amount", "Сумма", "price"))
+                o.status = str(_val("status", "Статус") or "")[:32]
+                o.status_title = str(_val("status", "Статус") or "")[:64]
+                o.utm_source = str(_val("utm_source") or "")[:64]
+                o.utm_medium = str(_val("utm_medium") or "")[:64]
+                o.utm_campaign = str(_val("utm_campaign") or "")[:128]
+                o.direction = getcourse._direction(o.utm_source)
+                o.updated_at = datetime.utcnow()
+                getcourse._log_event("deal", did, dict(args))
+                getcourse._recompute_customer_status()
+        elif t == "payment":
+            pid = int(float(_val("payment_id", "gc_id", "id") or 0))
+            if pid:
+                p = GcPayment.query.get(pid) or GcPayment(id=pid)
+                db.session.add(p)
+                p.date = _dateval("created", "created_at", "Создан", "payed_at")
+                p.created_at = getcourse._dt(_val("created", "created_at", "Создан", "payed_at"))
+                p.user_id = getcourse._num(_val("user_id", "gc_user_id"))
+                p.email = str(_val("email") or "")[:255]
+                p.amount = getcourse._num(_val("amount", "Сумма"))
+                p.status = str(_val("status", "Статус") or "accepted")[:32]
+                p.deal_id = getcourse._num(_val("deal_id"))
+                p.product = str(_val("product") or "")[:255]
+                p.updated_at = datetime.utcnow()
+                getcourse._log_event("payment", pid, dict(args))
+        else:
+            return jsonify({"error": "unknown type"}), 400
+        db.session.commit()
+        return jsonify({"ok": True, "type": t})
+    except Exception as e:
+        db.session.rollback()
+        db.session.add(Notification(level="error", message=f"Ошибка вебхука ГК: {e}"))
+        db.session.commit()
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/ai/reclassify", methods=["POST"])
+def ai_reclassify():
+    """Батч-классификация контента через LLM (кнопка на экране AI-аналитики)."""
+    from db import ContentItem as _CI
+    import ai_analyst, re as _re
+    items = _CI.query.order_by(_CI.published_at.desc()).limit(40).all()
+    done, used_llm = 0, False
+    for i in range(0, len(items), 8):
+        batch = items[i:i + 8]
+        lines = [f"{ci.id}: {(ci.title or '')} | {(ci.text or '')[:180]} | формат: {ci.format}"
+                 for ci in batch]
+        llm = ai_analyst._call_llm(ai_analyst.SYSTEM,
+            "Проклассифицируй каждый материал. Верни СТРОГО JSON вида "
+            '{"<id>": {"тема": "...", "рубрика": "...", "боль": "...", "сегмент": "...", '
+            '"эмоциональный_триггер": "...", "есть_оффер": true, '
+            '"есть_регистрационный_CTA": true, '
+            '"продающий_тип": "продающий|экспертный|доверительный|охватный"}}\n'
+            "Материалы:\n" + "\n".join(lines))
+        mapping = {}
+        if llm:
+            try:
+                m = _re.search(r"\{.*\}", llm, _re.S)
+                if m:
+                    mapping = json.loads(m.group())
+                    used_llm = True
+            except Exception:
+                mapping = {}
+        for ci in batch:
+            tags = mapping.get(str(ci.id)) or ai_analyst.classify_content_text(ci.text, ci.format)
+            ci.ai_tags = json.dumps(tags, ensure_ascii=False)
+            done += 1
+    db.session.commit()
+    flash(f"Классифицировано материалов: {done}" +
+          (" (через LLM)" if used_llm else
+           " (эвристически — LLM недоступна, проверьте баланс OpenAI в Настройках)"))
+    return redirect(url_for("ai_screen"))
+
+
 @app.route("/notifications")
 def notifications():
     ns = Notification.query.order_by(Notification.created_at.desc()).limit(100).all()
@@ -431,10 +604,19 @@ def _chart_series(start, end):
                  MetricSnapshot.metric.in_(["reach", "registrations_daily"]))
          .group_by(MetricSnapshot.date, MetricSnapshot.metric, MetricSnapshot.value)).all()
     reach = {r.date.isoformat(): r.value for r in q if r.metric == "reach" and r.value}
+    inter_q = (db.session.query(MetricSnapshot.date, MetricSnapshot.metric, MetricSnapshot.value,
+                                db.func.max(MetricSnapshot.fetched_at))
+               .filter(MetricSnapshot.date >= start, MetricSnapshot.date <= end,
+                       MetricSnapshot.metric.in_(["likes", "comments", "saves", "shares", "reactions"]))
+               .group_by(MetricSnapshot.date, MetricSnapshot.metric, MetricSnapshot.value)).all()
+    inter = {}
+    for r in inter_q:
+        inter[r.date.isoformat()] = inter.get(r.date.isoformat(), 0) + (r.value or 0)
     regs = {}
     for r in Registration.query.filter(Registration.date >= start, Registration.date <= end).all():
         regs[r.date.isoformat()] = regs.get(r.date.isoformat(), 0) + (r.count or 0)
-    return {"labels": days, "reach": [reach.get(x) for x in days], "regs": [regs.get(x) for x in days]}
+    return {"labels": days, "reach": [reach.get(x) for x in days],
+            "regs": [regs.get(x) for x in days], "inter": [inter.get(x) for x in days]}
 
 
 def _latest_report(rtype):
@@ -534,6 +716,10 @@ with app.app_context():
         db.session.commit()
         set_setting("demo_regfix", "1")
         db.session.commit()
+    for env_key, set_key in (("AI_API_KEY", "ai_api_key"), ("AI_BASE_URL", "ai_base_url"),
+                             ("AI_MODEL", "ai_model")):
+        if _os.environ.get(env_key) and not get_setting(set_key):
+            set_setting(set_key, _os.environ[env_key])
     if _os.environ.get("GC_ACCOUNT") and not get_setting("gc_account"):
         set_setting("gc_account", _os.environ["GC_ACCOUNT"])
     db.session.commit()

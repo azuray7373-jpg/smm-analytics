@@ -3,9 +3,25 @@
 <h1>Настройки источников и AI</h1>
 <form method="post" class="box">
   {% for k in values %}
-  <label>{{ k }} <input name="{{ k }}" value="{{ values[k] }}" style="width:60%"></label><br>
+  <label style="display:block; margin:4px 0;">{{ k }} <input name="{{ k }}" value="{{ values[k] }}" style="width:62%"></label>
   {% endfor %}
   <br><button>Сохранить</button>
 </form>
-<p class="muted">ai_base_url/ai_model — любой OpenAI-совместимый API. youtube_api_key + youtube_channel_id включают живой сбор YouTube. livedune_token — коннектор Лайфдюн (запрос per-day статистик). getcourse_api_key — лиды/заказы/оплаты.</p>
+<p class="muted">ai_base_url/ai_model — любой OpenAI-совместимый API (рекомендовано: https://api.openai.com/v1 + gpt-5.6-luna). youtube_api_key + youtube_channel_id включают живой сбор YouTube. gc_account/gc_api_key — GetCourse.</p>
+
+{% if webhook_token %}
+<h2>Мгновенные события из GetCourse (процессы «Вызвать URL»)</h2>
+<p>Создайте в Геткурсе три процесса (Обучение → Процессы → Создать) с блоками:
+«Пользователь создан» / «Заказ создан» / «Оплата получена» и операцией «Вызвать URL» (метод GET).
+Вставьте адреса ниже (токен уже вшит). Имена переменных берите из списка «Доступные переменные» процесса.</p>
+<pre class="json">1) Регистрация (Пользователь создан):
+https://anazanaxus.pythonanywhere.com/api/gc-webhook?type=user&token={{ webhook_token }}&gc_id={user_id}&created={created_at}&utm_source={utm_source}&utm_medium={utm_medium}&utm_campaign={utm_campaign}
+
+2) Заказ (Заказ создан):
+https://anazanaxus.pythonanywhere.com/api/gc-webhook?type=deal&token={{ webhook_token }}&deal_id={deal_id}&created={created_at}&user_id={user_id}&email={email}&amount={Сумма}&status={Статус}&product={Название предложения}&utm_source={utm_source}
+
+3) Оплата (Оплата получена):
+https://anazanaxus.pythonanywhere.com/api/gc-webhook?type=payment&token={{ webhook_token }}&payment_id={payment_id}&created={created_at}&user_id={user_id}&amount={Сумма}&deal_id={deal_id}&product={Название предложения}&status=accepted</pre>
+<p class="muted">Эндпоинт также принимает POST JSON и заголовок X-Ingest-Token. После настройки события появляются в приложении мгновенно, без очередей Export API.</p>
+{% endif %}
 {% endblock %}

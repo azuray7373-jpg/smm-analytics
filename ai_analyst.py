@@ -9,20 +9,34 @@ from db import get_setting
 
 
 def _call_llm(system, user):
-    """Вызов внешней LLM (OpenAI-совместимый API). Без ключа — None."""
+    """Вызов внешней LLM через OpenAI-совместимый API (OpenAI, Gemini и др.).
+    Основная модель из настроек + автоматический фолбэк (например, при 503
+    перегруженной gemini-3.8-flash пробуем старшие flash-модели)."""
     key = get_setting("ai_api_key")
     if not key:
         return None
     try:
         import requests
-        base = get_setting("ai_base_url", "https://api.openai.com/v1")
-        model = get_setting("ai_model", "gpt-4o-mini")
-        r = requests.post(f"{base}/chat/completions",
-                          headers={"Authorization": f"Bearer {key}"},
-                          json={"model": model, "temperature": 0.2, "messages": [
-                              {"role": "system", "content": system},
-                              {"role": "user", "content": user}]}, timeout=120)
-        return r.json()["choices"][0]["message"]["content"]
+        base = get_setting("ai_base_url", "https://api.openai.com/v1").rstrip("/")
+        models = [get_setting("ai_model", "gpt-4o-mini")]
+        for fb in ("gemini-3.7-flash", "gemini-2.5-flash"):
+            if fb not in models:
+                models.append(fb)
+        for model in models:
+            try:
+                r = requests.post(f"{base}/chat/completions",
+                                  headers={"Authorization": f"Bearer {key}"},
+                                  json={"model": model, "temperature": 0.2, "messages": [
+                                      {"role": "system", "content": system},
+                                      {"role": "user", "content": user}]}, timeout=120)
+                d = r.json()
+                if r.status_code == 200 and d.get("choices"):
+                    content = d["choices"][0]["message"].get("content")
+                    if content and str(content).strip():
+                        return content
+            except Exception:
+                continue
+        return None
     except Exception:
         return None
 

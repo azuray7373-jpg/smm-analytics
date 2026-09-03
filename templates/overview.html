@@ -28,7 +28,7 @@
 <div class="warnbox">Статусы данных: {{ p.data_statuses|tojson }}</div>
 {% endif %}
 
-<h2>Динамика охвата и регистраций по дням</h2>
+<h2>Динамика по дням: охват, взаимодействия, регистрации</h2>
 <canvas id="chart" height="90"></canvas>
 <script>
 new Chart(document.getElementById('chart'), {
@@ -36,7 +36,8 @@ new Chart(document.getElementById('chart'), {
   data: { labels: {{ chart.labels|tojson }},
     datasets: [
       { label: 'Охват', data: {{ chart.reach|tojson }}, yAxisID: 'y', tension: .3 },
-      { label: 'Регистрации', data: {{ chart.regs|tojson }}, yAxisID: 'y1', tension: .3 }
+      { label: 'Регистрации', data: {{ chart.regs|tojson }}, yAxisID: 'y1', tension: .3 },
+      { label: 'Взаимодействия', data: {{ chart.inter|tojson }}, yAxisID: 'y', tension: .3 }
     ]},
   options: { scales: { y: { position: 'left' }, y1: { position: 'right', grid: { drawOnChartArea: false } } } }
 });
@@ -44,7 +45,7 @@ new Chart(document.getElementById('chart'), {
 
 {% if report %}
 <h2>Вывод недели (AI)</h2>
-<div class="aireport">{{ report.ai_text }}</div>
+<div class="aireport">{{ report.ai_text | mdfmt | safe }}</div>
 {% if report.controller_text %}<div class="controller"><b>AI-контролёр:</b> {{ report.controller_text }}</div>{% endif %}
 {% endif %}
 {% endblock %}

@@ -480,7 +480,8 @@ def sync_getcourse(days=5, backfill_months=0, threaded=False):
 
 def funnel(start: date, end: date):
     """Воронка и разрезы за период: регистрации -> заказы -> оплаты."""
-    regs = Registration.query.filter(Registration.date >= start, Registration.date <= end).count()
+    regs = Registration.query.filter(Registration.date >= start, Registration.date <= end,
+                                     ~Registration.utm_source.like("demo_%")).count()
     orders = GcOrder.query.filter(GcOrder.date >= start, GcOrder.date <= end)
     pays = GcPayment.query.filter(GcPayment.date >= start, GcPayment.date <= end)
     out = {

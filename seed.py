@@ -102,7 +102,7 @@ def seed(db_uri=None):
         # регистрации с UTM
         for src, w in (("instagram", 3), ("telegram", 1.2), ("youtube", 1), ("tiktok", 1.5), ("vk", 0.4), ("dzen", 0.3), ("max", 0.5)):
             if random.random() < 0.8:
-                db.session.add(Registration(date=d, utm_source=src, utm_medium=random.choice(["post", "reels", "story", "cpc", "email"]),
+                db.session.add(Registration(date=d, utm_source="demo_" + src, utm_medium=random.choice(["post", "reels", "story", "cpc", "email"]),
                                             utm_campaign=random.choice(["webinar_sept", "challenge", "evergreen"]),
                                             landing=random.choice(["/reg", "/trial", "/webinar"]), count=random.randint(5, 90)))
     db.session.commit()

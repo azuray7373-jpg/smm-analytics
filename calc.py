@@ -107,7 +107,8 @@ def aggregate(start: date, end: date, channel_id=None):
 
 def registrations_total(start: date, end: date, platform=None):
     q = db.session.query(func.sum(Registration.count)).filter(
-        Registration.date >= start, Registration.date <= end, Registration.status == "OK")
+        Registration.date >= start, Registration.date <= end, Registration.status == "OK",
+        ~Registration.utm_source.like("demo_%"))
     if platform:
         sources = [k for k, v in UTM_TO_PLATFORM.items() if v == platform]
         q = q.filter(Registration.utm_source.in_(sources))

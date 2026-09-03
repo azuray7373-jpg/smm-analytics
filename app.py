@@ -178,7 +178,9 @@ def content_screen():
 def registrations_screen():
     """Экран 4. Регистрации: источник → канал → CV."""
     d = _period_from_args()
-    q = Registration.query.filter(Registration.date >= d[0], Registration.date <= d[1], Registration.status == "OK")
+    q = Registration.query.filter(Registration.date >= d[0], Registration.date <= d[1],
+                                  Registration.status == "OK",
+                                  ~Registration.utm_source.like("demo_%"))
     by_source = {}
     for r in q.all():
         s = by_source.setdefault(r.utm_source or "(нет)", {"count": 0, "landings": {}})
@@ -523,6 +525,15 @@ with app.app_context():
     import os as _os
     if _os.environ.get("GC_API_KEY") and not get_setting("gc_api_key"):
         set_setting("gc_api_key", _os.environ["GC_API_KEY"])
+    # одноразовая миграция: демо-регистрации старого сида помечаем demo_
+    if MetricSnapshot.query.filter_by(source="demo").first() and not get_setting("demo_regfix"):
+        from db import Registration as _R
+        _R.query.filter(_R.gc_user_id.is_(None),
+                        ~_R.utm_source.like("demo_%")).update(
+            {_R.utm_source: "demo_" + _R.utm_source}, synchronize_session=False)
+        db.session.commit()
+        set_setting("demo_regfix", "1")
+        db.session.commit()
     if _os.environ.get("GC_ACCOUNT") and not get_setting("gc_account"):
         set_setting("gc_account", _os.environ["GC_ACCOUNT"])
     db.session.commit()

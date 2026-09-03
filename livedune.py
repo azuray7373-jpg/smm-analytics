@@ -58,11 +58,15 @@ def list_accounts():
 
 
 def channel_map():
-    """ld_id -> наш channel_id. Строится/сохраняется автоматически."""
+    """ld_id -> channel_id. Сначала явные привязки каналов (ld_account_id,
+    включая конкурентов), затем автосопоставление по именам."""
+    m = {c.ld_account_id: c.id for c in Channel.query.filter(Channel.ld_account_id.isnot(None))}
     raw = get_setting("livedune_map", "")
     if raw:
         try:
-            return {int(k): int(v) for k, v in json.loads(raw).items()}
+            for k, v in json.loads(raw).items():
+                m.setdefault(int(k), int(v))
+            return m
         except Exception:
             pass
     channels = {c.name: c.id for c in Channel.query.all()}

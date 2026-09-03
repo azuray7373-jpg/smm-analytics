@@ -110,7 +110,7 @@ def aggregate(start: date, end: date, channel_id=None):
     statuses = {k: {"count": v["count"], "days": sorted(v["days"]), "sample": v["sample"]}
                 for k, v in statuses.items()}
     # подписчики: два пакетных запроса на все каналы сразу (было 2 запроса на канал)
-    q = Channel.query.filter_by(is_active=True)
+    q = Channel.query.filter_by(is_active=True, is_competitor=False)
     if channel_id:
         q = q.filter(Channel.id == channel_id)
     ch_ids = [c.id for c in q.all()]
@@ -371,3 +371,30 @@ def growth_points(start, end):
     except Exception:
         pass
     return out[:6]
+
+
+def month_forecast():
+    """Предварительный итог месяца (по ТЗ): линейная экстраполяция по прошедшим дням.
+    Статус ESTIMATED — это оценка, не факт. Возвращает None для неполных данных."""
+    from datetime import timedelta as _td
+    s_, e_ = month_bounds(date.today())
+    if date.today() <= s_:
+        return None
+    import calendar as _cal
+    elapsed = (date.today() - s_).days or 1
+    total_days = _cal.monthrange(s_.year, s_.month)[1]
+    agg, _ = aggregate(s_, date.today())
+    regs = registrations_total(s_, date.today())
+    from db import GcPayment
+    pays = db.session.query(func.coalesce(func.sum(GcPayment.amount), 0)).filter(
+        GcPayment.date >= s_, GcPayment.date <= date.today(),
+        GcPayment.status == "accepted").scalar()
+    k = total_days / elapsed
+    out = {"month_start": s_.isoformat(), "month_end": e_.isoformat(),
+           "elapsed_days": elapsed, "total_days": total_days, "status": "ESTIMATED"}
+    for key, src in (("reach", agg.get("reach")), ("views", agg.get("views")),
+                     ("regs", regs), ("payments", pays)):
+        if src is not None:
+            out[key] = src
+            out[key + "_forecast"] = round(src * k)
+    return out

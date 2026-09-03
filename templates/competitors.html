@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>🥊 Конкуренты <small>({{ period[0] }} — {{ period[1] }})</small></h1>
+<p class="muted">Конкуренты исключены из всех общих итогов системы — сравнение честное, только по открытым метрикам.</p>
+
+<h2>Сравнение за период</h2>
+<table class="tbl">
+<tr><th>Аккаунт</th><th>Тип</th><th>Подписчики</th><th>Δ охват к прошлому периоду</th><th>Охват</th><th>ERR</th><th>ER</th></tr>
+{% for r in comps %}
+<tr style="opacity:.95">
+  <td>🥊 {{ r.ch.name }}</td><td>конкурент</td>
+  <td>{{ r.p.agg.followers_end|numfmt }}</td>
+  {% set rd = r.p.deltas.reach %}
+  <td>{% if rd and rd.d is not none %}<span class="badge {{ 'up' if rd.d >= 0 else 'down' }}">{{ '%+d'|format(rd.d) }}%</span>{% else %}—{% endif %}</td>
+  <td>{{ r.p.agg.reach|numfmt }}</td><td>{{ r.p.ind.ERR|pctfmt }}</td><td>{{ r.p.ind.ER|pctfmt }}</td>
+</tr>
+{% endfor %}
+{% for r in ours %}
+<tr>
+  <td><b>{{ r.ch.name }}</b></td><td class="muted">наш</td>
+  <td>{{ r.p.agg.followers_end|numfmt }}</td>
+  {% set rd = r.p.deltas.reach %}
+  <td>{% if rd and rd.d is not none %}<span class="badge {{ 'up' if rd.d >= 0 else 'down' }}">{{ '%+d'|format(rd.d) }}%</span>{% else %}—{% endif %}</td>
+  <td>{{ r.p.agg.reach|numfmt }}</td><td>{{ r.p.ind.ERR|pctfmt }}</td><td>{{ r.p.ind.ER|pctfmt }}</td>
+</tr>
+{% endfor %}
+</table>
+<p class="muted">Данные конкурентов появляются автоматически, если указан их id в LiveDune (заведите их в кабинете LiveDune в разделе «Проверки аккаунтов»), либо вносите вручную/CSV.</p>
+
+<h2>Добавить конкурента</h2>
+<form method="post" action="{{ url_for('competitors_add') }}" class="form-card">
+  <div class="fgrid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
+    <div class="field"><label>Название</label><input name="name" required placeholder="Сырная школа"></div>
+    <div class="field"><label>Платформа</label>
+      <select name="platform">{% for p in ['instagram','youtube','telegram','vk','tiktok','dzen','max'] %}<option>{{ p }}</option>{% endfor %}</select></div>
+    <div class="field"><label>id аккаунта в LiveDune (необяз.)</label><input name="ld_account_id" inputmode="numeric" placeholder="например 1234567"></div>
+    <div class="field"><label>Ссылка (необяз.)</label><input name="url"></div>
+  </div>
+  <div class="form-actions"><button>➕ Добавить</button></div>
+</form>
+
+<h2>Скрыть конкурента</h2>
+{% for r in comps %}
+<form method="post" action="{{ url_for('competitors_remove') }}" class="filters">
+  <input type="hidden" name="id" value="{{ r.ch.id }}">
+  <span class="muted">{{ r.ch.name }}</span>
+  <button>Убрать из сравнения</button>
+</form>
+{% else %}<p class="muted">Конкурентов пока нет.</p>{% endfor %}
+{% endblock %}

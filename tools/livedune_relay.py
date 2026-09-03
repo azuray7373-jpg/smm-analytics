@@ -33,8 +33,14 @@ def main():
         if not after or not d.get("response"):
             break
     print("аккаунтов LiveDune:", len(accounts))
-    # карта соответствия ld_id -> channel_id приходит из env LD_MAP (JSON)
-    ld_map = json.loads(os.environ.get("LD_MAP", "{}"))
+    # карта ld_id -> channel_id берётся с продакшена динамически (включая конкурентов)
+    try:
+        mr = requests.get(f"{PA_URL}/api/ld_map", params={"token": INGEST}, timeout=60)
+        mr.raise_for_status()
+        ld_map = {str(k): v for k, v in mr.json().items()}
+    except Exception as e:
+        print("ld_map fetch failed:", e, "| fallback to LD_MAP secret")
+        ld_map = json.loads(os.environ.get("LD_MAP", "{}"))
     start = (date.today() - timedelta(days=DAYS)).isoformat()
     packet = []
     for a in accounts:

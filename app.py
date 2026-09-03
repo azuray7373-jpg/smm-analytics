@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import io, json, os, threading
 from datetime import date, datetime
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, Response, g
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, Response, g, session
 
 from db import db, Channel, MetricSnapshot, ContentItem, ContentStat, Registration, \
     ManualNote, Report, Notification, Setting, RunLog, get_setting, set_setting, \
@@ -173,7 +173,8 @@ def overview():
     return render_template("overview.html", p=p, period=d, chart=chart,
                            report=_latest_report("weekly"),
                            trends=calc.weekly_series(8),
-                           growth=calc.growth_points(*d))
+                           growth=calc.growth_points(*d),
+                           forecast=calc.month_forecast())
 
 
 @app.route("/comments")
@@ -472,6 +473,111 @@ def compare_screen():
                            total_rows=total_rows, channel_rows=channel_rows)
 
 
+@app.route("/competitors")
+def competitors_screen():
+    """Бенчмаркинг: наши каналы vs конкуренты (конкуренты исключены из общих итогов)."""
+    d = _period_from_args()
+    ours = [r for r in [{"ch": c, "p": cached_period_report(*d, c.id)}
+                        for c in Channel.query.filter_by(is_active=True, is_competitor=False)]]
+    comps = [r for r in [{"ch": c, "p": cached_period_report(*d, c.id)}
+                         for c in Channel.query.filter_by(is_competitor=True)]]
+    if request.method == "POST":
+        pass
+    return render_template("competitors.html", ours=ours, comps=comps, period=d)
+
+
+@app.route("/competitors/add", methods=["POST"])
+def competitors_add():
+    from db import Channel as _C
+    name = (request.form.get("name") or "").strip()
+    platform = (request.form.get("platform") or "instagram").strip()
+    ld = request.form.get("ld_account_id", "").strip()
+    if name:
+        ch = _C(platform=platform, name=name, url=request.form.get("url") or "",
+                is_competitor=True,
+                ld_account_id=int(ld) if ld.isdigit() else None)
+        db.session.add(ch)
+        db.session.commit()
+        calc.invalidate_caches()
+        flash(f"Конкурент «{name}» добавлен" + (" и будет синхронизироваться с LiveDune." if ld.isdigit() else ". Для автосборки укажите его id аккаунта в LiveDune (экран LiveDune в кабинете)."))
+    return redirect(url_for("competitors_screen"))
+
+
+@app.route("/competitors/remove", methods=["POST"])
+def competitors_remove():
+    ch = Channel.query.get(int(request.form.get("id") or 0))
+    if ch and ch.is_competitor:
+        ch.is_active = False
+        db.session.commit()
+        calc.invalidate_caches()
+        flash("Конкурент скрыт.")
+    return redirect(url_for("competitors_screen"))
+
+
+@app.route("/api/ld_map")
+def ld_map_endpoint():
+    """Карта ld_id -> channel_id для релея (обновляется при добавлении конкурентов)."""
+    token = os.environ.get("INGEST_TOKEN") or get_setting("ingest_token")
+    if request.args.get("token") != token:
+        return jsonify({"error": "invalid token"}), 403
+    m = {}
+    for c in Channel.query.filter(Channel.ld_account_id.isnot(None)):
+        m[str(c.ld_account_id)] = c.id
+    return jsonify(m)
+
+
+@app.route("/hypotheses", methods=["GET", "POST"])
+def hypotheses_screen():
+    """A/B-гипотезы: ожидание -> автоматическая сверка с фактом."""
+    from db import Hypothesis
+    if request.method == "POST":
+        from datetime import datetime as _dt
+        try:
+            db.session.add(Hypothesis(
+                text=request.form.get("text", ""),
+                metric=request.form.get("metric", "reach"),
+                expectation=request.form.get("expectation", ""),
+                start=_dt.strptime(request.form.get("start", ""), "%Y-%m-%d").date(),
+                end=_dt.strptime(request.form.get("end", ""), "%Y-%m-%d").date()))
+            db.session.commit()
+            flash("Гипотеза добавлена.")
+        except Exception as e:
+            flash(f"Ошибка: {e}")
+        return redirect(url_for("hypotheses_screen"))
+    # авто-сверка завершившихся
+    from datetime import timedelta as _td
+    for h in Hypothesis.query.filter_by(status="active").all():
+        if h.end >= date.today():
+            continue
+        pa = cached_period_report(h.start, h.end)
+        pb = cached_period_report(h.start - _td(days=(h.end - h.start).days + 1),
+                                  h.start - _td(days=1))
+        key = {"reach": "reach", "views": "views", "regs": "registrations"}.get(h.metric)
+        cur = pa["agg"].get(key) if key else pa["ind"].get(
+            {"err": "ERR", "cv": "CV_reach"}.get(h.metric, ""), None)
+        prev = pb["agg"].get(key) if key else pb["ind"].get(
+            {"err": "ERR", "cv": "CV_reach"}.get(h.metric, ""), None)
+        if h.metric == "payments":
+            from db import GcPayment
+            cur = db.session.query(db.func.coalesce(db.func.sum(GcPayment.amount), 0)).filter(
+                GcPayment.date >= h.start, GcPayment.date <= h.end,
+                GcPayment.status == "accepted").scalar()
+            prev = db.session.query(db.func.coalesce(db.func.sum(GcPayment.amount), 0)).filter(
+                GcPayment.date >= h.start - _td(days=(h.end - h.start).days + 1),
+                GcPayment.date <= h.start - _td(days=1),
+                GcPayment.status == "accepted").scalar()
+        if cur is not None and prev:
+            pct = (cur - prev) / prev * 100
+            h.result = f"Факт: {pct:+.1f}% ({prev:,.0f} → {cur:,.0f})".replace(",", " ")
+        else:
+            h.result = "Недостаточно данных для проверки"
+        h.status = "done"
+    db.session.commit()
+    items = Hypothesis.query.order_by(Hypothesis.id.desc()).limit(30).all()
+    return render_template("hypotheses.html", items=items,
+                           period=calc.week_bounds(date.today()))
+
+
 @app.route("/api/notifications/pending")
 def notifications_pending():
     """Очередь недоставленных уведомлений (забирает релей и шлёт в Telegram)."""
@@ -606,7 +712,8 @@ def manual():
 
 @app.route("/settings", methods=["GET", "POST"])
 def settings():
-    keys = ["tg_bot_token", "tg_chat_id", "livedune_token",
+    keys = ["app_password", "alert_reach_drop", "alert_views_drop", "alert_err_drop",
+            "tg_bot_token", "tg_chat_id", "livedune_token",
             "youtube_api_key", "youtube_channel_id",
             "instagram_token", "vk_token", "telegram_bot_token", "max_bot_tokens",
             "gc_account", "gc_api_key",
@@ -1038,6 +1145,33 @@ def start_scheduler():
 
 app.config["SQLALCHEMY_RECORD_QUERIES"] = False
 
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    pw = get_setting("app_password") or os.environ.get("APP_PASSWORD", "")
+    if request.method == "POST":
+        if request.form.get("password") and request.form["password"] == pw:
+            session["authed"] = True
+            return redirect(url_for("overview"))
+        flash("Неверный пароль")
+    return render_template("login.html"), (401 if request.method == "POST" else 200)
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
+
+
+@app.before_request
+def _auth_guard():
+    """Закрываем интерфейс паролем; API защищены собственными токенами."""
+    pw = get_setting("app_password") or os.environ.get("APP_PASSWORD", "")
+    if not pw or session.get("authed"):
+        return None
+    if request.path.startswith(("/login", "/api/", "/static/", "/cron")):
+        return None
+    return redirect(url_for("login"))
+
 
 @app.before_request
 def _start_timer():
@@ -1081,10 +1215,15 @@ with app.app_context():
             db.session.execute(_text(ddl))
         except Exception:
             pass
-    try:
-        db.session.execute(_text("ALTER TABLE notifications ADD COLUMN delivered BOOLEAN DEFAULT 0"))
-    except Exception:
-        pass
+    for ddl_a in (
+        "ALTER TABLE notifications ADD COLUMN delivered BOOLEAN DEFAULT 0",
+        "ALTER TABLE channels ADD COLUMN is_competitor BOOLEAN DEFAULT 0",
+        "ALTER TABLE channels ADD COLUMN ld_account_id INTEGER",
+    ):
+        try:
+            db.session.execute(_text(ddl_a))
+        except Exception:
+            pass
     db.session.commit()
     # значения по умолчанию из окружения (Render env vars)
     import os as _os
@@ -1099,6 +1238,8 @@ with app.app_context():
         db.session.commit()
         set_setting("demo_regfix", "1")
         db.session.commit()
+    if _os.environ.get("APP_PASSWORD") and not get_setting("app_password"):
+        set_setting("app_password", _os.environ["APP_PASSWORD"])
     if _os.environ.get("LIVEDUNE_TOKEN") and not get_setting("livedune_token"):
         set_setting("livedune_token", _os.environ["LIVEDUNE_TOKEN"])
     for env_key, set_key in (("AI_API_KEY", "ai_api_key"), ("AI_BASE_URL", "ai_base_url"),

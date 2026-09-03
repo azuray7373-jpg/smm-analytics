@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>🧪 Гипотезы</h1>
+<p class="muted">Формулируете ожидание (например, «ролики по закваскам дадут +10% охвата») — после окончания периода система автоматически сверяет факт с прошлым периодом той же длины.</p>
+
+<h2>Новая гипотеза</h2>
+<form method="post" class="form-card">
+  <div class="fgrid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+    <div class="field" style="grid-column:1/-1"><label>Формулировка</label><input name="text" required placeholder="Reels с демонстрацией результата дадут рост регистраций"></div>
+    <div class="field"><label>Метрика</label>
+      <select name="metric">
+        <option value="reach">Охват</option><option value="views">Просмотры</option>
+        <option value="regs">Регистрации</option><option value="err">ERR</option>
+        <option value="cv">CV</option><option value="payments">Оплаты (₽)</option>
+      </select></div>
+    <div class="field"><label>Ожидание</label><input name="expectation" placeholder="+10%"></div>
+    <div class="field"><label>Начало</label><input type="date" name="start" value="{{ period[0] }}" required></div>
+    <div class="field"><label>Конец</label><input type="date" name="end" value="{{ period[1] }}" required></div>
+  </div>
+  <div class="form-actions"><button>➕ Добавить гипотезу</button></div>
+</form>
+
+<h2>Список</h2>
+<table class="tbl">
+<tr><th>Гипотеза</th><th>Метрика</th><th>Ожидание</th><th>Период</th><th>Статус</th><th>Результат</th></tr>
+{% for h in items %}
+<tr>
+  <td style="white-space:normal; max-width:340px;">{{ h.text }}</td>
+  <td>{{ h.metric }}</td><td>{{ h.expectation or '—' }}</td>
+  <td>{{ h.start }} — {{ h.end }}</td>
+  <td>{% if h.status == 'done' %}<span class="badge na">проверена</span>{% else %}<span class="badge up">активна</span>{% endif %}</td>
+  <td style="white-space:normal;">{{ h.result or '—' }}</td>
+</tr>
+{% else %}<tr><td colspan="6">Гипотез пока нет.</td></tr>{% endfor %}
+</table>
+{% endblock %}

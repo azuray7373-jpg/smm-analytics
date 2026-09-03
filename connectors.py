@@ -147,9 +147,31 @@ def mark_missing(run_id, d=None):
     return f"MISSING: {sum(len(v) for v in missing_by_channel.values())} метрик по {len(missing_by_channel)} каналам"
 
 
+def daily_digest():
+    """Короткая сводка за вчера — в очередь уведомлений (доставка в Telegram)."""
+    from datetime import timedelta as _td
+    from db import Registration, GcPayment
+    d = date.today() - _td(days=1)
+    if Notification.query.filter(Notification.message.like(f"Сводка за {d}%")).first():
+        return
+    from calc import aggregate, registrations_total
+    agg, _ = aggregate(d, d)
+    regs = registrations_total(d, d)
+    pays = db.session.query(db.func.coalesce(db.func.sum(GcPayment.amount), 0)).filter(
+        GcPayment.date == d, GcPayment.status == "accepted").scalar()
+    db.session.add(Notification(level="info", message=(
+        f"Сводка за {d}: охват {agg.get('reach') or 0:,.0f}, регистрации {regs:,.0f}, "
+        f"оплаты {pays:,.0f} ₽.".replace(",", " "))))
+    db.session.commit()
+
+
 def run_daily_collection():
     run_id = start_run("daily_collect")
     results = [collect_youtube(run_id), mark_missing(run_id)]
+    try:
+        daily_digest()
+    except Exception:
+        pass
     finish_run(run_id, "; ".join(results))
     return results
 

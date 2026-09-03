@@ -11,6 +11,8 @@ class Channel(db.Model):
     name = db.Column(db.String(64), nullable=False)
     url = db.Column(db.String(255))
     is_active = db.Column(db.Boolean, default=True)
+    is_competitor = db.Column(db.Boolean, default=False)   # чужой аккаунт для бенчмаркинга
+    ld_account_id = db.Column(db.Integer)                  # id аккаунта в LiveDune
 
     @property
     def slug(self):
@@ -213,3 +215,17 @@ def set_setting(key, value):
         s = Setting(key=key)
         db.session.add(s)
     s.value = value
+
+
+class Hypothesis(db.Model):
+    """A/B-гипотеза: ожидание по метрике за период; сверяется автоматически."""
+    __tablename__ = "hypotheses"
+    id = db.Column(db.Integer, primary_key=True)
+    text = db.Column(db.Text, nullable=False)
+    metric = db.Column(db.String(16))          # reach/views/regs/err/cv/payments
+    expectation = db.Column(db.String(64))     # например "+10%"
+    start = db.Column(db.Date, nullable=False)
+    end = db.Column(db.Date, nullable=False)
+    status = db.Column(db.String(16), default="active")   # active/done
+    result = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)

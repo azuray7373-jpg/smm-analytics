@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="hero" style="justify-content:center; text-align:center;">
+  <div>
+    <h1>🔐 Вход в SMM Аналитику</h1>
+    <div class="sub">Пароль задаётся в переменной APP_PASSWORD (сменить — на экране «Настройки»)</div>
+  </div>
+</div>
+<form method="post" class="form-card" style="max-width:420px; margin:0 auto;">
+  <div class="field"><label>Пароль</label><input type="password" name="password" autofocus required></div>
+  <div class="form-actions"><button style="width:100%">Войти</button></div>
+</form>
+{% endblock %}

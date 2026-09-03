@@ -65,6 +65,18 @@ new Chart(document.getElementById('chart'), {
 });
 </script>
 
+{% if forecast %}
+<div class="filters" style="gap:18px;">
+  <b>🔮 Прогноз месяца (ESTIMATED)</b>
+  <span class="muted">{{ forecast.elapsed_days }} из {{ forecast.total_days }} дней прошло · линейная экстраполяция</span>
+  {% for k, lbl in [('reach','охват'), ('regs','регистрации'), ('payments','оплаты, ₽')] %}
+    {% if forecast.get(k) is not none %}
+    <span>{{ lbl }}: <b>{{ forecast[k]|numfmt }}</b> → <b>{{ forecast[k + '_forecast']|numfmt }}</b></span>
+    {% endif %}
+  {% endfor %}
+</div>
+{% endif %}
+
 {% if growth %}
 <h2>🚀 Точки роста</h2>
 <div class="cards" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr));">

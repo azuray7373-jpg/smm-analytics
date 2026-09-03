@@ -110,7 +110,10 @@ def detect_anomalies(history):
     def avg(lst, key):
         vals = [h["agg"].get(key) for h in lst if h["agg"].get(key) is not None]
         return sum(vals) / len(vals) if vals else None
-    for key, thr, label in (("reach", -30, "охват"), ("views", -30, "просмотры"),
+    from db import get_setting as _gs
+    thr_reach = -abs(float(_gs("alert_reach_drop", 30) or 30))
+    thr_views = -abs(float(_gs("alert_views_drop", 30) or 30))
+    for key, thr, label in (("reach", thr_reach, "охват"), ("views", thr_views, "просмотры"),
                             ("reach", 200, "охват (резкий рост)")):
         a, c = avg(base, key), cur["agg"].get(key)
         if a and c is not None:
@@ -118,8 +121,9 @@ def detect_anomalies(history):
             if pct < thr if thr < 0 else pct > thr:
                 out.append(f"{label}: {pct:+.0f}% к среднему за 4 недели ({fmt(a)} → {fmt(c)}). Вероятный фактор — требуется проверка.")
     err_cur = cur["ind"].get("ERR")
+    err_thr = -abs(float(_gs("alert_err_drop", 20) or 20))
     errs = [h["ind"].get("ERR") for h in base if h["ind"].get("ERR") is not None]
-    if err_cur and errs and (err_cur - sum(errs) / len(errs)) / (sum(errs) / len(errs)) * 100 < -20:
+    if err_cur and errs and (err_cur - sum(errs) / len(errs)) / (sum(errs) / len(errs)) * 100 < err_thr:
         out.append(f"ERR упал более чем на 20% ({sum(errs)/len(errs):.2f}% → {err_cur:.2f}%).")
     # аномальный вклад одного ролика
     items = cur.get("_top_content") or []

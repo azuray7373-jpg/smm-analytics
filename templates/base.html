@@ -51,11 +51,14 @@ window.addEventListener('beforeunload', function(){
   <a href="{{ url_for('ai_screen') }}" class="{{ 'active' if path.startswith('/ai') }}">🤖 AI-аналитика</a>
   <a href="{{ url_for('reports_list') }}" class="{{ 'active' if path.startswith('/reports') }}">📄 Отчёты</a>
   <a href="{{ url_for('compare_screen') }}" class="{{ 'active' if path.startswith('/compare') }}">⚖️ Сравнение</a>
+  <a href="{{ url_for('competitors_screen') }}" class="{{ 'active' if path.startswith('/competitors') }}">🥊 Конкуренты</a>
+  <a href="{{ url_for('hypotheses_screen') }}" class="{{ 'active' if path.startswith('/hypotheses') }}">🧪 Гипотезы</a>
   <a href="{{ url_for('guide') }}" class="{{ 'active' if path.startswith('/guide') }}">📖 Руководство</a>
   <a href="{{ url_for('import_csv') }}" class="{{ 'active' if path.startswith('/import') }}">⬆️ Импорт</a>
   <a href="{{ url_for('manual') }}" class="{{ 'active' if path.startswith('/manual') }}">✍️ Ручной ввод</a>
   <a href="{{ url_for('settings') }}" class="{{ 'active' if path.startswith('/settings') }}">⚙️ Настройки</a>
   <button class="theme-btn" onclick="toggleTheme()" title="Светлая/тёмная тема"><span id="themeIcon">🌙</span></button>
+  <a href="{{ url_for('logout') }}" title="Выйти">🔐</a>
   <a href="{{ url_for('notifications') }}" class="bell">🔔{% if unread_notifications %} ({{ unread_notifications }}){% endif %}</a>
 </nav>
 <main>

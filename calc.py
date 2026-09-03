@@ -19,6 +19,32 @@ UTM_TO_PLATFORM = {
 }
 
 
+import time as _time
+
+_TTL = {}
+
+
+def ttl_cache(ttl_seconds):
+    """Простой кэш результатов по аргументам с временем жизни."""
+    def deco(fn):
+        def wrapper(*args, **kwargs):
+            key = (fn.__name__, args, tuple(sorted(kwargs.items())))
+            hit = _TTL.get(key)
+            now = _time.time()
+            if hit and now - hit[0] < ttl_seconds:
+                return hit[1]
+            val = fn(*args, **kwargs)
+            _TTL[key] = (now, val)
+            return val
+        wrapper.__name__ = fn.__name__
+        return wrapper
+    return deco
+
+
+def invalidate_caches():
+    _TTL.clear()
+
+
 def week_bounds(d: date):
     """Неделя: фиксированный интервал понедельник–воскресенье."""
     monday = d - timedelta(days=d.weekday())
@@ -83,30 +109,35 @@ def aggregate(start: date, end: date, channel_id=None):
                 e["sample"].append(f"{m} за {d}")
     statuses = {k: {"count": v["count"], "days": sorted(v["days"]), "sample": v["sample"]}
                 for k, v in statuses.items()}
-    # подписчики: последнее известное значение на/до конца и на/до начала
-    def followers_on(ch, on_date):
-        row = (MetricSnapshot.query.filter_by(channel_id=ch, metric="followers")
-               .filter(MetricSnapshot.date <= on_date)
-               .order_by(MetricSnapshot.date.desc(), MetricSnapshot.fetched_at.desc()).first())
-        row_after = (MetricSnapshot.query.filter_by(channel_id=ch, metric="followers")
-                     .filter(MetricSnapshot.date >= on_date)
-                     .order_by(MetricSnapshot.date.asc(), MetricSnapshot.fetched_at.desc()).first())
-        vals = [r.value for r in (row, row_after) if r and r.value is not None]
-        return vals[0] if vals else None
-
-    channels = Channel.query.filter_by(is_active=True)
+    # подписчики: два пакетных запроса на все каналы сразу (было 2 запроса на канал)
+    q = Channel.query.filter_by(is_active=True)
     if channel_id:
-        channels = channels.filter(Channel.id == channel_id)
-    fol_end = fol_start = 0
-    known = 0
-    for ch in channels.all():
-        a, b = followers_on(ch.id, end), followers_on(ch.id, start - timedelta(days=1))
-        if a is not None:
-            fol_end += a
-            known += 1
-        if b is not None:
-            fol_start += b
-    agg["followers_end"] = fol_end if known else None
+        q = q.filter(Channel.id == channel_id)
+    ch_ids = [c.id for c in q.all()]
+
+    def followers_batch(on_date):
+        """Последнее известное значение followers на/до даты для каждого канала."""
+        rows = (db.session.query(MetricSnapshot.channel_id,
+                                 MetricSnapshot.date, MetricSnapshot.value,
+                                 db.func.max(MetricSnapshot.fetched_at))
+                .filter(MetricSnapshot.channel_id.in_(ch_ids),
+                        MetricSnapshot.metric == "followers",
+                        MetricSnapshot.date <= on_date,
+                        MetricSnapshot.value.isnot(None))
+                .group_by(MetricSnapshot.channel_id, MetricSnapshot.date,
+                          MetricSnapshot.value)
+                .order_by(MetricSnapshot.channel_id, MetricSnapshot.date.desc()).all())
+        best = {}
+        for r in rows:
+            if r[0] not in best:
+                best[r[0]] = r[2]   # первая (=самая поздняя) дата на канал
+        return best
+
+    fe = followers_batch(end) if ch_ids else {}
+    fs = followers_batch(start - timedelta(days=1)) if ch_ids else {}
+    fol_end = sum(v for v in fe.values() if v)
+    fol_start = sum(v for v in fs.values() if v)
+    agg["followers_end"] = fol_end if fe else None
     agg["followers_start"] = fol_start if fol_start else None
     return agg, statuses
 
@@ -143,6 +174,7 @@ def indicators(agg: dict, regs: float) -> dict:
     return out
 
 
+@ttl_cache(120)
 def period_report(start: date, end: date, channel_id=None):
     """Полный срез по периоду: агрегаты + показатели + сравнение с предыдущим периодом."""
     agg, statuses = aggregate(start, end, channel_id)
@@ -268,6 +300,7 @@ def compare_best_worst(items, key="ERR", n=10):
     return "\n".join("- " + x for x in L), best, flop
 
 
+@ttl_cache(300)
 def weekly_series(weeks=8, channel_id=None):
     """Тренды по последним N неделям: ERR, CV, регистрации, охват — для графика."""
     from datetime import timedelta
@@ -285,6 +318,7 @@ def weekly_series(weeks=8, channel_id=None):
     return out
 
 
+@ttl_cache(300)
 def growth_points(start, end):
     """Точки роста: только из рассчитанных чисел. Возвращает [{kind, text}],
     kind: scale (масштабировать) | fix (чинить просадку) | insight (инсайт)."""

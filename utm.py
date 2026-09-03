@@ -11,6 +11,7 @@ from datetime import date
 from collections import defaultdict
 from sqlalchemy import func
 from db import db, Registration, GcOrder, GcPayment
+from calc import ttl_cache as _ttl
 
 CAMPAIGN_TYPES = {
     "openlesson": "БК (бесплатный курс)",
@@ -72,6 +73,7 @@ def _group_payments(start, end):
         GcPayment.status == "accepted").group_by(GcPayment.date).all()
 
 
+@_ttl(120)
 def breakdown(start: date, end: date):
     """Разрезы по нашим меткам + проверка наличия всех меток в данных."""
     regs = _group_registrations(start, end)

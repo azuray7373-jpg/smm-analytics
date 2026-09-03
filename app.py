@@ -89,6 +89,14 @@ def report_view(id):
 @app.context_processor
 def inject_globals():
     from flask import request as _req
+    import time as _time
+    now = _time.time()
+    hc = app.config.get("_HEALTH_CACHE")
+    if hc and now - hc[0] < 60:
+        health_data = hc[1]
+    else:
+        health_data = _compute_health()
+        app.config["_HEALTH_CACHE"] = (now, health_data)
     unread = Notification.query.filter_by(is_read=False).count()
     period = None
     try:
@@ -100,7 +108,21 @@ def inject_globals():
     if not period:
         import calc as _calc
         period = _calc.week_bounds(date.today())
-    # панель здоровья системы: последние запуски сборов/релея + вчерашние MISSING
+    period2 = period
+    render_ms = None
+    try:
+        from flask import g as _g2
+        import time as _t2
+        render_ms = int((_t2.time() - _g2._t0) * 1000)
+    except Exception:
+        pass
+    return {"channels": Channel.query.filter_by(is_active=True).all(),
+            "unread_notifications": unread, "period": period2, "health": health_data,
+            "render_ms": render_ms}
+
+
+def _compute_health():
+    """Панель здоровья (кэшируется на 60с)."""
     health = {}
     try:
         from datetime import timedelta as _td
@@ -124,8 +146,7 @@ def inject_globals():
         health["comments"] = Comment.query.count()
     except Exception:
         pass
-    return {"channels": Channel.query.filter_by(is_active=True).all(),
-            "unread_notifications": unread, "period": period, "health": health}
+    return health
 
 
 # ---------------- Дашборд: 5 экранов ----------------
@@ -336,6 +357,8 @@ def heal_missing():
         return jsonify({"error": "invalid token"}), 403
     from datetime import timedelta as _td
     run_id = connectors.start_run("heal_missing")
+    calc.invalidate_caches()
+    app.config["_HEALTH_CACHE"] = None
     results = []
     for back in range(1, int(request.args.get("days", 7)) + 1):
         d = date.today() - _td(days=back)
@@ -360,6 +383,7 @@ def livedune_sync():
 
 @app.route("/collect", methods=["POST"])
 def collect():
+    calc.invalidate_caches()
     results = connectors.run_daily_collection()
     flash("Сбор данных выполнен: " + "; ".join(results))
     return redirect(request.referrer or url_for("overview"))
@@ -493,6 +517,8 @@ def api_ingest():
     if request.headers.get("X-Ingest-Token") != token:
         return jsonify({"error": "invalid token"}), 403
     data = request.get_json(force=True, silent=True) or {}
+    calc.invalidate_caches()
+    app.config["_HEALTH_CACHE"] = None
     default = date.today()
     ws = data.get("window_start")
     if ws:
@@ -538,6 +564,7 @@ def gc_webhook():
     if args.get("token") != token and request.headers.get("X-Ingest-Token") != token:
         return jsonify({"error": "invalid token"}), 403
     t = (args.get("type") or "").lower()
+    calc.invalidate_caches()
     from datetime import datetime as _dtx
     def _val(*names):
         for n in names:
@@ -717,6 +744,7 @@ def _period_from_args():
     return calc.week_bounds(anchor)
 
 
+@calc.ttl_cache(120)
 def _chart_series(start, end):
     days = []
     d = start
@@ -827,8 +855,45 @@ def start_scheduler():
         app.logger.warning(f"Планировщик не запущен: {e}")
 
 
+app.config["SQLALCHEMY_RECORD_QUERIES"] = False
+
+
+@app.before_request
+def _start_timer():
+    from flask import g as _g
+    import time as _t
+    _g._t0 = _t.time()
+
+
+@app.after_request
+def _report_timer(resp):
+    import time as _t
+    try:
+        from flask import g as _g
+        dt = (_t.time() - _g._t0) * 1000
+        resp.headers["X-Render-Time-ms"] = str(int(dt))
+    except Exception:
+        pass
+    return resp
+
+
 with app.app_context():
     db.create_all()
+    # составные индексы под тяжёлые GROUP BY (идемпотентно, SQLite/Postgres)
+    from sqlalchemy import text as _text
+    for ddl in (
+        "CREATE INDEX IF NOT EXISTS ix_ms_ch_date_metric ON metric_snapshots (channel_id, date, metric, fetched_at)",
+        "CREATE INDEX IF NOT EXISTS ix_ms_date_metric ON metric_snapshots (date, metric)",
+        "CREATE INDEX IF NOT EXISTS ix_cs_content_date ON content_stats (content_id, date)",
+        "CREATE INDEX IF NOT EXISTS ix_reg_date_src ON registrations (date, utm_source)",
+        "CREATE INDEX IF NOT EXISTS ix_gc_order_date ON gc_orders (date, utm_campaign)",
+        "CREATE INDEX IF NOT EXISTS ix_comment_date ON comments (date)",
+    ):
+        try:
+            db.session.execute(_text(ddl))
+        except Exception:
+            pass
+    db.session.commit()
     # значения по умолчанию из окружения (Render env vars)
     import os as _os
     if _os.environ.get("GC_API_KEY") and not get_setting("gc_api_key"):

@@ -16,6 +16,7 @@ import json, re, time, threading
 from datetime import date, datetime, timedelta
 import requests
 from db import (db, get_setting, Notification, RunLog, Registration, GcOrder, GcPayment, GcEvent)
+from calc import ttl_cache as calc_ttl
 
 DATE_FMT = "%Y-%m-%d %H:%M:%S"
 
@@ -481,6 +482,7 @@ def sync_getcourse(days=5, backfill_months=0, threaded=False):
     return "завершена"
 
 
+@calc_ttl(120)
 def funnel(start: date, end: date):
     """Воронка и разрезы за период: регистрации -> заказы -> оплаты."""
     regs = Registration.query.filter(Registration.date >= start, Registration.date <= end,

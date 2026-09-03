@@ -36,14 +36,16 @@ def find_export_id(js):
 
 
 def request_export(kind, params):
-    for attempt in range(4):
+    for attempt in range(3):
         js = gc_get(kind, params)
         code = js.get("error_code")
         if code == 903:
             raise _RateLimited(f"{kind}: лимит API (903)")
-        if code == 905 and attempt < 3:
-            time.sleep(60); continue
+        if code == 905 and attempt < 2:
+            time.sleep(90); continue
         break
+    if js.get("error_code") == 905:
+        raise _RateLimited(f"{kind}: очередь экспортов ГК занята (905) дольше 3 минут")
     if not js.get("success"):
         raise RuntimeError(f"{kind}: {js.get('error_message')}")
     eid = find_export_id(js)

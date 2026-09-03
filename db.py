@@ -147,6 +147,21 @@ class GcSyncState(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
+class Comment(db.Model):
+    """Комментарии аудитории (импорт CSV из кабинетов; по ТЗ — анализ вопросов/болев/возражений)."""
+    __tablename__ = "comments"
+    id = db.Column(db.Integer, primary_key=True)
+    channel_id = db.Column(db.Integer, db.ForeignKey("channels.id"), index=True)
+    content_id = db.Column(db.Integer, db.ForeignKey("content_items.id"))
+    date = db.Column(db.Date, index=True)
+    author = db.Column(db.String(255))
+    text = db.Column(db.Text, nullable=False)
+    likes = db.Column(db.Float, default=0)
+    main_type = db.Column(db.String(32), index=True)   # вопрос/боль/возражение/позитив/негатив/покупка/регистрация/идея/прочее
+    tags = db.Column(db.Text)                          # JSON: все сработавшие метки
+    source = db.Column(db.String(32), default="csv")
+
+
 class ManualNote(db.Model):
     """Ручной контекст: продукт, цель недели, KPI, события."""
     __tablename__ = "manual_notes"

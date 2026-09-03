@@ -55,18 +55,29 @@ def collect_youtube(run_id):
 
 
 def mark_missing(run_id, d=None):
-    """Метим сегодняшние метрики всех каналов как MISSING, если данных нет —
-    чтобы отличать '0' от 'не получено'."""
+    """Метим метрики всех каналов за дату как MISSING, если данных нет —
+    чтобы отличать '0' от 'не получено'. Итог — сводное уведомление по ТЗ."""
     d = d or date.today()
-    msgs = []
+    missing_by_channel = {}
     for ch in Channel.query.filter_by(is_active=True).all():
         have = {m.metric for m in MetricSnapshot.query.filter_by(channel_id=ch.id, date=d).all()}
-        for m in DAILY_METRICS:
-            if m not in have:
-                save_metric(run_id, ch.id, d, m, None, "collector", status="MISSING")
-        msgs.append(ch.name)
+        miss = [m for m in DAILY_METRICS if m not in have]
+        for m in miss:
+            save_metric(run_id, ch.id, d, m, None, "collector", status="MISSING")
+        if miss:
+            missing_by_channel[ch.name] = miss
     db.session.commit()
-    return f"MISSING отмечены для: {', '.join(msgs)}"
+    if missing_by_channel:
+        exists = Notification.query.filter(
+            Notification.message.like(f"%не получены данные за {d}%")).first()
+        if not exists:
+            channels_list = ", ".join(sorted(missing_by_channel))
+            db.session.add(Notification(level="error", message=(
+                f"❌ Не получены данные за {d} по каналам: {channels_list} "
+                f"(всего {sum(len(v) for v in missing_by_channel.values())} метрик MISSING — "
+                "импорт CSV или ручной ввод на соответствующих экранах).")))
+            db.session.commit()
+    return f"MISSING: {sum(len(v) for v in missing_by_channel.values())} метрик по {len(missing_by_channel)} каналам"
 
 
 def run_daily_collection():

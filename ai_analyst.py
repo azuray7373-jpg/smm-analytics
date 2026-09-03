@@ -169,6 +169,14 @@ def rule_based_report(payload, anomalies, manual_notes=""):
             L.append("### Контент")
             L.append(f"- Лучший по ERR материал: «{b['item'].title or b['item'].link}» "
                      f"(ERR {b['ERR']:.2f}%, охват {fmt(b['reach'])}, рубрика: {tags.get('рубрика') or 'н/д'}).")
+        cmp_text = payload.get("_compare_text")
+        if cmp_text:
+            L.append("- Что объединяет лучшие материалы (vs худшие 10):")
+            L.append(cmp_text)
+        L.append("")
+    if payload.get("_comments_text"):
+        L.append("### Голоса аудитории (комментарии)")
+        L.append(payload["_comments_text"])
         L.append("")
     L.append("### Рекомендации")
     L.append("**УСИЛИТЬ:** форматы и рубрики из ТОП-10 по ERR и регистрациям (см. экран «Контент»).")
@@ -186,8 +194,12 @@ def generate_weekly_report_text(payload, anomalies, manual_notes=""):
     llm = _call_llm(SYSTEM, (
         "Сформируй недельный отчет для руководителя по данным JSON.\n"
         "Структура: Общая картина; Что дало рост; Что ухудшилось; Аномалии; "
-        "Рекомендации в трёх блоках: УСИЛИТЬ / ИЗМЕНИТЬ / УБРАТЬ.\n"
+        "Голоса аудитории (если есть); Рекомендации в трёх блоках: УСИЛИТЬ / ИЗМЕНИТЬ / УБРАТЬ.\n"
         + (f"Ручной контекст (учти его и не противоречь ему):\n{manual_notes}\n" if manual_notes else "")
+        + (f"Сравнение лучших и худших материалов (из данных):\n{payload.get('_compare_text') or 'нет'}\n"
+           if payload.get("_compare_text") else "")
+        + (f"Сводка комментариев (из данных):\n{payload.get('_comments_text')}\n"
+           if payload.get("_comments_text") else "")
         + f"Аномалии, найденные математически:\n{json.dumps(anomalies, ensure_ascii=False)}\n"
         + f"Данные:\n{json.dumps(data, ensure_ascii=False)}"))
     return llm or rule_based_report(payload, anomalies, manual_notes)
@@ -200,17 +212,68 @@ def generate_monthly_report_text(payload, channel_payloads, anomalies, manual_no
         "темы, форматы, CTA; изменения поведения аудитории; рекомендации на следующий месяц; "
         "и раздел «Что произошло за месяц простыми словами» — 5-10 главных выводов.\n"
         + (f"Ручной контекст:\n{manual_notes}\n" if manual_notes else "")
+        + (f"Сравнение лучших и худших материалов (из данных):\n{payload.get('_compare_text') or 'нет'}\n"
+           if payload.get("_compare_text") else "")
+        + (f"Сводка комментариев (из данных):\n{payload.get('_comments_text')}\n"
+           if payload.get("_comments_text") else "")
+        + "Обязательно заверши разделом «Что произошло за месяц простыми словами» — 5-10 выводов.\n"
         + f"Данные по всем каналам:\n{json.dumps({k: {x: y for x, y in v.items() if not x.startswith('_')} for k, v in channel_payloads.items()}, ensure_ascii=False)}\n"
         + f"Аномалии:\n{json.dumps(anomalies, ensure_ascii=False)}"))
     if llm:
         return llm
     text = rule_based_report(payload, anomalies, manual_notes)
     text += "\n\n### Динамика по каналам\n"
+    ranked = []
     for name, p in channel_payloads.items():
         r = p["deltas"].get("reach")
-        text += f"- {name}: охват " + (f"{r['d']:+.0f}%" if r and r.get("d") is not None else "н/д") + "\n"
-    text += "\n### Что произошло за месяц простыми словами\nСм. выводы выше; детальная расшифровка — на дашборде."
+        pct = f"{r['d']:+.0f}%" if r and r.get("d") is not None else "н/д"
+        text += f"- {name}: охват {pct}\n"
+        if r and r.get("d") is not None:
+            ranked.append((r["d"], name, r["cur"]))
+    text += "\n### Что произошло за месяц простыми словами\n"
+    for line in month_plain_summary(payload, ranked):
+        text += line + "\n"
     return text
+
+
+def month_plain_summary(payload, ranked_reach=None):
+    """5-10 главных выводов месяца, каждый — только из рассчитанных чисел."""
+    out = []
+    ag = payload["agg"]
+    ind = payload["ind"]
+    d = payload["deltas"]
+    for k, label in (("reach", "охват"), ("registrations", "регистрации")):
+        v = d.get(k)
+        if v and v.get("d") is not None:
+            out.append(f"{label.capitalize()}: {v['d']:+.0f}% "
+                       f"({fmt(v['prev'])} → {fmt(v['cur'])}).")
+    if ranked_reach:
+        top = sorted(ranked_reach, reverse=True)
+        if top:
+            out.append(f"Главный драйвер охвата — {top[0][1]} "
+                       f"({fmt(top[0][2])} охвата за месяц).")
+        neg = [x for x in top if x[0] < -10]
+        if neg:
+            out.append("Просели: " + ", ".join(f"{n} ({p:+.0f}%)" for p, n, _ in neg[:3]) + ".")
+    items = payload.get("_top_content") or []
+    if items:
+        by_reach = sorted(items, key=lambda x: x.get("reach") or 0, reverse=True)
+        if by_reach and ag.get("reach"):
+            share = (by_reach[0].get("reach") or 0) / ag["reach"] * 100
+            out.append(f"Самый охватный материал месяца: «{(by_reach[0]['item'].title or '')[:60]}» — "
+                       f"{share:.0f}% месячного охвата.")
+    gc = payload.get("gc") or {}
+    if gc.get("payments"):
+        out.append(f"Оплачено заказов: {fmt(gc.get('payments'))} на сумму {fmt(gc.get('payments_sum'))} руб.")
+    if ind.get("CV_reach") is not None:
+        out.append(f"CV из охвата в регистрацию: {ind['CV_reach']:.3f}%.")
+    if ag.get("subscribed") is not None:
+        out.append(f"Чистый прирост подписчиков: {fmt((ag.get('subscribed') or 0) - (ag.get('unsubscribed') or 0))}.")
+    if payload.get("_comments_text"):
+        out.append("Главная боль аудитории в комментариях — см. блок «Голоса аудитории» выше.")
+    if not out:
+        out.append("Недостаточно данных для вывода.")
+    return out[:10]
 
 
 def controller_check(payload, report_text):

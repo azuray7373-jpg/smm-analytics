@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Экран 6 — Комментарии: вопросы, боли, возражения, идеи</h1>
+
+<div class="cards">
+  <div class="card"><h3>Всего комментариев</h3><div class="big">{{ d.total }}</div></div>
+  {% for label, key in [('❓ Вопросы','вопрос'),('💔 Боли','боль'),('🛡 Возражения','возражение'),
+                         ('💡 Идеи тем','идея'),('🛒 Намерение купить','покупка'),
+                         ('📝 Намерение зарегистр.','регистрация'),('😡 Негатив','негатив'),('❤️ Позитив','позитив')] %}
+  <div class="card"><h3>{{ label }}</h3><div class="big">{{ d.counts.get(key, 0) }}</div></div>
+  {% endfor %}
+</div>
+
+<h2>Импорт комментариев (CSV из кабинетов площадок)</h2>
+<form method="post" enctype="multipart/form-data" class="box">
+  <input type="file" name="file" accept=".csv,.txt,.tsv" required>
+  <button>Загрузить и классифицировать</button>
+</form>
+<pre class="json">date,channel_id,content_link,author,text,likes
+2026-09-01,8,https://t.me/...,Иван,Скажите, а как зарегистрироваться на вебинар?,3</pre>
+
+<div style="display:flex; gap:24px; flex-wrap:wrap;">
+{% set cols = [('ТОП вопросы недели','questions'), ('ТОП боли','pains'), ('ТОП возражения','objections'), ('Идеи для контента','ideas')] %}
+{% for title, key in cols %}
+<div style="flex:1; min-width:300px;">
+<h2>{{ title }}</h2>
+{% for c in d[key] %}
+<div class="box small">{{ c.text[:200] }} <span class="muted">— {{ c.author or 'аноним' }}, лайков {{ c.likes|numfmt }}</span></div>
+{% else %}<p class="muted">Пока нет — импортируйте комментарии.</p>{% endfor %}
+</div>
+{% endfor %}
+</div>
+
+<h2>Последние 50 комментариев</h2>
+<table class="tbl">
+<tr><th>Дата</th><th>Тип</th><th>Текст</th><th>Автор</th><th>Лайки</th></tr>
+{% for c in recent %}
+<tr><td>{{ c.date }}</td><td><span class="badge na">{{ c.main_type }}</span></td>
+<td>{{ c.text[:160] }}</td><td>{{ c.author or '—' }}</td><td>{{ c.likes|numfmt }}</td></tr>
+{% else %}<tr><td colspan="5">Комментариев пока нет.</td></tr>{% endfor %}
+</table>
+{% endblock %}

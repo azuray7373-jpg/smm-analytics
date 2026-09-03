@@ -22,13 +22,44 @@
 
 <h2>Воронка за период</h2>
 <div class="cards">
-  <div class="card"><h3>Регистрации</h3><div class="big">{{ '{:,.0f}'.format(f.registrations) }}</div></div>
-  <div class="card"><h3>Заказы</h3><div class="big">{{ '{:,.0f}'.format(f.orders) }}</div><span class="badge na">CR рег→заказ: {{ '%.1f'|format(f.cr_reg_order or 0) }}%</span></div>
-  <div class="card"><h3>Оплаты</h3><div class="big">{{ '{:,.0f}'.format(f.payments) }}</div><span class="badge na">CR заказ→оплата: {{ '%.1f'|format(f.cr_order_pay or 0) }}%</span></div>
-  <div class="card"><h3>Сумма оплат (accepted)</h3><div class="big">{{ '{:,.0f}'.format(f.orders_sum) }} ₽</div></div>
+  <div class="card"><h3>Регистрации</h3><div class="big">{{ f.registrations|numfmt }}</div></div>
+  <div class="card"><h3>Заказы</h3><div class="big">{{ f.orders|numfmt }}</div><span class="badge na">CR рег→заказ: {{ '%.1f'|format(f.cr_reg_order or 0) }}%</span></div>
+  <div class="card"><h3>Оплаты</h3><div class="big">{{ f.payments|numfmt }}</div><span class="badge na">CR заказ→оплата: {{ '%.1f'|format(f.cr_order_pay or 0) }}%</span></div>
+  <div class="card"><h3>Сумма оплат (accepted)</h3><div class="big">{{ f.orders_sum|numfmt }} ₽</div></div>
   <div class="card"><h3>Новички / старички</h3><div class="big">{{ f.by_customer.get('new', 0) }} / {{ f.by_customer.get('returning', 0) }}</div></div>
   <div class="card"><h3>Входящие / исходящие</h3><div class="big">{{ f.by_direction.get('incoming', 0) }} / {{ f.by_direction.get('outgoing', 0) }}</div></div>
 </div>
+
+<canvas id="gcChart" height="70"></canvas>
+<script>
+new Chart(document.getElementById('gcChart'), {
+  type: 'bar',
+  data: { labels: {{ chart.labels|tojson }},
+    datasets: [
+      { label: 'Заказы', data: {{ chart.orders|tojson }}, backgroundColor: '#4f8cff88' },
+      { label: 'Оплаты', data: {{ chart.payments|tojson }}, backgroundColor: '#3ddc8488' },
+      { type: 'line', label: 'Сумма оплат, ₽', data: {{ chart.sums|tojson }}, yAxisID: 'y1', tension: .3 }
+    ]},
+  options: { scales: { y: { beginAtZero: true }, y1: { position: 'right', grid: { drawOnChartArea: false } } } }
+});
+</script>
+
+<h2>Последние заказы</h2>
+<table class="tbl">
+<tr><th>Дата</th><th>Продукт</th><th>Сумма</th><th>Статус</th><th>Клиент</th><th>Направление</th><th>Новичок?</th><th>UTM source</th></tr>
+{% for o in recent_orders %}
+<tr>
+  <td>{{ o.date }}</td>
+  <td>{{ o.product or '—' }}</td>
+  <td>{{ o.amount|numfmt }} {{ o.currency }}</td>
+  <td>{{ o.status_title or o.status or '—' }}</td>
+  <td>{{ o.email or '—' }}</td>
+  <td>{{ {'incoming':'входящая','outgoing':'исходящая'}.get(o.direction, '—') }}</td>
+  <td>{{ {'new':'новичок','returning':'старичок'}.get(o.customer_status, '—') }}</td>
+  <td>{{ o.utm_source or '—' }}</td>
+</tr>
+{% else %}<tr><td colspan="8">Заказов пока нет — данные появятся после синхронизации.</td></tr>{% endfor %}
+</table>
 
 <div style="display:flex; gap:20px; flex-wrap:wrap;">
 <div style="flex:1; min-width:340px;">

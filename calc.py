@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """Математика: только обычные формулы. Нейросеть сюда не допускается."""
+import json
 from datetime import date, timedelta
 from sqlalchemy import func
 from db import db, MetricSnapshot, ContentItem, ContentStat, Registration, Channel
@@ -208,3 +209,53 @@ def top_flop(items, key, n=10):
     valid = [i for i in items if i.get(key) is not None]
     s = sorted(valid, key=lambda x: x[key], reverse=True)
     return s[:n], list(reversed(s[-n:])) if s else []
+
+
+def compare_best_worst(items, key="ERR", n=10):
+    """Сравнение содержания ТОП-n и худших-n материалов: длительность, рубрики,
+    CTA, форматы. Выводы строятся только из рассчитанных чисел."""
+    best, flop = top_flop(items, key, n)
+    if not best or not flop:
+        return "", best, flop
+
+    def stats(group):
+        durs = [i["item"].duration_sec for i in group if i["item"].duration_sec]
+        rubrics = {}
+        cta = formats = 0
+        for i in group:
+            tags = json.loads(i["item"].ai_tags or "{}")
+            r = tags.get("рубрика")
+            if r:
+                rubrics[r] = rubrics.get(r, 0) + 1
+            if tags.get("есть_регистрационный_CTA"):
+                cta += 1
+            if i["item"].format:
+                formats += 0  # считаем ниже по форматам
+        fmts = {}
+        for i in group:
+            f = i["item"].format
+            if f:
+                fmts[f] = fmts.get(f, 0) + 1
+        reach = sum(i.get("reach") or 0 for i in group) / len(group)
+        return {"dur": (sum(durs) / len(durs)) if durs else None,
+                "rubrics": rubrics, "cta_share": cta / len(group) * 100,
+                "formats": fmts, "avg_reach": reach}
+
+    sb, sf = stats(best), stats(flop)
+    L = []
+    if sb["dur"] and sf["dur"]:
+        rel = (sb["dur"] - sf["dur"]) / sf["dur"] * 100 if sf["dur"] else None
+        word = "длиннее" if rel and rel > 0 else "короче"
+        L.append(f"Лучшие материалы в среднем {abs(rel):.0f}% {word} по длительности "
+                 f"({sb['dur']:.0f}с против {sf['dur']:.0f}с).")
+    if sb["cta_share"] != sf["cta_share"]:
+        L.append(f"Регистрационный CTA стоит в {sb['cta_share']:.0f}% лучших против "
+                 f"{sf['cta_share']:.0f}% худших.")
+    top_r = max(sb["rubrics"].items(), key=lambda x: x[1]) if sb["rubrics"] else None
+    if top_r:
+        L.append(f"Среди лучших чаще всего рубрика «{top_r[0]}» ({top_r[1]} из {len(best)}).")
+    if sb["avg_reach"] and sf["avg_reach"]:
+        L.append(f"Средний охват лучшего материала — {sb['avg_reach']:,.0f} против "
+                 f"{sf['avg_reach']:,.0f} у худшего "
+                 f"(x{sb['avg_reach']/sf['avg_reach']:.1f}).".replace(",", " "))
+    return "\n".join("- " + x for x in L), best, flop

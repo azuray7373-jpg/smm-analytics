@@ -32,6 +32,15 @@ def configured():
     return bool(_key())
 
 
+def can_reach(timeout=8):
+    """Быстрая проверка сетевой доступности аккаунта ГК (для хостингов с прокси)."""
+    try:
+        requests.get(_base() + "/groups", params={"key": _key()}, timeout=timeout)
+        return True
+    except Exception:
+        return False
+
+
 def _get(path, params, timeout=90):
     r = requests.get(f"{_base()}/{path}", params={"key": _key(), **params}, timeout=timeout)
     try:

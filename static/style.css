@@ -35,3 +35,15 @@ summary { cursor:pointer; font-weight:600; }
 .muted { color:var(--muted); }
 li.warn { color:#ffce6b; } li.error { color:#ff6b81; }
 footer { color:var(--muted); text-align:center; padding:24px; font-size:12px; }
+
+/* --- v2 polish --- */
+.topnav a.active { color: #fff; background: #26314a; }
+.healthbar { display: flex; flex-wrap: wrap; gap: 8px 22px; background: var(--card);
+  border: 1px solid #232c42; border-radius: 10px; padding: 8px 14px; margin: 10px 0;
+  font-size: 13px; color: var(--muted); }
+.healthbar .warn { color: #ffce6b; }
+.btn.active-btn { outline: 2px solid var(--acc); }
+@media (max-width: 780px) {
+  .tbl { font-size: 12px; display: block; overflow-x: auto; }
+  .cards { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+}

@@ -30,6 +30,16 @@ def generate_report(rtype="weekly", anchor=None):
     payload = calc.period_report(start, end)
     content = calc.content_stats_for_period(start, end)
     payload["_top_content"] = content
+    compare_text, best, flop = calc.compare_best_worst(content, "ERR", 10)
+    payload["_compare_text"] = compare_text
+    payload["_best"] = best
+    payload["_flop"] = flop
+    try:
+        import comments as comments_mod
+        payload["_comments_text"] = comments_mod.digest_text(
+            comments_mod.digest(start, end))
+    except Exception:
+        payload["_comments_text"] = ""
 
     hist = weekly_history(6, end)
     anomalies = ai_analyst.detect_anomalies(hist)

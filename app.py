@@ -4,8 +4,9 @@ from datetime import date, datetime
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, Response
 
 from db import db, Channel, MetricSnapshot, ContentItem, ContentStat, Registration, \
-    ManualNote, Report, Notification, Setting, RunLog, get_setting, set_setting
-import calc, connectors, reports, seed, getcourse
+    ManualNote, Report, Notification, Setting, RunLog, get_setting, set_setting, \
+    Comment, GcOrder, GcPayment
+import calc, connectors, reports, seed, getcourse, comments as comments_mod
 
 IS_SERVERLESS = bool(os.environ.get("VERCEL"))
 
@@ -23,6 +24,24 @@ def _fromjson(s):
         return json.loads(s or "{}")
     except Exception:
         return {}
+
+
+@app.template_filter("numfmt")
+def _numfmt(v):
+    """1234567 -> '1 234 567'; None -> 'н/д'."""
+    if v is None:
+        return "н/д"
+    try:
+        return f"{float(v):,.0f}".replace(",", " ")
+    except (TypeError, ValueError):
+        return str(v)
+
+
+@app.template_filter("pctfmt")
+def _pctfmt(v, nd=2):
+    if v is None:
+        return "н/д"
+    return f"{v:.{nd}f}%".replace(".", ",")
 
 
 @app.route("/reports/view/<int:id>")
@@ -44,8 +63,24 @@ def inject_globals():
     if not period:
         import calc as _calc
         period = _calc.week_bounds(date.today())
+    # панель здоровья системы: последние запуски сборов/релея + вчерашние MISSING
+    health = {}
+    try:
+        yesterday = date.today() - __import__("datetime").timedelta(days=1)
+        health["missing"] = MetricSnapshot.query.filter(
+            MetricSnapshot.date == yesterday, MetricSnapshot.status == "MISSING").count()
+        last_collect = RunLog.query.filter(RunLog.kind == "daily_collect") \
+            .order_by(RunLog.started_at.desc()).first()
+        health["collect"] = last_collect.started_at.strftime("%d.%m %H:%M") if last_collect else "нет"
+        relay = RunLog.query.filter(RunLog.kind == "gc_relay") \
+            .order_by(RunLog.started_at.desc()).first()
+        health["relay"] = (relay.started_at.strftime("%d.%m %H:%M") + " (" + (relay.details or "") + ")") if relay else "нет"
+        health["gc_orders"] = GcOrder.query.count()
+        health["comments"] = Comment.query.count()
+    except Exception:
+        pass
     return {"channels": Channel.query.filter_by(is_active=True).all(),
-            "unread_notifications": unread, "period": period}
+            "unread_notifications": unread, "period": period, "health": health}
 
 
 # ---------------- Дашборд: 5 экранов ----------------
@@ -60,40 +95,84 @@ def overview():
                            report=_latest_report("weekly"))
 
 
+@app.route("/comments")
+def comments_screen():
+    """Экран 6. Комментарии: вопросы, боли, возражения, идеи (по ТЗ п.4)."""
+    d = _period_from_args()
+    dig = comments_mod.digest(*d)
+    recent = Comment.query.order_by(Comment.date.desc(), Comment.id.desc()).limit(50).all()
+    return render_template("comments.html", d=dig, recent=recent, period=d)
+
+
+@app.route("/comments/import", methods=["POST"])
+def comments_import():
+    f = request.files.get("file")
+    if not f or not f.filename:
+        flash("Файл не выбран")
+    else:
+        n = comments_mod.import_csv(f)
+        flash(f"Импортировано и классифицировано комментариев: {n}")
+    return redirect(url_for("comments_screen"))
+
+
 @app.route("/channels")
 def channels_screen():
-    """Экран 2. Каналы — сравнение 11 аккаунтов."""
+    """Экран 2. Каналы — сравнение 11 аккаунтов + динамика к прошлому периоду."""
     d = _period_from_args()
     rows = []
     for ch in Channel.query.filter_by(is_active=True).all():
         rows.append({"ch": ch, "p": calc.period_report(*d, ch.id)})
-    return render_template("channels.html", rows=rows, period=d)
+    chart = {"labels": [r["ch"].name for r in rows],
+             "reach": [r["p"]["agg"].get("reach") or 0 for r in rows],
+             "regs": [r["p"]["registrations"] for r in rows]}
+    return render_template("channels.html", rows=rows, period=d, chart=chart)
 
 
 @app.route("/content")
 def content_screen():
     """Экран 3. Контент — все материалы и их эффективность."""
     d = _period_from_args()
-    q = ContentItem.query
+    items = calc.content_stats_for_period(*d)
     f_platform = request.args.get("platform")
     f_format = request.args.get("format")
     f_rubric = request.args.get("rubric")
-    items = calc.content_stats_for_period(*d)
+    f_account = request.args.get("account")
+    f_type = request.args.get("type")      # продающий/экспертный/...
+    f_theme = request.args.get("theme")
+    f_search = (request.args.get("q") or "").strip().lower()
+    preset = request.args.get("preset")    # best/worst
+
     def match(it):
         ci = it["item"]
         tags = json.loads(ci.ai_tags or "{}")
         if f_platform and ci.channel.platform != f_platform: return False
         if f_format and ci.format != f_format: return False
         if f_rubric and tags.get("рубрика") != f_rubric: return False
+        if f_account and str(ci.channel_id) != f_account: return False
+        if f_type and tags.get("продающий_тип") != f_type: return False
+        if f_theme and f_theme.lower() not in (tags.get("тема") or "").lower(): return False
+        if f_search and f_search not in ((ci.title or "") + (ci.text or "")).lower(): return False
         return True
+
     items = [i for i in items if match(i)]
     sort = request.args.get("sort", "reach")
     items.sort(key=lambda x: (x.get(sort) if x.get(sort) is not None else -1), reverse=True)
+    if preset == "best":
+        items = sorted([i for i in items if i.get("ERR") is not None],
+                       key=lambda x: x["ERR"], reverse=True)[:10]
+    elif preset == "worst":
+        items = sorted([i for i in items if i.get("ERR") is not None],
+                       key=lambda x: x["ERR"])[:10]
+    compare_text, best, flop = calc.compare_best_worst(items if not preset else
+                                                       calc.content_stats_for_period(*d), "ERR", 10)
     rubrics = sorted({t.get("рубрика") for t in (json.loads(i["item"].ai_tags or "{}") for i in items) if t.get("рубрика")})
-    return render_template("content.html", items=items[:100], period=d, sort=sort,
+    types = sorted({t.get("продающий_тип") for t in (json.loads(i["item"].ai_tags or "{}") for i in items) if t.get("продающий_тип")})
+    return render_template("content.html", items=items[:200], period=d, sort=sort,
                            platforms=sorted({i["item"].channel.platform for i in items}),
                            formats=sorted({i["item"].format for i in items if i["item"].format}),
-                           rubrics=rubrics)
+                           rubrics=rubrics, types=types, compare=compare_text,
+                           preset=preset,
+                           total_matched=len(items))
 
 
 @app.route("/registrations")
@@ -122,7 +201,8 @@ def registrations_screen():
                         "reach": ch_reach, "CV": (v["count"] / ch_reach * 100) if ch_reach else None})
     return render_template("registrations.html", rows=cv_rows, total=total,
                            total_reach=total_reach,
-                           total_cv=total / total_reach * 100 if total_reach else None, period=d)
+                           total_cv=total / total_reach * 100 if total_reach else None, period=d,
+                           chart=_chart_series(*d))
 
 
 @app.route("/ai")
@@ -222,8 +302,30 @@ def getcourse_screen():
     if IS_SERVERLESS and getcourse.configured():
         step_status = getcourse.gc_status()
     f = getcourse.funnel(*d)
-    logs = RunLog.query.filter(RunLog.kind == "gc_sync").order_by(RunLog.started_at.desc()).limit(10).all()
-    return render_template("getcourse.html", f=f, period=d, logs=logs,
+    logs = RunLog.query.filter(RunLog.kind.in_(["gc_sync", "gc_relay"])) \
+        .order_by(RunLog.started_at.desc()).limit(10).all()
+    # динамика по дням: заказы и оплаты
+    from sqlalchemy import func as _f
+    days = []
+    cur = d[0]
+    from datetime import timedelta as _td
+    while cur <= d[1]:
+        days.append(cur.isoformat())
+        cur += _td(days=1)
+    o_by_day = dict(db.session.query(_f.date(GcOrder.date), _f.count(GcOrder.id))
+                    .filter(GcOrder.date >= d[0], GcOrder.date <= d[1]).group_by(GcOrder.date).all())
+    p_by_day = dict(db.session.query(_f.date(GcPayment.date), _f.count(GcPayment.id))
+                    .filter(GcPayment.date >= d[0], GcPayment.date <= d[1]).group_by(GcPayment.date).all())
+    s_by_day = dict(db.session.query(_f.date(GcPayment.date), _f.coalesce(_f.sum(GcPayment.amount), 0))
+                    .filter(GcPayment.date >= d[0], GcPayment.date <= d[1],
+                            GcPayment.status == "accepted").group_by(GcPayment.date).all())
+    chart = {"labels": days,
+             "orders": [o_by_day.get(x, 0) for x in days],
+             "payments": [p_by_day.get(x, 0) for x in days],
+             "sums": [s_by_day.get(x, 0) for x in days]}
+    recent_orders = GcOrder.query.order_by(GcOrder.created_at.desc().nullslast()).limit(20).all()
+    return render_template("getcourse.html", f=f, period=d, logs=logs, chart=chart,
+                           recent_orders=recent_orders,
                            configured=getcourse.configured(), step_status=step_status)
 
 
@@ -231,6 +333,12 @@ def getcourse_screen():
 def getcourse_sync():
     if not getcourse.configured():
         flash("Не задан API-ключ GetCourse (экран «Настройки»)")
+        return redirect(url_for("getcourse_screen"))
+    if not getcourse.can_reach():
+        flash("⚠ Прямой доступ к syrover.com с этого хостинга закрыт (ограничение бесплатного "
+              "тарифа PythonAnywhere). Данные доставляет релей GitHub Actions по расписанию "
+              "4 раза в сутки; запустить вручную: GitHub → репозиторий smm-analytics → "
+              "Actions → GetCourse sync relay → Run workflow.")
         return redirect(url_for("getcourse_screen"))
     if IS_SERVERLESS:
         status = getcourse.gc_run_steps(seconds=35)

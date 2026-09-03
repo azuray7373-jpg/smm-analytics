@@ -10,16 +10,18 @@
 <body>
 <nav class="topnav">
   <div class="brand">📊 SMM Аналитика</div>
-  <a href="{{ url_for('overview') }}">Всё вместе</a>
-  <a href="{{ url_for('channels_screen') }}">Каналы</a>
-  <a href="{{ url_for('content_screen') }}">Контент</a>
-  <a href="{{ url_for('registrations_screen') }}">Регистрации</a>
-  <a href="{{ url_for('getcourse_screen') }}">GetCourse</a>
-  <a href="{{ url_for('ai_screen') }}">AI-аналитика</a>
-  <a href="{{ url_for('reports_list') }}">Отчёты</a>
-  <a href="{{ url_for('import_csv') }}">Импорт</a>
-  <a href="{{ url_for('manual') }}">Ручной ввод</a>
-  <a href="{{ url_for('settings') }}">Настройки</a>
+  {% set path = request.path %}
+  <a href="{{ url_for('overview') }}" class="{{ 'active' if path == '/' }}">Всё вместе</a>
+  <a href="{{ url_for('channels_screen') }}" class="{{ 'active' if path.startswith('/channels') }}">Каналы</a>
+  <a href="{{ url_for('content_screen') }}" class="{{ 'active' if path.startswith('/content') }}">Контент</a>
+  <a href="{{ url_for('registrations_screen') }}" class="{{ 'active' if path.startswith('/registrations') }}">Регистрации</a>
+  <a href="{{ url_for('getcourse_screen') }}" class="{{ 'active' if path.startswith('/getcourse') }}">GetCourse</a>
+  <a href="{{ url_for('comments_screen') }}" class="{{ 'active' if path.startswith('/comments') }}">Комментарии</a>
+  <a href="{{ url_for('ai_screen') }}" class="{{ 'active' if path.startswith('/ai') }}">AI-аналитика</a>
+  <a href="{{ url_for('reports_list') }}" class="{{ 'active' if path.startswith('/reports') }}">Отчёты</a>
+  <a href="{{ url_for('import_csv') }}" class="{{ 'active' if path.startswith('/import') }}">Импорт</a>
+  <a href="{{ url_for('manual') }}" class="{{ 'active' if path.startswith('/manual') }}">Ручной ввод</a>
+  <a href="{{ url_for('settings') }}" class="{{ 'active' if path.startswith('/settings') }}">Настройки</a>
   <a href="{{ url_for('notifications') }}" class="bell">🔔{% if unread_notifications %} ({{ unread_notifications }}){% endif %}</a>
 </nav>
 <main>
@@ -27,16 +29,28 @@
   {% for m in msgs %}<div class="flash">{{ m }}</div>{% endfor %}
 {% endwith %}
 
+{% if health is defined and health %}
+<div class="healthbar">
+  <span>🟢 Сбор: {{ health.collect or '—' }}</span>
+  <span>🔁 Релей ГК: {{ health.relay or '—' }}</span>
+  {% if health.missing %}<span class="warn">⚠ MISSING за вчера: {{ health.missing }}</span>{% endif %}
+  <span>💬 Комментарии: {{ health.comments or 0 }}</span>
+  <span>🛒 Заказов в базе: {{ health.gc_orders or 0 }}</span>
+</div>
+{% endif %}
+
 <form class="filters" method="get">
   <label>Начало <input type="date" name="start" value="{{ period[0] }}"></label>
   <label>Конец <input type="date" name="end" value="{{ period[1] }}"></label>
   <button>Применить</button>
   <a class="btn" href="?preset=week">Неделя</a>
   <a class="btn" href="?preset=month">Месяц</a>
+  {% if request.path == '/' %}
   <button type="submit" formaction="{{ url_for('collect') }}" formmethod="post">▶ Собрать данные сейчас</button>
+  {% endif %}
 </form>
 
 {% block content %}{% endblock %}
 </main>
-<footer>Показатели рассчитываются из абсолютных данных; AI получает только рассчитанные числа.</footer>
+<footer>Схема по ТЗ: источники → сырые данные → база → расчёты → проверки → нейросеть → выводы. AI не считает цифры.</footer>
 </body></html>

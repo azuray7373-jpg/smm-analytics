@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>🎬 {{ ci.title or '(без названия)' }} <small>{{ ci.format }} · {{ ci.channel.platform }} — {{ ci.channel.name }}</small></h1>
+<p><a href="{{ ci.link }}" target="_blank">Открыть материал ↗</a> · опубликован {{ ci.published_at }} {% if ci.duration_sec %}· длительность {{ ci.duration_sec }}с{% endif %}</p>
+
+<div class="cards">
+  <div class="card" title="Суммарный охват"><h3>👁 Охват</h3><div class="big">{{ tot.reach|numfmt }}</div></div>
+  <div class="card" title="Просмотры"><h3>▶️ Просмотры</h3><div class="big">{{ tot.views|numfmt }}</div></div>
+  <div class="card" title="Взаимодействия / Охват × 100"><h3>⚡ ERR</h3><div class="big">{{ err|pctfmt }}</div></div>
+  <div class="card" title="Регистрации / Охват × 100"><h3>🎯 CV</h3><div class="big">{{ cv|pctfmt(3) }}</div></div>
+  <div class="card"><h3>📝 Регистрации</h3><div class="big">{{ tot.registrations|numfmt }}</div></div>
+  <div class="card"><h3>👥 Подписки</h3><div class="big">{{ tot.subs|numfmt }}</div></div>
+  <div class="card"><h3>❤️ Взаимодействия</h3><div class="big">{{ inter|numfmt }}</div></div>
+</div>
+
+<h2>AI-разметка</h2>
+<div class="aireport">
+<table class="tbl">
+<tr><th>Тема</th><th>Рубрика</th><th>Тип</th><th>Боль</th><th>Сегмент</th><th>Триггер</th><th>Оффер</th><th>Рег. CTA</th></tr>
+<tr>
+  <td style="white-space:normal; max-width:260px;">{{ tags.get('тема', '—') }}</td>
+  <td>{{ tags.get('рубрика', '—') }}</td>
+  <td>{{ tags.get('продающий_тип', '—') }}</td>
+  <td>{{ tags.get('боль', '—') }}</td>
+  <td>{{ tags.get('сегмент', '—') }}</td>
+  <td>{{ tags.get('эмоциональный_триггер', '—') }}</td>
+  <td>{{ '✅' if tags.get('есть_оффер') else '—' }}</td>
+  <td>{{ '✅' if tags.get('есть_регистрационный_CTA') else '—' }}</td>
+</tr>
+</table>
+</div>
+
+<h2>Текст</h2>
+<div class="aireport" style="white-space:pre-wrap;">{{ ci.text or '—' }}</div>
+
+{% if chart.labels %}
+<h2>Накопительная динамика</h2>
+<canvas id="itemChart" height="55"></canvas>
+<script>
+new Chart(document.getElementById('itemChart'), {
+  type: 'line',
+  data: { labels: {{ chart.labels|tojson }},
+    datasets: [{ label: 'Охват (накопл.)', data: {{ chart.reach|tojson }}, tension: .3 },
+               { label: 'Регистрации', data: {{ chart.regs|tojson }}, yAxisID: 'y1', tension: .3 }]},
+  options: { scales: { y: { position: 'left' }, y1: { position: 'right', grid: { drawOnChartArea: false } } } }
+});
+</script>
+{% endif %}
+
+<h2>Статистика по дням</h2>
+<table class="tbl">
+<tr><th>Дата</th><th>Просмотры</th><th>Охват</th><th>Лайки</th><th>Коммент.</th><th>Сохран.</th><th>Репосты</th><th>Подписки</th><th>Регистр.</th></tr>
+{% for s in stats|reverse %}
+<tr><td>{{ s.date }}</td><td>{{ s.views|numfmt }}</td><td>{{ s.reach|numfmt }}</td>
+<td>{{ s.likes|numfmt }}</td><td>{{ s.comments|numfmt }}</td><td>{{ s.saves|numfmt }}</td>
+<td>{{ s.shares|numfmt }}</td><td>{{ s.subs|numfmt }}</td><td>{{ s.registrations|numfmt }}</td></tr>
+{% endfor %}
+</table>
+{% endblock %}

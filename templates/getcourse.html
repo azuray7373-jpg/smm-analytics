@@ -58,6 +58,18 @@ new Chart(document.getElementById('gcChart'), {
 });
 </script>
 
+{% if cohorts %}
+<h2>🔄 Удержание новичков (когорты)</h2>
+<table class="tbl">
+<tr><th>Месяц первого заказа</th><th>Новичков</th><th>Повторили в 30 дней</th><th>% удержания</th></tr>
+{% for c in cohorts %}
+<tr><td>{{ c.month }}</td><td>{{ c.new|numfmt }}</td><td>{{ c.repeated|numfmt }}</td>
+<td>{% if c.pct is not none %}<span class="cellbar"><i style="width: {{ [c.pct * 2, 100]|min|int }}%"></i><span>{{ '%.1f'|format(c.pct) }}%</span></span>{% else %}—{% endif %}</td></tr>
+{% endfor %}
+</table>
+<p class="muted">Новичок = первый заказ контакта в этом месяце; удержание = оформил ещё заказ в течение 30 дней.</p>
+{% endif %}
+
 <h2>Последние заказы</h2>
 <table class="tbl">
 <tr><th>Дата</th><th>Продукт</th><th>Сумма</th><th>Статус</th><th>Клиент</th><th>Направление</th><th>Новичок?</th><th>UTM source</th></tr>

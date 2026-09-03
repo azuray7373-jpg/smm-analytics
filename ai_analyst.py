@@ -322,3 +322,65 @@ def controller_check(payload, report_text):
     if not issues:
         return "Проверка пройдена: несоответствий не найдено."
     return "\n".join("⚠ " + i for i in issues)
+
+
+def generate_content_plan(start, end):
+    """AI контент-план недели строго из данных: топ-рубрики/форматы, боли аудитории,
+    лучшие слоты, рабочие UTM. Возвращает структурированный markdown."""
+    import calc, comments as cm, utm as utm_mod
+    items = calc.content_stats_for_period(start, end)
+    cmp_text, best, flop = calc.compare_best_worst(items, "ERR", 10)
+    dig = cm.digest(start, end)
+    utm_br = utm_mod.breakdown(start, end)
+    top_rub = {}
+    for i in items:
+        tags = json.loads(i["item"].ai_tags or "{}")
+        r = tags.get("рубрика")
+        if r:
+            a = top_rub.setdefault(r, {"n": 0, "regs": 0, "err": []})
+            a["n"] += 1
+            a["regs"] += i.get("registrations") or 0
+            if i.get("ERR") is not None:
+                a["err"].append(i["ERR"])
+    top_rub = sorted(((k, v) for k, v in top_rub.items()),
+                     key=lambda x: -(sum(x[1]["err"]) / len(x[1]["err"]) if x[1]["err"] else 0))[:5]
+    mediums = sorted(((m, v) for m, v in utm_br["by_medium"].items() if v["regs"] > 0),
+                     key=lambda x: -x[1]["regs"])[:3]
+    funnels = {f: v for f, v in utm_br["by_funnel"].items() if f != "Прочее"}
+    facts = {
+        "top_rubrics_by_err": [{"рубрика": k, "материалов": v["n"],
+                                "средний_ERR": round(sum(v["err"]) / len(v["err"]), 2) if v["err"] else None}
+                               for k, v in top_rub],
+        "best_vs_worst": cmp_text,
+        "top_pains": [c.text[:100] for c in dig["pains"][:5]],
+        "top_questions": [c.text[:100] for c in dig["questions"][:5]],
+        "ideas_from_audience": [c.text[:100] for c in dig["ideas"][:5]],
+        "best_mediums": [{"medium": m, "regs": v["regs"], "orders": v["orders"]} for m, v in mediums],
+        "funnels": {f: {"regs": v["regs"], "orders": v["orders"]} for f, v in funnels.items()},
+    }
+    prompt = (
+        "Ты SMM-стратег школы сыроделия. Составь контент-план на следующую неделю: РОВНО 7 идей. "
+        "Для каждой: тема, формат (reels/post/story), день недели и час (из лучших слотов), CTA, "
+        "рекомендуемая UTM-метка (source из наших: insta-alexey/insta-dina/telegram/max/youtube/"
+        "vkontakte/ticktock/dzen; campaign: openlesson/otvety/autoweb; medium из: post/canal-anons/"
+        "bot/story/taplink/gayd), и обоснование одной строкой — почему именно это (ссылка на цифру из данных).\n"
+        "Правила: используй ТОЛЬКО факты из JSON; каких данных нет — не выдумывай; "
+        "в конце добавь блок 'Чего избегать' (2 пункта из худших материалов) "
+        "и 'Метки для ссылок' (какие source+medium дали больше регистраций).\n"
+        f"Данные за период {start}—{end}:\n" + json.dumps(facts, ensure_ascii=False, indent=1))
+    llm = _call_llm(SYSTEM, prompt)
+    if llm:
+        return llm
+    # эвристический план без LLM
+    L = ["### Контент-план (встроенный аналитик, без LLM)"]
+    for k, v in top_rub:
+        avg = sum(v["err"]) / len(v["err"]) if v["err"] else 0
+        L.append(f"- Усилить рубрику «{k}» (средний ERR {avg:.2f}%, {v['regs']} регистраций)")
+    for c in dig["pains"][:3]:
+        L.append(f"- Закрыть боль: «{c.text[:80]}»")
+    for c in dig["ideas"][:3]:
+        L.append(f"- Идея от аудитории: «{c.text[:80]}»")
+    if mediums:
+        L.append(f"- Основной канал размещений: {mediums[0][0]} ({mediums[0][1]['regs']} рег.)")
+    L.append("- Чего избегать: см. «Худшие 10» на экране Контент.")
+    return chr(10).join(L)

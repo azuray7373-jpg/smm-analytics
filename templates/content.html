@@ -95,7 +95,7 @@
   <td>{{ i.item.published_at.strftime('%d.%m') if i.item.published_at }}</td>
   <td>{{ i.item.channel.name }}</td>
   <td>{{ i.item.format }}</td>
-  <td><a href="{{ i.item.link }}" target="_blank">{{ i.item.title or '(без названия)' }}</a></td>
+  <td><a href="{{ url_for('content_item', item_id=i.item.id) }}">{{ i.item.title or '(без названия)' }}</a> <a class="muted" href="{{ i.item.link }}" target="_blank">↗</a></td>
   <td>{{ tags.get('рубрика', '—') }}</td>
   <td>{{ tags.get('продающий_тип', '—') }}</td>
   <td>{{ tags.get('есть_регистрационный_CTA') and '✅' or '—' }}</td>

@@ -11,6 +11,10 @@
     <input type="hidden" name="anchor" value="{{ period[1] }}">
     <button>✨ Сформировать вывод недели</button>
   </form>
+  <form method="post" action="{{ url_for('ai_plan') }}">
+    <input type="hidden" name="anchor" value="{{ period[1] }}">
+    <button>🗓 Сгенерировать контент-план недели</button>
+  </form>
   <form method="post" action="{{ url_for('generate') }}">
     <input type="hidden" name="rtype" value="monthly">
     <input type="hidden" name="anchor" value="{{ period[1] }}">
@@ -28,6 +32,16 @@
 {% endfor %}
 </ul>
 {% else %}<p class="muted">Аномалий не обнаружено.</p>{% endif %}
+
+{% if plans %}
+<h2>Планы недели (AI, на основе данных)</h2>
+{% for r in plans %}
+<details {% if loop.first %}open{% endif %}>
+  <summary>Неделя {{ r.start }} — {{ r.end }}</summary>
+  <div class="aireport">{{ r.ai_text | mdfmt | safe }}</div>
+</details>
+{% endfor %}
+{% endif %}
 
 <h2>Недельные выводы</h2>
 {% for r in weekly %}

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>💰 Расходы и ROI <small>({{ period[0] }} — {{ period[1] }})</small></h1>
+<div class="cards">
+  <div class="card"><h3>💸 Расходы за период</h3><div class="big">{{ total_spend|numfmt }} ₽</div></div>
+  <div class="card"><h3>💵 Оплаты (принятые)</h3><div class="big">{{ total_pay|numfmt }} ₽</div></div>
+  <div class="card"><h3>📈 Общий ROI</h3>
+    {% if total_roi is not none %}
+    <div class="big" style="color: {{ '#34d399' if total_roi >= 0 else '#fb7185' }}">{{ '%+.0f'|format(total_roi) }}%</div>
+    {% else %}<div class="big muted">н/д</div><span class="badge na">внесите расходы</span>{% endif %}</div>
+</div>
+
+<h2>По платформам</h2>
+<table class="tbl">
+<tr><th>Платформа</th><th>Расходы, ₽</th><th>Оплаты, ₽</th><th>ROI</th><th>Вывод</th></tr>
+{% for r in roi %}
+<tr>
+  <td>{{ {'instagram':'📸','youtube':'▶️','telegram':'✈️','vk':'🔵','tiktok':'🎵','dzen':'◉','max':'💬'}.get(r.platform, '📡') }} {{ r.platform }}</td>
+  <td>{{ r.spend|numfmt }}</td><td>{{ r.payments|numfmt }}</td>
+  <td>{% if r.roi is not none %}<span class="badge {{ 'up' if r.roi >= 0 else 'down' }}">{{ '%+.0f'|format(r.roi) }}%</span>{% else %}<span class="badge na">нет расходов</span>{% endif %}</td>
+  <td class="muted" style="white-space:normal;">{% if r.roi is none %}{{ 'окупается без вложений' if r.payments else 'нет данных' }}{% elif r.roi >= 100 %}масштабировать вложения{% elif r.roi >= 0 %}окупается, следить{% else %}пересмотреть связку{% endif %}</td>
+</tr>
+{% else %}<tr><td colspan="5">Данных пока нет.</td></tr>{% endfor %}
+</table>
+<p class="muted">Оплаты атрибутируются платформе через utm_source заказов GetCourse. Расходы вносите вручную — реклама, продюсер, интеграции.</p>
+
+<h2>Добавить расход</h2>
+<form method="post" class="form-card">
+  <div class="fgrid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
+    <div class="field"><label>Канал</label>
+      <select name="channel_id" required>{% for c in channels %}<option value="{{ c.id }}">{{ c.platform }} — {{ c.name }}</option>{% endfor %}</select></div>
+    <div class="field"><label>Дата</label><input type="date" name="date" value="{{ period[1] }}" required></div>
+    <div class="field"><label>Сумма, ₽</label><input name="amount" inputmode="decimal" required></div>
+    <div class="field" style="grid-column:1/-1"><label>Комментарий</label><input name="note" placeholder="таргет ВК, продюсер…"></div>
+  </div>
+  <div class="form-actions"><button>➕ Добавить</button></div>
+</form>
+
+<h2>Последние расходы</h2>
+<table class="tbl">
+<tr><th>Дата</th><th>Канал</th><th>Сумма, ₽</th><th>Комментарий</th><th></th></tr>
+{% for s in recent %}
+<tr><td>{{ s.date }}</td><td>{{ s.channel.platform }} — {{ s.channel.name }}</td>
+<td>{{ s.amount|numfmt }}</td><td>{{ s.note or '—' }}</td>
+<td><form method="post"><input type="hidden" name="delete" value="{{ s.id }}"><button>🗑</button></form></td></tr>
+{% else %}<tr><td colspan="5">Расходов пока нет.</td></tr>{% endfor %}
+</table>
+{% endblock %}

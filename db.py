@@ -241,3 +241,15 @@ class Goal(db.Model):
     end = db.Column(db.Date, nullable=False)
     note = db.Column(db.String(255))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class Spend(db.Model):
+    """Расходы на продвижение канала (реклама, продюсирование) — для расчёта ROI."""
+    __tablename__ = "spends"
+    id = db.Column(db.Integer, primary_key=True)
+    channel_id = db.Column(db.Integer, db.ForeignKey("channels.id"), index=True)
+    channel = db.relationship("Channel")
+    date = db.Column(db.Date, index=True)
+    amount = db.Column(db.Float, nullable=False)
+    note = db.Column(db.String(255))
+    source = db.Column(db.String(16), default="manual")

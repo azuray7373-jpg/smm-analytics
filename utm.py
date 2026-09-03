@@ -109,3 +109,57 @@ def breakdown(start: date, end: date):
                "sources": [s for s in SOURCES if s not in ns]}
     return {"by_funnel": dict(by_funnel), "by_medium": dict(by_medium),
             "by_source": dict(by_source), "missing": missing}
+
+
+def payments_by_platform(start, end):
+    """Принятые оплаты по платформам (через utm_source заказов)."""
+    from db import GcPayment, GcOrder
+    from sqlalchemy import func as _f
+    rows = (db.session.query(GcOrder.utm_source,
+                             _f.coalesce(_f.sum(GcPayment.amount), 0))
+            .join(GcPayment, GcPayment.deal_id == GcOrder.id)
+            .filter(GcPayment.date >= start, GcPayment.date <= end,
+                    GcPayment.status == "accepted")
+            .group_by(GcOrder.utm_source).all())
+    out = {}
+    for src, amount in rows:
+        plat = SOURCE_TO_PLATFORM.get((src or "").lower())
+        key = plat or "без метки"
+        out[key] = out.get(key, 0) + (amount or 0)
+    return out
+
+
+def retention_cohorts(months=6):
+    """Когорты новичков: % совершивших повторный заказ в течение 30 дней."""
+    from db import GcOrder
+    from sqlalchemy import func as _f
+    from collections import defaultdict
+    first_order = {}
+    q = GcOrder.query.filter(GcOrder.created_at.isnot(None)).order_by(GcOrder.created_at)
+    orders_by_user = defaultdict(list)
+    for o in q.all():
+        key = o.user_id or (o.email or "").lower()
+        if key:
+            orders_by_user[key].append(o.created_at)
+    cohorts = {}
+    for key, times in orders_by_user.items():
+        times = sorted(times)
+        m = (times[0].year, times[0].month)
+        repeat30 = any(0 < (t - times[0]).total_seconds() <= 30 * 86400 for t in times[1:])
+        c = cohorts.setdefault(m, {"new": 0, "repeated": 0})
+        c["new"] += 1
+        c["repeated"] += 1 if repeat30 else 0
+    out = []
+    from datetime import date as _date
+    today = _date.today()
+    y, mth = today.year, today.month
+    for _ in range(months):
+        label = f"{mth:02d}.{y}"
+        c = cohorts.get((y, mth))
+        out.append({"month": label, "new": c["new"] if c else 0,
+                    "repeated": c["repeated"] if c else 0,
+                    "pct": (c["repeated"] / c["new"] * 100) if c and c["new"] else None})
+        mth -= 1
+        if mth == 0:
+            mth, y = 12, y - 1
+    return list(reversed(out))

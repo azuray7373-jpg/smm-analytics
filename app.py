@@ -5,7 +5,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, jso
 
 from db import db, Channel, MetricSnapshot, ContentItem, ContentStat, Registration, \
     ManualNote, Report, Notification, Setting, RunLog, get_setting, set_setting, \
-    Comment, GcOrder, GcPayment
+    Comment, GcOrder, GcPayment, Spend
 import calc, connectors, reports, seed, getcourse, comments as comments_mod, livedune
 
 IS_SERVERLESS = bool(os.environ.get("VERCEL"))
@@ -422,10 +422,11 @@ def ai_screen():
     """Экран 5. AI-аналитика."""
     weekly = Report.query.filter_by(rtype="weekly").order_by(Report.end.desc()).all()
     monthly = Report.query.filter_by(rtype="monthly").order_by(Report.end.desc()).all()
+    plans = Report.query.filter_by(rtype="plan").order_by(Report.end.desc()).limit(4).all()
     anomalies = [n for n in Notification.query.filter(Notification.level == "warn").order_by(Notification.created_at.desc()).limit(20)]
     model = get_setting("ai_model") if get_setting("ai_api_key") else ""
     return render_template("ai.html", weekly=weekly, monthly=monthly, anomalies=anomalies,
-                           values_model=model)
+                           plans=plans, values_model=model)
 
 
 # ---------------- Отчёты и операции ----------------
@@ -620,6 +621,52 @@ def goals_screen():
                            labels=METRIC_LABELS)
 
 
+@app.route("/spends", methods=["GET", "POST"])
+def spends_screen():
+    """Расходы на каналы и ROI: окупает ли канал себя (фича уровня сквозной аналитики)."""
+    from db import Spend as _S
+    if request.method == "POST":
+        if request.form.get("delete"):
+            sp = _S.query.get(int(request.form["delete"]))
+            if sp:
+                db.session.delete(sp)
+                db.session.commit()
+            return redirect(url_for("spends_screen"))
+        from datetime import datetime as _dt
+        try:
+            db.session.add(_S(
+                channel_id=int(request.form["channel_id"]),
+                date=_dt.strptime(request.form["date"], "%Y-%m-%d").date(),
+                amount=float(str(request.form["amount"]).replace(" ", "").replace(",", ".")),
+                note=request.form.get("note", "")))
+            db.session.commit()
+            flash("Расход добавлен.")
+        except Exception as e:
+            flash(f"Ошибка: {e}")
+        return redirect(url_for("spends_screen"))
+    d = _period_from_args()
+    import utm as utm_mod
+    from sqlalchemy import func as _f
+    pays = utm_mod.payments_by_platform(*d)
+    spend_rows = (db.session.query(Channel.platform, _f.coalesce(_f.sum(_S.amount), 0))
+                  .join(_S, _S.channel_id == Channel.id)
+                  .filter(_S.date >= d[0], _S.date <= d[1])
+                  .group_by(Channel.platform).all())
+    spends = {p: a for p, a in spend_rows}
+    roi = []
+    for plat in sorted(set(pays) | set(spends)):
+        sp = spends.get(plat, 0)
+        pa = pays.get(plat, 0)
+        roi.append({"platform": plat, "spend": sp, "payments": pa,
+                    "roi": ((pa - sp) / sp * 100) if sp else None})
+    recent = _S.query.order_by(_S.date.desc()).limit(30).all()
+    total_spend = sum(r[1] for r in spend_rows)
+    total_pay = sum(pays.values())
+    return render_template("spends.html", roi=roi, recent=recent, period=d,
+                           total_spend=total_spend, total_pay=total_pay,
+                           total_roi=((total_pay - total_spend) / total_spend * 100) if total_spend else None)
+
+
 @app.route("/calendar")
 def calendar_screen():
     """Контент-календарь: месяц публикаций с эффективностью (фича Metricool)."""
@@ -656,6 +703,25 @@ def calendar_screen():
     return render_template("calendar.html", grid=grid, by_day=by_day,
                            month_title=f"{RU_MONTHS[m - 1]} {y}".capitalize(),
                            prev_m=prev_m, next_m=next_m, today=date.today())
+
+
+@app.route("/content_item/<int:item_id>")
+def content_item(item_id):
+    """Полная карточка материала: теги AI, статистика, динамика, ссылки."""
+    ci = ContentItem.query.get_or_404(item_id)
+    stats = ContentStat.query.filter_by(content_id=item_id).order_by(ContentStat.date).all()
+    tot = {k: sum(getattr(s_, k) or 0 for s_ in stats)
+           for k in ("views", "reach", "likes", "comments", "saves", "shares",
+                     "reactions", "subs", "registrations")}
+    inter = tot["likes"] + tot["comments"] + tot["saves"] + tot["shares"] + tot["reactions"]
+    err = inter / tot["reach"] * 100 if tot["reach"] else None
+    cv = tot["registrations"] / tot["reach"] * 100 if tot["reach"] else None
+    chart = {"labels": [s_.date.isoformat() for s_ in stats],
+             "reach": [s_.reach or 0 for s_ in stats],
+             "regs": [s_.registrations or 0 for s_ in stats]}
+    return render_template("content_item.html", ci=ci, stats=stats, tot=tot,
+                           err=err, cv=cv, inter=inter, chart=chart,
+                           tags=json.loads(ci.ai_tags or "{}"))
 
 
 @app.route("/utm")
@@ -898,8 +964,10 @@ def getcourse_screen():
              "payments": [p_by_day.get(x, 0) for x in days],
              "sums": [s_by_day.get(x, 0) for x in days]}
     recent_orders = GcOrder.query.order_by(GcOrder.created_at.desc().nullslast()).limit(20).all()
+    import utm as utm_mod
+    cohorts = utm_mod.retention_cohorts(6)
     return render_template("getcourse.html", f=f, period=d, logs=logs, chart=chart,
-                           recent_orders=recent_orders,
+                           recent_orders=recent_orders, cohorts=cohorts,
                            configured=getcourse.configured(), step_status=step_status)
 
 
@@ -1061,6 +1129,24 @@ def gc_webhook():
         db.session.add(Notification(level="error", message=f"Ошибка вебхука ГК: {e}"))
         db.session.commit()
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/ai/plan", methods=["POST"])
+def ai_plan():
+    """Сгенерировать контент-план следующей недели на основе данных."""
+    import ai_analyst
+    from datetime import timedelta as _td
+    anchor = datetime.strptime(request.form.get("anchor", date.today().isoformat()), "%Y-%m-%d").date()
+    s_, e_ = calc.week_bounds(anchor)
+    ps, pe = s_ - _td(days=7), e_ - _td(days=7)   # база — прошлая полная неделя
+    text = ai_analyst.generate_content_plan(ps, pe)
+    from db import Report
+    r = Report.query.filter_by(rtype="plan", start=s_, end=e_).first() or         Report(rtype="plan", start=s_, end=e_)
+    r.ai_text = text
+    db.session.add(r)
+    db.session.commit()
+    flash("Контент-план на неделю готов — раздел «Планы недели» ниже.")
+    return redirect(url_for("ai_screen"))
 
 
 @app.route("/ai/reclassify", methods=["POST"])

@@ -111,6 +111,7 @@ def breakdown(start: date, end: date):
             "by_source": dict(by_source), "missing": missing}
 
 
+@_ttl(300)
 def payments_by_platform(start, end):
     """Принятые оплаты по платформам (через utm_source заказов)."""
     from db import GcPayment, GcOrder
@@ -129,6 +130,7 @@ def payments_by_platform(start, end):
     return out
 
 
+@_ttl(600)
 def retention_cohorts(months=6):
     """Когорты новичков: % совершивших повторный заказ в течение 30 дней."""
     from db import GcOrder

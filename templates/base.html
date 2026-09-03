@@ -6,26 +6,39 @@
 <title>SMM Аналитика</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script>
+(function(){
+  if (localStorage.getItem('theme') === 'light')
+    document.documentElement.setAttribute('data-theme', 'light');
+})();
+function toggleTheme(){
+  var el = document.documentElement;
+  var light = el.getAttribute('data-theme') === 'light';
+  if (light) { el.removeAttribute('data-theme'); localStorage.setItem('theme','dark'); }
+  else { el.setAttribute('data-theme','light'); localStorage.setItem('theme','light'); }
+  document.getElementById('themeIcon').textContent = light ? '🌙' : '☀️';
+}
+</script>
+</head>
+<body>
 <div id="loadbar" style="position:fixed;top:0;left:0;height:3px;width:0;
-     background:linear-gradient(90deg,#5b8cff,#7c5bff);z-index:99;transition:width .3s"></div>
+     background:linear-gradient(90deg,#5b8cff,#8b5cf6,#22d3ee);z-index:99;transition:width .3s"></div>
 <script>
 document.addEventListener('click', function(e){
   var a = e.target.closest('a[href]:not([href^="#"]):not([target])');
   if(!a) return;
-  var bar = document.getElementById('loadbar');
-  bar.style.width = '70%';
+  document.getElementById('loadbar').style.width = '70%';
 });
 window.addEventListener('pageshow', function(){
-  document.getElementById('loadbar').style.width = '100%';
-  setTimeout(function(){ var b=document.getElementById('loadbar'); b.style.transition='none'; b.style.width='0';
+  var b = document.getElementById('loadbar');
+  b.style.width = '100%';
+  setTimeout(function(){ b.style.transition='none'; b.style.width='0';
     setTimeout(function(){ b.style.transition='width .3s'; },50); }, 150);
 });
 window.addEventListener('beforeunload', function(){
   document.getElementById('loadbar').style.width = '70%';
 });
 </script>
-</head>
-<body>
 <nav class="topnav">
   <div class="brand">📊 SMM Аналитика</div>
   {% set path = request.path %}
@@ -41,6 +54,7 @@ window.addEventListener('beforeunload', function(){
   <a href="{{ url_for('import_csv') }}" class="{{ 'active' if path.startswith('/import') }}">⬆️ Импорт</a>
   <a href="{{ url_for('manual') }}" class="{{ 'active' if path.startswith('/manual') }}">✍️ Ручной ввод</a>
   <a href="{{ url_for('settings') }}" class="{{ 'active' if path.startswith('/settings') }}">⚙️ Настройки</a>
+  <button class="theme-btn" onclick="toggleTheme()" title="Светлая/тёмная тема"><span id="themeIcon">🌙</span></button>
   <a href="{{ url_for('notifications') }}" class="bell">🔔{% if unread_notifications %} ({{ unread_notifications }}){% endif %}</a>
 </nav>
 <main>
@@ -63,14 +77,28 @@ window.addEventListener('beforeunload', function(){
   <label>Начало <input type="date" name="start" value="{{ period[0] }}"></label>
   <label>Конец <input type="date" name="end" value="{{ period[1] }}"></label>
   <button>Применить</button>
-  <a class="btn" href="?preset=week">Неделя</a>
-  <a class="btn" href="?preset=month">Месяц</a>
+  <a class="chip" href="?preset=week">Неделя</a>
+  <a class="chip" href="?preset=7d">7 дней</a>
+  <a class="chip" href="?preset=30d">30 дней</a>
+  <a class="chip" href="?preset=month">Этот месяц</a>
+  <a class="chip" href="?preset=prevmonth">Прошлый месяц</a>
   {% if request.path == '/' %}
-  <button type="submit" formaction="{{ url_for('collect') }}" formmethod="post">▶ Собрать данные сейчас</button>
+  <button type="submit" formaction="{{ url_for('collect') }}" formmethod="post">▶ Собрать данные</button>
   {% endif %}
 </form>
 
 {% block content %}{% endblock %}
 </main>
-<footer>Схема по ТЗ: источники → сырые данные → база → расчёты → проверки → нейросеть → выводы. AI не считает цифры.{% if render_ms is not none %} Страница отрисована за {{ render_ms }} мс.{% endif %}</footer>
+<footer>Схема по ТЗ: источники → база → расчёты → проверки → нейросеть → выводы. AI не считает цифры.{% if render_ms is not none %} Страница отрисована за {{ render_ms }} мс.{% endif %}</footer>
+<script>
+if (window.Chart) {
+  Chart.defaults.color = '#93a0b8';
+  Chart.defaults.font.family = 'Inter, Segoe UI, system-ui';
+  Chart.defaults.borderColor = 'rgba(147,160,184,.12)';
+  Chart.defaults.plugins.legend.labels.boxWidth = 12;
+  Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(11,16,28,.95)';
+  Chart.defaults.plugins.tooltip.padding = 10;
+  Chart.defaults.plugins.tooltip.cornerRadius = 8;
+}
+</script>
 </body></html>

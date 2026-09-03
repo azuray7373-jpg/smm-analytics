@@ -33,7 +33,13 @@
 <h2>Воронка</h2>
 <div class="funnel">
   <div class="fstage" style="width:100%"><span>Регистрации</span><b>{{ f.registrations|numfmt }}</b></div>
+  {% if f.registrations %}
+  <div class="fconv">↓ CR рег→заказ: {{ '%.1f'|format(f.cr_reg_order or 0) }}%</div>
+  {% endif %}
   <div class="fstage" style="width:{{ [((f.orders or 0) / (f.registrations or 1) * 100)|round, 6]|max if f.registrations else 6 }}%"><span>Заказы</span><b>{{ f.orders|numfmt }}</b></div>
+  {% if f.orders %}
+  <div class="fconv">↓ CR заказ→оплата: {{ '%.1f'|format(f.cr_order_pay or 0) }}%</div>
+  {% endif %}
   <div class="fstage" style="width:{{ [((f.payments or 0) / (f.registrations or 1) * 100)|round, 6]|max if f.registrations else 6 }}%"><span>Оплаты</span><b>{{ f.payments|numfmt }}</b></div>
 </div>
 <p class="muted">Ширина полос = доля от регистраций (визуальная воронка, не суммирование разных сущностей).</p>

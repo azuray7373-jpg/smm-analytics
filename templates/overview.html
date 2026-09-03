@@ -7,21 +7,34 @@
 {% endmacro %}
 
 {% block content %}
-<h1>Экран 1 — Всё вместе <small>({{ p.start }} — {{ p.end }})</small></h1>
+<div class="hero">
+  <div>
+    <h1>Командный центр <small>{{ p.start }} — {{ p.end }}</small></h1>
+    <div class="sub">11 каналов · GetCourse · AI-аналитика · обновление 4 раза в сутки</div>
+  </div>
+  <div class="filters" style="margin:0; box-shadow:none; background:transparent; border:none">
+    <a class="btn" href="{{ url_for('reports_list') }}">📄 Отчёты</a>
+    <a class="btn" href="{{ url_for('ai_screen') }}">🤖 AI-выводы</a>
+    <a class="btn" href="{{ url_for('guide') }}">📖 Руководство</a>
+  </div>
+</div>
 
+{% set err_ref = (trends[:-1]|map(attribute='ERR')|select|list|sum / (trends[:-1]|map(attribute='ERR')|select('ne', None)|list|length)) if trends|length > 1 else none %}
 <div class="cards">
-  <div class="card" title="Суммарный охват публикаций за период"><h3>Охват</h3><div class="big">{{ '{:,.0f}'.format(p.agg.reach or 0) }}</div>{{ delta_badge(p.deltas.reach) }}</div>
-  <div class="card" title="Показы/просмотры контента за период"><h3>Просмотры</h3><div class="big">{{ '{:,.0f}'.format(p.agg.views or 0) }}</div>{{ delta_badge(p.deltas.views) }}</div>
-  <div class="card" title="Реальные регистрации (демо исключены)"><h3>Регистрации</h3><div class="big">{{ '{:,.0f}'.format(p.registrations) }}</div>{{ delta_badge(p.deltas.registrations) }}</div>
-  <div class="card" title="Взаимодействия / Охват × 100"><h3>ERR</h3><div class="big">{{ '%.2f'|format(p.ind.ERR or 0) }}%</div>{{ delta_badge(p.deltas.ERR, 'п.п.') }}</div>
-  <div class="card" title="Взаимодействия / среднее кол-во подписчиков × 100"><h3>ER</h3><div class="big">{{ '%.2f'|format(p.ind.ER or 0) }}%</div><span class="badge na">—</span></div>
-  <div class="card" title="Регистрации / Охват × 100"><h3>CV из охвата</h3><div class="big">{{ '%.3f'|format(p.ind.CV_reach or 0) }}%</div>{{ delta_badge(p.deltas.CV_reach, 'п.п.') }}</div>
-  <div class="card" title="Открытия / Показы × 100"><h3>CTR открытий</h3><div class="big">{{ '%.1f'|format(p.ind.open_CTR or 0) }}%</div></div>
-  <div class="card" title="Дочитывания / Открытия × 100"><h3>Дочитывания</h3><div class="big">{{ '%.1f'|format(p.ind.read_through or 0) }}%</div></div>
-  <div class="card"><h3>Подписчики (на конец)</h3><div class="big">{{ '{:,.0f}'.format(p.agg.followers_end or 0) }}</div>{{ delta_badge(p.deltas.followers_end, '') }}</div>
-  <div class="card" title="Подписались − Отписались"><h3>Чистый прирост</h3><div class="big">{{ '{:,.0f}'.format(p.agg.subscribed - p.agg.unsubscribed) }}</div>{{ delta_badge(p.deltas.net_growth, '') }}</div>
-  <div class="card" title="(Подписчики конец − начало) / начало × 100"><h3>Рост аудитории</h3><div class="big">{{ '%.2f'|format(p.ind.audience_growth_pct or 0) }}%</div></div>
-  <div class="card"><h3>Взаимодействия</h3><div class="big">{{ '{:,.0f}'.format(p.ind.interactions) }}</div></div>
+  <div class="card" title="Суммарный охват публикаций за период"><h3>👁 Охват</h3><div class="big">{{ '{:,.0f}'.format(p.agg.reach or 0) }}</div>{{ delta_badge(p.deltas.reach) }}</div>
+  <div class="card" title="Показы/просмотры контента за период"><h3>▶️ Просмотры</h3><div class="big">{{ '{:,.0f}'.format(p.agg.views or 0) }}</div>{{ delta_badge(p.deltas.views) }}</div>
+  <div class="card" title="Реальные регистрации (демо исключены)"><h3>📝 Регистрации</h3><div class="big">{{ '{:,.0f}'.format(p.registrations) }}</div>{{ delta_badge(p.deltas.registrations) }}</div>
+  <div class="card" title="Взаимодействия / Охват × 100"><h3>ERR</h3><div class="big">{{ p.ind.ERR|pctfmt }}</div>
+    {% if err_ref %}<div class="vbar" title="Средний ERR прошлых недель: {{ '%.2f'|format(err_ref) }}%"><i style="width: {{ [((p.ind.ERR or 0) / err_ref * 100)|round, 100]|min if err_ref else 0 }}%"></i></div>{% endif %}
+    {{ delta_badge(p.deltas.ERR, 'п.п.') }}</div>
+  <div class="card" title="Взаимодействия / среднее кол-во подписчиков × 100"><h3>💪 ER</h3><div class="big">{{ '%.2f'|format(p.ind.ER or 0) }}%</div><span class="badge na">—</span></div>
+  <div class="card" title="Регистрации / Охват × 100"><h3>🎯 CV из охвата</h3><div class="big">{{ '%.3f'|format(p.ind.CV_reach or 0) }}%</div>{{ delta_badge(p.deltas.CV_reach, 'п.п.') }}</div>
+  <div class="card" title="Открытия / Показы × 100"><h3>👆 CTR открытий</h3><div class="big">{{ '%.1f'|format(p.ind.open_CTR or 0) }}%</div></div>
+  <div class="card" title="Дочитывания / Открытия × 100"><h3>📖 Дочитывания</h3><div class="big">{{ '%.1f'|format(p.ind.read_through or 0) }}%</div></div>
+  <div class="card"><h3>👥 Подписчики (на конец)</h3><div class="big">{{ '{:,.0f}'.format(p.agg.followers_end or 0) }}</div>{{ delta_badge(p.deltas.followers_end, '') }}</div>
+  <div class="card" title="Подписались − Отписались"><h3>➕ Чистый прирост</h3><div class="big">{{ '{:,.0f}'.format(p.agg.subscribed - p.agg.unsubscribed) }}</div>{{ delta_badge(p.deltas.net_growth, '') }}</div>
+  <div class="card" title="(Подписчики конец − начало) / начало × 100"><h3>📈 Рост аудитории</h3><div class="big">{{ '%.2f'|format(p.ind.audience_growth_pct or 0) }}%</div></div>
+  <div class="card"><h3>❤️ Взаимодействия</h3><div class="big">{{ '{:,.0f}'.format(p.ind.interactions) }}</div></div>
 </div>
 
 {% if p.data_statuses %}

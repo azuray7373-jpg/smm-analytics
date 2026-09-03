@@ -739,8 +739,17 @@ def _period_from_args():
     anchor = datetime.strptime(ps, "%Y-%m-%d").date() if ps else date.today()
     if ps and pe:
         return datetime.strptime(ps, "%Y-%m-%d").date(), datetime.strptime(pe, "%Y-%m-%d").date()
+    from datetime import timedelta as _td
     if preset == "month":
         return calc.month_bounds(anchor)
+    if preset == "7d":
+        return anchor - _td(days=6), anchor
+    if preset == "30d":
+        return anchor - _td(days=29), anchor
+    if preset == "prevmonth":
+        s, e = calc.month_bounds(anchor)
+        ps_ = s - _td(days=1)
+        return ps_.replace(day=1), ps_
     return calc.week_bounds(anchor)
 
 
@@ -863,6 +872,13 @@ def _start_timer():
     from flask import g as _g
     import time as _t
     _g._t0 = _t.time()
+
+
+@app.after_request
+def _static_cache(resp):
+    if request.path.startswith("/static/"):
+        resp.headers["Cache-Control"] = "public, max-age=86400"
+    return resp
 
 
 @app.after_request

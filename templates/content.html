@@ -66,12 +66,12 @@
   <td>{{ tags.get('есть_регистрационный_CTA') and '✅' or '—' }}</td>
   <td>{{ i.item.duration_sec or '—' }}</td>
   <td>{{ i.reach|numfmt }}</td>
-  <td>{{ i.ERR|pctfmt }}</td>
+  <td><span class="cellbar"><i style="width: {{ [((i.ERR or 0) * 12)|round, 100]|min }}%"></i><span>{{ i.ERR|pctfmt }}</span></span></td>
   <td>{{ i.saves|numfmt }}</td>
   <td>{{ i.shares|numfmt }}</td>
   <td>{{ i.subs|numfmt }}</td>
   <td>{{ i.registrations|numfmt }}</td>
-  <td>{{ i.CV|pctfmt(3) }}</td>
+  <td><span class="cellbar"><i style="width: {{ [((i.CV or 0) * 150)|round, 100]|min }}%"></i><span>{{ i.CV|pctfmt(3) }}</span></span></td>
 </tr>
 {% else %}<tr><td colspan="15">Материалов нет — измените фильтры или период.</td></tr>{% endfor %}
 </table>

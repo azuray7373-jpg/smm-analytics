@@ -71,12 +71,18 @@ def aggregate(start: date, end: date, channel_id=None):
     """Суммы метрик за период + подписчики на начало/конец + статусы данных."""
     snap = latest_snapshots(start, end, channel_id)
     agg = {m: 0.0 for m in SUM_METRICS}
-    statuses = {}
+    statuses = {}   # компактно: статус -> {count, days, sample}
     for (ch, d, m), (v, st) in snap.items():
         if m in agg and v is not None:
             agg[m] += v
         if st != "OK":
-            statuses.setdefault(st, []).append(f"метрика {m} за {d}")
+            e = statuses.setdefault(st, {"count": 0, "days": set(), "sample": []})
+            e["count"] += 1
+            e["days"].add(str(d))
+            if len(e["sample"]) < 5:
+                e["sample"].append(f"{m} за {d}")
+    statuses = {k: {"count": v["count"], "days": sorted(v["days"]), "sample": v["sample"]}
+                for k, v in statuses.items()}
     # подписчики: последнее известное значение на/до конца и на/до начала
     def followers_on(ch, on_date):
         row = (MetricSnapshot.query.filter_by(channel_id=ch, metric="followers")

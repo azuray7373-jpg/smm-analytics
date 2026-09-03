@@ -25,7 +25,16 @@
 </div>
 
 {% if p.data_statuses %}
-<div class="warnbox">Статусы данных: {{ p.data_statuses|tojson }}</div>
+<div class="warnbox" style="display:flex; gap:14px; align-items:baseline; flex-wrap:wrap;">
+  {% for st, info in p.data_statuses.items() %}
+  <span>⚠ {{ st }}: {{ info.count }} метрик за {{ info.days|length }} дн.</span>
+  {% endfor %}
+  <details style="margin-left:auto; color:var(--muted); font-size:12px;">
+    <summary>детали</summary>
+    {% for st, info in p.data_statuses.items() %}{% for it in info.sample %}<div>{{ st }}: {{ it }}</div>{% endfor %}{% endfor %}
+    <div class="muted">Полный список — в 🔔 Уведомлениях; закрыть пробелы — «Импорт» или «Ручной ввод».</div>
+  </details>
+</div>
 {% endif %}
 
 <h2>Динамика по дням: охват, взаимодействия, регистрации</h2>

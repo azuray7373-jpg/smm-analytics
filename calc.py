@@ -283,3 +283,48 @@ def weekly_series(weeks=8, channel_id=None):
                     "regs": p["registrations"],
                     "reach": p["agg"].get("reach") or 0})
     return out
+
+
+def growth_points(start, end):
+    """Точки роста: только из рассчитанных чисел. Возвращает [{kind, text}],
+    kind: scale (масштабировать) | fix (чинить просадку) | insight (инсайт)."""
+    out = []
+    try:
+        series = weekly_series(5)
+        if len(series) >= 3:
+            cur, prev = series[-1], series[:-1][-4:]
+            def avg(key):
+                vals = [p.get(key) for p in prev if p.get(key) is not None]
+                return sum(vals) / len(vals) if vals else None
+            for key, label in (("ERR", "ERR (вовлечённость)"), ("CV", "CV в регистрацию"),
+                               ("regs", "регистрации")):
+                a = avg(key)
+                c = cur.get(key)
+                if a and c is not None:
+                    pct = (c - a) / a * 100
+                    if pct < -10:
+                        out.append({"kind": "fix",
+                                    "text": f"{label}: {c:.2f} против средней {a:.2f} за 4 недели ({pct:+.0f}%) — найти причину просадки."})
+                    elif pct > 15:
+                        out.append({"kind": "scale",
+                                    "text": f"{label}: {c:.2f} против {a:.2f} ({pct:+.0f}%) — работает, усиливать."})
+    except Exception:
+        pass
+    try:
+        import utm as utm_mod
+        br = utm_mod.breakdown(start, end)
+        mediums = [(m, v) for m, v in br["by_medium"].items() if v["regs"] > 0 and m != "прочее"]
+        if mediums:
+            best_m, best_v = max(mediums, key=lambda x: x[1]["regs"])
+            out.append({"kind": "scale",
+                        "text": f"Лучшее размещение по регистрациям — {best_m}: {int(best_v['regs'])} рег., {int(best_v['orders'])} заказов. Масштабировать."})
+        funnels = [(f, v) for f, v in br["by_funnel"].items()
+                   if f != "Прочее" and v["regs"] > 0]
+        if funnels:
+            worst_f, worst_v = min(funnels, key=lambda x: x[1]["orders"] / max(1, x[1]["regs"]))
+            out.append({"kind": "fix",
+                        "text": f"Воронка «{worst_f}»: {int(worst_v['regs'])} рег. → {int(worst_v['orders'])} заказов "
+                                f"(CR {worst_v['orders'] / worst_v['regs'] * 100:.1f}%) — самая слабая связка, чинить CTA/страницу."})
+    except Exception:
+        pass
+    return out[:6]

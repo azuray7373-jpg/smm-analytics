@@ -52,6 +52,18 @@ new Chart(document.getElementById('chart'), {
 });
 </script>
 
+{% if growth %}
+<h2>🚀 Точки роста</h2>
+<div class="cards" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr));">
+  {% for g in growth %}
+  <div class="card" style="grid-column: span 1; min-width:280px;">
+    <h3>{{ {'scale': '📈 Масштабировать', 'fix': '🔧 Чинить', 'insight': '💡 Инсайт'}[g.kind] }}</h3>
+    <p style="margin:4px 0 0; font-size:13.5px;">{{ g.text }}</p>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
 <h2>Тренды по неделям (8 недель)</h2>
 <canvas id="trendChart" height="55"></canvas>
 <script>

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import io, json, os, threading
 from datetime import date, datetime
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, Response
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, Response, g
 
 from db import db, Channel, MetricSnapshot, ContentItem, ContentStat, Registration, \
     ManualNote, Report, Notification, Setting, RunLog, get_setting, set_setting, \
@@ -103,9 +103,15 @@ def inject_globals():
     # панель здоровья системы: последние запуски сборов/релея + вчерашние MISSING
     health = {}
     try:
-        yesterday = date.today() - __import__("datetime").timedelta(days=1)
-        health["missing"] = MetricSnapshot.query.filter(
-            MetricSnapshot.date == yesterday, MetricSnapshot.status == "MISSING").count()
+        from datetime import timedelta as _td
+        yesterday = date.today() - _td(days=1)
+        from sqlalchemy import func as _f
+        rows = db.session.query(MetricSnapshot.channel_id, MetricSnapshot.metric,
+                                MetricSnapshot.status,
+                                _f.max(MetricSnapshot.fetched_at)).filter(
+            MetricSnapshot.date == yesterday).group_by(
+            MetricSnapshot.channel_id, MetricSnapshot.metric).all()
+        health["missing"] = sum(1 for r in rows if r[2] == "MISSING")
         last_collect = RunLog.query.filter(RunLog.kind == "daily_collect") \
             .order_by(RunLog.started_at.desc()).first()
         health["collect"] = last_collect.started_at.strftime("%d.%m %H:%M") if last_collect else "нет"
@@ -124,6 +130,19 @@ def inject_globals():
 
 # ---------------- Дашборд: 5 экранов ----------------
 
+_pr_cache = {}
+
+
+def cached_period_report(start, end, channel_id=None):
+    """Кэш расчётов периода на время запроса (экран «Каналы» экономит ~100 запросов)."""
+    key = (str(start), str(end), channel_id)
+    if key not in _pr_cache:
+        _pr_cache[key] = calc.period_report(start, end, channel_id)
+        if len(_pr_cache) > 64:
+            _pr_cache.clear()
+    return _pr_cache[key]
+
+
 @app.route("/")
 def overview():
     """Экран 1. Всё вместе — основные KPI всей системы."""
@@ -132,7 +151,8 @@ def overview():
     chart = _chart_series(*d)
     return render_template("overview.html", p=p, period=d, chart=chart,
                            report=_latest_report("weekly"),
-                           trends=calc.weekly_series(8))
+                           trends=calc.weekly_series(8),
+                           growth=calc.growth_points(*d))
 
 
 @app.route("/comments")
@@ -161,7 +181,7 @@ def channels_screen():
     d = _period_from_args()
     rows = []
     for ch in Channel.query.filter_by(is_active=True).all():
-        rows.append({"ch": ch, "p": calc.period_report(*d, ch.id)})
+        rows.append({"ch": ch, "p": cached_period_report(*d, ch.id)})
     chart = {"labels": [r["ch"].name for r in rows],
              "reach": [r["p"]["agg"].get("reach") or 0 for r in rows],
              "regs": [r["p"]["registrations"] for r in rows]}

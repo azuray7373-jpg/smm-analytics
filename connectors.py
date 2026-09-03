@@ -12,6 +12,19 @@ DAILY_METRICS = ["followers", "views", "impressions", "reach", "opens", "reads",
                  "likes", "comments", "saves", "shares", "reactions",
                  "subscribed", "unsubscribed"]
 
+# Применимые метрики по платформам: отсутствующая применимая -> MISSING,
+# неприменимая -> NOT_AVAILABLE (не является проблемой сбора).
+BASE = {"followers", "views", "reach", "likes", "comments", "shares", "subscribed", "unsubscribed"}
+PLATFORM_METRICS = {
+    "instagram": BASE | {"impressions", "saves", "opens"},
+    "youtube": BASE | {"impressions"},
+    "max": BASE | {"opens"},
+    "telegram": BASE | {"opens", "reads"},
+    "tiktok": BASE | {"saves"},
+    "vk": BASE | {"impressions", "saves", "opens"},
+    "dzen": BASE | {"impressions", "opens", "reads"},
+}
+
 
 def start_run(kind):
     r = RunLog(kind=kind, status="OK")
@@ -61,9 +74,13 @@ def mark_missing(run_id, d=None):
     missing_by_channel = {}
     for ch in Channel.query.filter_by(is_active=True).all():
         have = {m.metric for m in MetricSnapshot.query.filter_by(channel_id=ch.id, date=d).all()}
-        miss = [m for m in DAILY_METRICS if m not in have]
-        for m in miss:
-            save_metric(run_id, ch.id, d, m, None, "collector", status="MISSING")
+        applicable = PLATFORM_METRICS.get(ch.platform, set(DAILY_METRICS))
+        for m in DAILY_METRICS:
+            if m in have:
+                continue
+            status = "MISSING" if m in applicable else "NOT_AVAILABLE"
+            save_metric(run_id, ch.id, d, m, None, "collector", status=status)
+        miss = [m for m in DAILY_METRICS if m not in have and m in applicable]
         if miss:
             missing_by_channel[ch.name] = miss
     db.session.commit()

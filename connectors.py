@@ -86,7 +86,8 @@ def mark_missing(run_id, d=None):
         # хоть раз за 60 дней (реальные возможности источников)
         ever = {r.metric for r in db.session.query(MetricSnapshot.metric).filter(
             MetricSnapshot.channel_id == ch.id, MetricSnapshot.date >= since,
-            MetricSnapshot.source != "demo").distinct()}
+            MetricSnapshot.source.notin_(["demo", "collector"]),
+            MetricSnapshot.value.isnot(None)).distinct()}
         base = PLATFORM_METRICS.get(ch.platform, set(DAILY_METRICS)) & set(DAILY_METRICS)
         applicable = (ever & set(DAILY_METRICS)) or base
         ok_today = {m for m, r in latest.items() if r.status == "OK"}

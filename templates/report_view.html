@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
+<div class="filters no-print"><button onclick="window.print()">🖨 Печать / PDF</button></div>
 <h1>Отчёт {{ r.rtype }}: {{ r.start }} — {{ r.end }}</h1>
 <div class="aireport">{{ r.ai_text | mdfmt | safe }}</div>
 <h2>Рассчитанные данные</h2>

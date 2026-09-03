@@ -182,7 +182,28 @@ def comments_screen():
     d = _period_from_args()
     dig = comments_mod.digest(*d)
     recent = Comment.query.order_by(Comment.date.desc(), Comment.id.desc()).limit(50).all()
-    return render_template("comments.html", d=dig, recent=recent, period=d)
+    return render_template("comments.html", d=dig, recent=recent, period=d,
+                           ai_summary=get_setting("comments_ai_summary"))
+
+
+@app.route("/comments/ai_summary", methods=["POST"])
+def comments_ai_summary():
+    """AI-вывод по комментариям за период (Gemini/эвристика — только из данных)."""
+    import ai_analyst
+    d = _period_from_args()
+    dig = comments_mod.digest(*d)
+    if not dig["total"]:
+        flash("Комментариев за период нет — сначала импортируйте.")
+        return redirect(url_for("comments_screen"))
+    text = ai_analyst._call_llm(ai_analyst.SYSTEM,
+        "Ты SMM-аналитик. Ниже — статистика комментариев за период (только факты из данных). "
+        "Напиши короткий вывод: 3 главных боли/вопроса аудитории, 2 идеи для контента, "
+        "1 предупреждение (если есть негатив). Не выдумывай числа.\n"
+        + comments_mod.digest_text(dig))
+    set_setting("comments_ai_summary", text or comments_mod.digest_text(dig))
+    db.session.commit()
+    flash("AI-вывод по комментариям обновлён" + (" (LLM)." if text else " (эвристически — LLM недоступна)."))
+    return redirect(url_for("comments_screen"))
 
 
 @app.route("/comments/import", methods=["POST"])
@@ -203,6 +224,20 @@ def channels_screen():
     rows = []
     for ch in Channel.query.filter_by(is_active=True).all():
         rows.append({"ch": ch, "p": cached_period_report(*d, ch.id)})
+    if request.args.get("export") == "csv":
+        import csv as _csv
+        out = io.StringIO()
+        w = _csv.writer(out)
+        w.writerow(["канал", "платформа", "подписчики", "прирост", "охват", "просмотры",
+                    "взаимодействия", "ERR %", "ER %", "CV %", "регистрации"])
+        for r in rows:
+            p = r["p"]
+            w.writerow([r["ch"].name, r["ch"].platform, p["agg"].get("followers_end"),
+                        p["ind"].get("net_growth"), p["agg"].get("reach"), p["agg"].get("views"),
+                        p["ind"].get("interactions"), p["ind"].get("ERR"), p["ind"].get("ER"),
+                        p["ind"].get("CV_reach"), p["registrations"]])
+        return Response("﻿" + out.getvalue(), mimetype="text/csv",
+                        headers={"Content-Disposition": "attachment; filename=channels.csv"})
     chart = {"labels": [r["ch"].name for r in rows],
              "reach": [r["p"]["agg"].get("reach") or 0 for r in rows],
              "regs": [r["p"]["registrations"] for r in rows]}
@@ -263,6 +298,22 @@ def content_screen():
                         round(i["CV"], 3) if i.get("CV") is not None else ""])
         return Response("﻿" + out.getvalue(), mimetype="text/csv",
                         headers={"Content-Disposition": "attachment; filename=content.csv"})
+    # лучшее время публикации: средний охват по дням недели и часам (из данных)
+    wd_stats, hr_stats = {}, {}
+    for i in items:
+        pt = i["item"].published_at
+        if not pt:
+            continue
+        wd = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"][pt.weekday()]
+        for agg, key in ((wd_stats, wd), (hr_stats, f"{pt.hour:02d}")):
+            a = agg.setdefault(key, {"n": 0, "reach": 0})
+            a["n"] += 1
+            a["reach"] += i.get("reach") or 0
+    for agg in (wd_stats, hr_stats):
+        for v in agg.values():
+            v["avg"] = v["reach"] / v["n"] if v["n"] else 0
+    best_time = {"wd": sorted(wd_stats.items(), key=lambda x: -x[1]["avg"]),
+                 "hr": sorted(hr_stats.items(), key=lambda x: -x[1]["avg"])}
     by_rubric, by_format = {}, {}
     for i in items:
         tags = json.loads(i["item"].ai_tags or "{}")
@@ -282,6 +333,7 @@ def content_screen():
                            formats=sorted({i["item"].format for i in items if i["item"].format}),
                            rubrics=rubrics, types=types, compare=compare_text,
                            preset=preset, by_rubric=by_rubric, by_format=by_format,
+                           best_time=best_time,
                            total_matched=len(items))
 
 
@@ -311,6 +363,16 @@ def registrations_screen():
         cv_rows.append({"source": src, "platform": plat or "—", "count": v["count"],
                         "share": v["count"] / total * 100 if total else None,
                         "reach": ch_reach, "CV": (v["count"] / ch_reach * 100) if ch_reach else None})
+    if request.args.get("export") == "csv":
+        import csv as _csv
+        out = io.StringIO()
+        w = _csv.writer(out)
+        w.writerow(["utm_source", "utm_medium", "utm_campaign", "регистрации", "охват канала", "CV %"])
+        for r in cv_rows:
+            w.writerow([r["source"], "", "", r["count"], r["reach"] or "",
+                        round(r["CV"], 3) if r["CV"] is not None else ""])
+        return Response("﻿" + out.getvalue(), mimetype="text/csv",
+                        headers={"Content-Disposition": "attachment; filename=registrations.csv"})
     import utm as utm_mod
     br = utm_mod.breakdown(*d)
     return render_template("registrations.html", rows=cv_rows, total=total,
@@ -345,6 +407,116 @@ def generate():
     rep = reports.generate_report(rtype, anchor)
     flash(f"Отчёт за {rep.start}–{rep.end} сформирован.")
     return redirect(url_for("reports_list"))
+
+
+@app.route("/compare")
+def compare_screen():
+    """Сравнение двух произвольных периодов: итоги системы + по каналам."""
+    def _d(name, default=None):
+        v = request.args.get(name)
+        try:
+            return datetime.strptime(v, "%Y-%m-%d").date() if v else default
+        except ValueError:
+            return default
+    from datetime import timedelta as _td
+    today = date.today()
+    a_end_d = _d("a2", today)
+    a_start_d = _d("a1", a_end_d - _td(days=6))
+    b_end_d = _d("b2", a_start_d - _td(days=1))
+    b_start_d = _d("b1", b_end_d - _td(days=(a_end_d - a_start_d).days))
+    pa = cached_period_report(a_start_d, a_end_d)
+    pb = cached_period_report(b_start_d, b_end_d)
+
+    def pct(cur, prev):
+        if cur is None or prev in (None, 0):
+            return None
+        return (cur - prev) / prev * 100
+
+    def fmt(v, kind="num"):
+        if v is None:
+            return "н/д"
+        if kind == "pct":
+            return f"{v:.2f}%"
+        if kind == "money":
+            return f"{v:,.0f} ₽".replace(",", " ")
+        return f"{v:,.0f}".replace(",", " ")
+
+    fields = [
+        ("Охват", pa["agg"].get("reach"), pb["agg"].get("reach"), "num"),
+        ("Просмотры", pa["agg"].get("views"), pb["agg"].get("views"), "num"),
+        ("Взаимодействия", pa["ind"].get("interactions"), pb["ind"].get("interactions"), "num"),
+        ("Регистрации", pa["registrations"], pb["registrations"], "num"),
+        ("ERR", pa["ind"].get("ERR"), pb["ind"].get("ERR"), "pct"),
+        ("ER", pa["ind"].get("ER"), pb["ind"].get("ER"), "pct"),
+        ("CV из охвата", pa["ind"].get("CV_reach"), pb["ind"].get("CV_reach"), "pct"),
+        ("Подписчики (конец)", pa["agg"].get("followers_end"), pb["agg"].get("followers_end"), "num"),
+        ("Чистый прирост", pa["ind"].get("net_growth"), pb["ind"].get("net_growth"), "num"),
+        ("Заказы", (pa.get("gc") or {}).get("orders"), (pb.get("gc") or {}).get("orders"), "num"),
+        ("Оплаты, сумма", (pa.get("gc") or {}).get("payments_sum"), (pb.get("gc") or {}).get("payments_sum"), "money"),
+    ]
+    total_rows = [{"name": n, "a": fmt(x, k), "b": fmt(y, k), "d": pct(x, y)} for n, x, y, k in fields]
+    channel_rows = []
+    for ch in Channel.query.filter_by(is_active=True).all():
+        ra = cached_period_report(a_start_d, a_end_d, ch.id)
+        rb = cached_period_report(b_start_d, b_end_d, ch.id)
+        channel_rows.append({
+            "ch": ch,
+            "reach_a": ra["agg"].get("reach"), "reach_b": rb["agg"].get("reach"),
+            "reach_d": pct(ra["agg"].get("reach"), rb["agg"].get("reach")),
+            "regs_a": ra["registrations"], "regs_b": rb["registrations"],
+            "err_a": ra["ind"].get("ERR"), "err_b": rb["ind"].get("ERR"),
+        })
+    return render_template("compare.html",
+                           a={"start": a_start_d, "end": a_end_d},
+                           b={"start": b_start_d, "end": b_end_d},
+                           total_rows=total_rows, channel_rows=channel_rows)
+
+
+@app.route("/api/notifications/pending")
+def notifications_pending():
+    """Очередь недоставленных уведомлений (забирает релей и шлёт в Telegram)."""
+    token = os.environ.get("INGEST_TOKEN") or get_setting("ingest_token")
+    if request.args.get("token") != token:
+        return jsonify({"error": "invalid token"}), 403
+    ns = Notification.query.filter_by(delivered=False).order_by(Notification.id).limit(50).all()
+    return jsonify({"items": [{"id": n.id, "level": n.level, "message": n.message,
+                               "at": n.created_at.isoformat()} for n in ns]})
+
+
+@app.route("/api/notifications/delivered", methods=["POST"])
+def notifications_delivered():
+    token = os.environ.get("INGEST_TOKEN") or get_setting("ingest_token")
+    if request.headers.get("X-Ingest-Token") != token:
+        return jsonify({"error": "invalid token"}), 403
+    ids = (request.get_json(silent=True) or {}).get("ids") or []
+    Notification.query.filter(Notification.id.in_(ids)).update(
+        {"delivered": True}, synchronize_session=False)
+    db.session.commit()
+    return jsonify({"ok": True, "marked": len(ids)})
+
+
+@app.route("/telegram/test", methods=["POST"])
+def telegram_test():
+    """Прямая попытка отправки тестового сообщения (работает, если api.telegram.org доступен)."""
+    token = get_setting("tg_bot_token")
+    chat = get_setting("tg_chat_id")
+    if not token or not chat:
+        flash("Укажите tg_bot_token и tg_chat_id в настройках ниже")
+        return redirect(url_for("settings"))
+    try:
+        import requests as _rq
+        r = _rq.post(f"https://api.telegram.org/bot{token}/sendMessage",
+                     json={"chat_id": chat,
+                           "text": "✅ SMM Аналитика: тест связи успешен. Сюда будут приходить уведомления и недельные отчёты."},
+                     timeout=20)
+        if r.status_code == 200:
+            flash("✅ Тестовое сообщение отправлено — проверьте Telegram.")
+        else:
+            flash(f"Telegram ответил ошибкой: {r.json().get('description', r.status_code)}")
+    except Exception as e:
+        flash(f"⚠ Прямая отправка недоступна с этого хостинга ({str(e)[:80]}). "
+              "Сообщения доставит релей GitHub Actions — запустите его или дождитесь расписания.")
+    return redirect(url_for("settings"))
 
 
 @app.route("/admin/heal_missing")
@@ -434,7 +606,7 @@ def manual():
 
 @app.route("/settings", methods=["GET", "POST"])
 def settings():
-    keys = ["livedune_token",
+    keys = ["tg_bot_token", "tg_chat_id", "livedune_token",
             "youtube_api_key", "youtube_channel_id",
             "instagram_token", "vk_token", "telegram_bot_token", "max_bot_tokens",
             "gc_account", "gc_api_key",
@@ -909,6 +1081,10 @@ with app.app_context():
             db.session.execute(_text(ddl))
         except Exception:
             pass
+    try:
+        db.session.execute(_text("ALTER TABLE notifications ADD COLUMN delivered BOOLEAN DEFAULT 0"))
+    except Exception:
+        pass
     db.session.commit()
     # значения по умолчанию из окружения (Render env vars)
     import os as _os

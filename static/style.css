@@ -235,3 +235,13 @@ canvas { background: var(--card); border-radius: 16px; padding: 14px;
   canvas { padding: 8px; }
   .aireport { padding: 6px 14px 14px; }
 }
+
+/* ---------- печать отчётов ---------- */
+@media print {
+  .topnav, .filters, .healthbar, .no-print, footer, #loadbar { display: none !important; }
+  body { background: #fff !important; color: #111 !important; }
+  .aireport, .card, .tbl, .controller { border: 1px solid #ccc !important;
+    box-shadow: none !important; background: #fff !important; color: #111 !important; }
+  h1, h2, h3, h4, p, li, td, th, b { color: #111 !important; }
+  .tbl td, .tbl th { border-bottom: 1px solid #ddd !important; }
+}

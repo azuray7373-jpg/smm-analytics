@@ -16,6 +16,7 @@ new Chart(document.getElementById('chChart'), {
 });
 </script>
 
+<div class="filters"><a class="btn" href="?{{ request.query_string.decode() if request.query_string else 'start=' ~ period[0] ~ '&end=' ~ period[1] }}&export=csv">⬇️ CSV</a></div>
 <table class="tbl">
 <tr><th>Канал</th><th>Платформа</th><th>Подписчики</th><th>Δ охват</th><th>Прирост</th><th>Охват</th><th>Просмотры</th><th>Взаимодействия</th><th>ERR</th><th>ER</th><th>CV</th><th>Регистр.</th><th>Δ регистр.</th></tr>
 {% for r in rows %}

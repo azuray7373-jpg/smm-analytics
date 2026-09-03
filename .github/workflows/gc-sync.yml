@@ -21,6 +21,13 @@ jobs:
           PA_URL: ${{ secrets.PA_URL }}
           PA_INGEST_TOKEN: ${{ secrets.PA_INGEST_TOKEN }}
           DAYS: "3"
+      - name: Telegram notifications
+        run: python tools/notify_relay.py
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          PA_URL: ${{ secrets.PA_URL }}
+          PA_INGEST_TOKEN: ${{ secrets.PA_INGEST_TOKEN }}
       - name: GetCourse export
         run: python tools/gc_relay.py
         env:

@@ -50,6 +50,7 @@ window.addEventListener('beforeunload', function(){
   <a href="{{ url_for('comments_screen') }}" class="{{ 'active' if path.startswith('/comments') }}">💬 Комментарии</a>
   <a href="{{ url_for('ai_screen') }}" class="{{ 'active' if path.startswith('/ai') }}">🤖 AI-аналитика</a>
   <a href="{{ url_for('reports_list') }}" class="{{ 'active' if path.startswith('/reports') }}">📄 Отчёты</a>
+  <a href="{{ url_for('compare_screen') }}" class="{{ 'active' if path.startswith('/compare') }}">⚖️ Сравнение</a>
   <a href="{{ url_for('guide') }}" class="{{ 'active' if path.startswith('/guide') }}">📖 Руководство</a>
   <a href="{{ url_for('import_csv') }}" class="{{ 'active' if path.startswith('/import') }}">⬆️ Импорт</a>
   <a href="{{ url_for('manual') }}" class="{{ 'active' if path.startswith('/manual') }}">✍️ Ручной ввод</a>

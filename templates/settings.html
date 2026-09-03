@@ -7,6 +7,11 @@
   {% endfor %}
   <br><button>Сохранить</button>
 </form>
+<form method="post" action="{{ url_for('telegram_test') }}" class="box">
+  <b>Telegram-уведомления:</b>
+  <span class="muted">создайте бота у @BotFather, узнайте chat_id (например, у @userinfobot), заполните tg_bot_token и tg_chat_id выше и нажмите:</span>
+  <button>📨 Проверить связь</button>
+</form>
 <p class="muted">ai_base_url/ai_model — любой OpenAI-совместимый API (рекомендовано: https://api.openai.com/v1 + gpt-5.6-luna). youtube_api_key + youtube_channel_id включают живой сбор YouTube. gc_account/gc_api_key — GetCourse.</p>
 
 {% if webhook_token %}

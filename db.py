@@ -193,6 +193,7 @@ class Notification(db.Model):
     message = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_read = db.Column(db.Boolean, default=False)
+    delivered = db.Column(db.Boolean, default=False)   # отправлено в Telegram
 
 
 class Setting(db.Model):

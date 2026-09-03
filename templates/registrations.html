@@ -17,6 +17,7 @@ new Chart(document.getElementById('regChart'), {
 });
 </script>
 
+<div class="filters"><a class="btn" href="?start={{ period[0] }}&end={{ period[1] }}&export=csv">⬇️ CSV</a></div>
 <table class="tbl">
 <tr><th>UTM source</th><th>Канал</th><th>Регистрации</th><th>Доля</th><th>Охват канала</th><th>CV</th></tr>
 {% for r in rows %}

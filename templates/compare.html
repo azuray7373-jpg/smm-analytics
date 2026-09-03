@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Сравнение периодов</h1>
+<form class="filters" method="get">
+  <label>A с <input type="date" name="a1" value="{{ a.start }}"></label>
+  <label>по <input type="date" name="a2" value="{{ a.end }}"></label>
+  <label>B с <input type="date" name="b1" value="{{ b.start }}"></label>
+  <label>по <input type="date" name="b2" value="{{ b.end }}"></label>
+  <button>Сравнить</button>
+</form>
+
+{% macro dl(v) %}
+{% if v is not none %}
+<span class="badge {{ 'up' if v >= 0 else 'down' }}">{{ '%+d'|format(v) }}%</span>
+{% else %}<span class="badge na">н/д</span>{% endif %}
+{% endmacro %}
+
+<h2>Итоги по всей системе</h2>
+<table class="tbl">
+<tr><th>Показатель</th><th>Период A</th><th>Период B</th><th>Δ A к B</th></tr>
+{% for row in total_rows %}
+<tr><td>{{ row.name }}</td><td>{{ row.a }}</td><td>{{ row.b }}</td><td>{{ dl(row.d) }}</td></tr>
+{% endfor %}
+</table>
+
+<h2>По каналам</h2>
+<table class="tbl">
+<tr><th>Канал</th><th>Охват A</th><th>Охват B</th><th>Δ охват</th>
+    <th>Рег. A</th><th>Рег. B</th><th>ERR A</th><th>ERR B</th></tr>
+{% for c in channel_rows %}
+<tr>
+  <td><a href="{{ url_for('channel_detail', channel_id=c.ch.id) }}">{{ c.ch.name }}</a></td>
+  <td>{{ c.reach_a|numfmt }}</td><td>{{ c.reach_b|numfmt }}</td><td>{{ dl(c.reach_d) }}</td>
+  <td>{{ c.regs_a|numfmt }}</td><td>{{ c.regs_b|numfmt }}</td>
+  <td>{{ c.err_a|pctfmt }}</td><td>{{ c.err_b|pctfmt }}</td>
+</tr>
+{% endfor %}
+</table>
+<p class="muted">A — первый выбранный период, B — второй. Δ считается по формуле (A − B) / B × 100. Подписчики и проценты не суммируются по дням — сравниваются корректно (на конец периода / пересчёт из абсолютов).</p>
+{% endblock %}

@@ -11,6 +11,12 @@
   {% endfor %}
 </div>
 
+<h2>AI-вывод по комментариям</h2>
+<form method="post" action="{{ url_for('comments_ai_summary') }}" class="filters">
+  <button>🤖 Сгенерировать вывод за период</button>
+</form>
+{% if ai_summary %}<div class="aireport">{{ ai_summary | mdfmt | safe }}</div>{% else %}<p class="muted">Вывод ещё не сформирован.</p>{% endif %}
+
 <h2>Импорт комментариев (CSV из кабинетов площадок)</h2>
 <form method="post" enctype="multipart/form-data" class="box">
   <input type="file" name="file" accept=".csv,.txt,.tsv" required>

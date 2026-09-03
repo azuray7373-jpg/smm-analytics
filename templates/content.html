@@ -24,6 +24,29 @@
   <a class="btn" href="?start={{ period[0] }}&end={{ period[1] }}&sort={{ sort }}">Все материалы</a>
 </div>
 
+{% if best_time.wd %}
+<div style="display:flex; gap:24px; flex-wrap:wrap;">
+<div style="flex:1; min-width:320px;">
+<h2>🕐 Лучшее время публикации</h2>
+<table class="tbl">
+<tr><th>День недели</th><th>Материалов</th><th>Средний охват</th></tr>
+{% for k, v in best_time.wd[:7] %}
+<tr><td>{{ k }}</td><td>{{ v.n }}</td><td><span class="cellbar"><i style="width: {{ [(v.avg / (best_time.wd[0][1].avg or 1) * 100) | round | int, 100] | min }}%"></i><span>{{ v.avg|numfmt }}</span></span></td></tr>
+{% endfor %}
+</table>
+</div>
+<div style="flex:1; min-width:320px;">
+<h2>Часы публикации (топ)</h2>
+<table class="tbl">
+<tr><th>Час</th><th>Материалов</th><th>Средний охват</th></tr>
+{% for k, v in best_time.hr[:8] %}
+<tr><td>{{ k }}:00</td><td>{{ v.n }}</td><td><span class="cellbar"><i style="width: {{ [(v.avg / (best_time.hr[0][1].avg or 1) * 100) | round | int, 100] | min }}%"></i><span>{{ v.avg|numfmt }}</span></span></td></tr>
+{% endfor %}
+</table>
+</div>
+</div>
+{% endif %}
+
 <div style="display:flex; gap:24px; flex-wrap:wrap;">
 <div style="flex:1; min-width:320px;">
 <h2>Эффективность по рубрикам</h2>

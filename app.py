@@ -31,7 +31,7 @@ def _numfmt(v):
     """1234567 -> '1 234 567'; None/отсутствует -> 'н/д'."""
     try:
         return f"{float(v):,.0f}".replace(",", " ")
-    except (TypeError, ValueError):
+    except Exception:
         return "н/д"
 
 
@@ -39,7 +39,7 @@ def _numfmt(v):
 def _pctfmt(v, nd=2):
     try:
         return (f"{float(v):.{nd}f}%").replace(".", ",")
-    except (TypeError, ValueError):
+    except Exception:
         return "н/д"
 
 

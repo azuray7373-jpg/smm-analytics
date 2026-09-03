@@ -6,7 +6,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, jso
 from db import db, Channel, MetricSnapshot, ContentItem, ContentStat, Registration, \
     ManualNote, Report, Notification, Setting, RunLog, get_setting, set_setting, \
     Comment, GcOrder, GcPayment
-import calc, connectors, reports, seed, getcourse, comments as comments_mod
+import calc, connectors, reports, seed, getcourse, comments as comments_mod, livedune
 
 IS_SERVERLESS = bool(os.environ.get("VERCEL"))
 
@@ -112,6 +112,8 @@ def inject_globals():
         relay = RunLog.query.filter(RunLog.kind == "gc_relay") \
             .order_by(RunLog.started_at.desc()).first()
         health["relay"] = (relay.started_at.strftime("%d.%m %H:%M") + " (" + (relay.details or "") + ")") if relay else "нет"
+        ld = RunLog.query.filter(RunLog.kind == "livedune_sync")             .order_by(RunLog.started_at.desc()).first()
+        health["livedune"] = (ld.started_at.strftime("%d.%m %H:%M") + " (" + (ld.details or "") + ")") if ld else "нет"
         health["gc_orders"] = GcOrder.query.count()
         health["comments"] = Comment.query.count()
     except Exception:
@@ -268,10 +270,12 @@ def registrations_screen():
         cv_rows.append({"source": src, "platform": plat or "—", "count": v["count"],
                         "share": v["count"] / total * 100 if total else None,
                         "reach": ch_reach, "CV": (v["count"] / ch_reach * 100) if ch_reach else None})
+    import utm as utm_mod
+    br = utm_mod.breakdown(*d)
     return render_template("registrations.html", rows=cv_rows, total=total,
                            total_reach=total_reach,
                            total_cv=total / total_reach * 100 if total_reach else None, period=d,
-                           chart=_chart_series(*d))
+                           chart=_chart_series(*d), utm=br)
 
 
 @app.route("/ai")
@@ -300,6 +304,20 @@ def generate():
     rep = reports.generate_report(rtype, anchor)
     flash(f"Отчёт за {rep.start}–{rep.end} сформирован.")
     return redirect(url_for("reports_list"))
+
+
+@app.route("/livedune/sync", methods=["POST"])
+def livedune_sync():
+    if not livedune.configured():
+        flash("Не задан токен LiveDune (экран «Настройки»)")
+        return redirect(url_for("overview"))
+    if not livedune.can_reach():
+        flash("⚠ Прямой доступ к api.livedune.com с этого хостинга закрыт (прокси free-тарифа). "
+              "Данные доставляет релей GitHub Actions по расписанию.")
+        return redirect(url_for("overview"))
+    livedune.sync_livedune(days=7, threaded=True)
+    flash("Синхронизация LiveDune запущена в фоне (1–2 минуты).")
+    return redirect(url_for("overview"))
 
 
 @app.route("/collect", methods=["POST"])
@@ -444,7 +462,13 @@ def api_ingest():
             default = datetime.strptime(ws[:10], "%Y-%m-%d").date()
         except ValueError:
             pass
-    counts = {"users": 0, "deals": 0, "payments": 0}
+    counts = {"users": 0, "deals": 0, "payments": 0, "ld": 0}
+    if data.get("ld"):
+        try:
+            counts["ld"] = livedune.ingest_packet(data["ld"])
+            return jsonify(counts)
+        except Exception as e:
+            return jsonify({"error": f"ld ingest: {e}"}), 500
     if data.get("users"):
         counts["users"] = getcourse._ingest_users(data["users"], default)
     if data.get("deals"):
@@ -780,6 +804,8 @@ with app.app_context():
         db.session.commit()
         set_setting("demo_regfix", "1")
         db.session.commit()
+    if _os.environ.get("LIVEDUNE_TOKEN") and not get_setting("livedune_token"):
+        set_setting("livedune_token", _os.environ["LIVEDUNE_TOKEN"])
     for env_key, set_key in (("AI_API_KEY", "ai_api_key"), ("AI_BASE_URL", "ai_base_url"),
                              ("AI_MODEL", "ai_model")):
         if _os.environ.get(env_key) and not get_setting(set_key):

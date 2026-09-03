@@ -34,6 +34,7 @@
 <div class="healthbar">
   <span>🟢 Сбор: {{ health.collect or '—' }}</span>
   <span>🔁 Релей ГК: {{ health.relay or '—' }}</span>
+  <span>📡 LiveDune: {{ health.livedune or '—' }}</span>
   {% if health.missing %}<span class="warn">⚠ MISSING за вчера: {{ health.missing }}</span>{% endif %}
   <span>💬 Комментарии: {{ health.comments or 0 }}</span>
   <span>🛒 Заказов в базе: {{ health.gc_orders or 0 }}</span>

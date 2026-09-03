@@ -11,17 +11,18 @@
 <nav class="topnav">
   <div class="brand">📊 SMM Аналитика</div>
   {% set path = request.path %}
-  <a href="{{ url_for('overview') }}" class="{{ 'active' if path == '/' }}">Всё вместе</a>
-  <a href="{{ url_for('channels_screen') }}" class="{{ 'active' if path.startswith('/channels') }}">Каналы</a>
-  <a href="{{ url_for('content_screen') }}" class="{{ 'active' if path.startswith('/content') }}">Контент</a>
-  <a href="{{ url_for('registrations_screen') }}" class="{{ 'active' if path.startswith('/registrations') }}">Регистрации</a>
-  <a href="{{ url_for('getcourse_screen') }}" class="{{ 'active' if path.startswith('/getcourse') }}">GetCourse</a>
-  <a href="{{ url_for('comments_screen') }}" class="{{ 'active' if path.startswith('/comments') }}">Комментарии</a>
-  <a href="{{ url_for('ai_screen') }}" class="{{ 'active' if path.startswith('/ai') }}">AI-аналитика</a>
-  <a href="{{ url_for('reports_list') }}" class="{{ 'active' if path.startswith('/reports') }}">Отчёты</a>
-  <a href="{{ url_for('import_csv') }}" class="{{ 'active' if path.startswith('/import') }}">Импорт</a>
-  <a href="{{ url_for('manual') }}" class="{{ 'active' if path.startswith('/manual') }}">Ручной ввод</a>
-  <a href="{{ url_for('settings') }}" class="{{ 'active' if path.startswith('/settings') }}">Настройки</a>
+  <a href="{{ url_for('overview') }}" class="{{ 'active' if path == '/' }}">📊 Всё вместе</a>
+  <a href="{{ url_for('channels_screen') }}" class="{{ 'active' if path.startswith('/channels') or path.startswith('/channel/') }}">📡 Каналы</a>
+  <a href="{{ url_for('content_screen') }}" class="{{ 'active' if path.startswith('/content') }}">🎬 Контент</a>
+  <a href="{{ url_for('registrations_screen') }}" class="{{ 'active' if path.startswith('/registrations') }}">📝 Регистрации</a>
+  <a href="{{ url_for('getcourse_screen') }}" class="{{ 'active' if path.startswith('/getcourse') }}">🛒 GetCourse</a>
+  <a href="{{ url_for('comments_screen') }}" class="{{ 'active' if path.startswith('/comments') }}">💬 Комментарии</a>
+  <a href="{{ url_for('ai_screen') }}" class="{{ 'active' if path.startswith('/ai') }}">🤖 AI-аналитика</a>
+  <a href="{{ url_for('reports_list') }}" class="{{ 'active' if path.startswith('/reports') }}">📄 Отчёты</a>
+  <a href="{{ url_for('guide') }}" class="{{ 'active' if path.startswith('/guide') }}">📖 Руководство</a>
+  <a href="{{ url_for('import_csv') }}" class="{{ 'active' if path.startswith('/import') }}">⬆️ Импорт</a>
+  <a href="{{ url_for('manual') }}" class="{{ 'active' if path.startswith('/manual') }}">✍️ Ручной ввод</a>
+  <a href="{{ url_for('settings') }}" class="{{ 'active' if path.startswith('/settings') }}">⚙️ Настройки</a>
   <a href="{{ url_for('notifications') }}" class="bell">🔔{% if unread_notifications %} ({{ unread_notifications }}){% endif %}</a>
 </nav>
 <main>

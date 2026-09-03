@@ -30,6 +30,14 @@
   <div class="card"><h3>Входящие / исходящие</h3><div class="big">{{ f.by_direction.get('incoming', 0) }} / {{ f.by_direction.get('outgoing', 0) }}</div></div>
 </div>
 
+<h2>Воронка</h2>
+<div class="funnel">
+  <div class="fstage" style="width:100%"><span>Регистрации</span><b>{{ f.registrations|numfmt }}</b></div>
+  <div class="fstage" style="width:{{ [((f.orders or 0) / (f.registrations or 1) * 100)|round, 6]|max if f.registrations else 6 }}%"><span>Заказы</span><b>{{ f.orders|numfmt }}</b></div>
+  <div class="fstage" style="width:{{ [((f.payments or 0) / (f.registrations or 1) * 100)|round, 6]|max if f.registrations else 6 }}%"><span>Оплаты</span><b>{{ f.payments|numfmt }}</b></div>
+</div>
+<p class="muted">Ширина полос = доля от регистраций (визуальная воронка, не суммирование разных сущностей).</p>
+
 <canvas id="gcChart" height="70"></canvas>
 <script>
 new Chart(document.getElementById('gcChart'), {

@@ -16,11 +16,35 @@
     <option value="{{ s }}" {% if sort==s %}selected{% endif %}>Сорт: {{ s }}</option>{% endfor %}
   </select>
   <button>Фильтровать</button>
+  <a class="btn" href="?{{ request.query_string.decode()|default('start=' ~ period[0] ~ '&end=' ~ period[1], true) }}&export=csv">⬇️ CSV</a>
 </form>
 <div class="filters">
   <a class="btn {{ 'active-btn' if preset=='best' }}" href="?start={{ period[0] }}&end={{ period[1] }}&preset=best&sort={{ sort }}&account={{ request.args.get('account','') }}&platform={{ request.args.get('platform','') }}">🏆 ТОП-10 по ERR</a>
   <a class="btn {{ 'active-btn' if preset=='worst' }}" href="?start={{ period[0] }}&end={{ period[1] }}&preset=worst&sort={{ sort }}&account={{ request.args.get('account','') }}&platform={{ request.args.get('platform','') }}">👇 Худшие 10</a>
   <a class="btn" href="?start={{ period[0] }}&end={{ period[1] }}&sort={{ sort }}">Все материалы</a>
+</div>
+
+<div style="display:flex; gap:24px; flex-wrap:wrap;">
+<div style="flex:1; min-width:320px;">
+<h2>Эффективность по рубрикам</h2>
+<table class="tbl">
+<tr><th>Рубрика</th><th>Материалов</th><th>Средний охват</th><th>Средний ERR</th><th>Регистрации</th></tr>
+{% for r, a in by_rubric.items()|sort(attribute='1.avg_reach', reverse=True) %}
+<tr><td>{{ r }}</td><td>{{ a.n }}</td><td>{{ a.avg_reach|numfmt }}</td>
+<td>{{ a.avg_err|pctfmt if a.avg_err is not none else 'н/д' }}</td><td>{{ a.regs|numfmt }}</td></tr>
+{% else %}<tr><td colspan="5">Нет данных — классифицируйте контент на экране AI-аналитики.</td></tr>{% endfor %}
+</table>
+</div>
+<div style="flex:1; min-width:320px;">
+<h2>Эффективность по форматам</h2>
+<table class="tbl">
+<tr><th>Формат</th><th>Материалов</th><th>Средний охват</th><th>Средний ERR</th><th>Регистрации</th></tr>
+{% for r, a in by_format.items()|sort(attribute='1.avg_reach', reverse=True) %}
+<tr><td>{{ r }}</td><td>{{ a.n }}</td><td>{{ a.avg_reach|numfmt }}</td>
+<td>{{ a.avg_err|pctfmt if a.avg_err is not none else 'н/д' }}</td><td>{{ a.regs|numfmt }}</td></tr>
+{% else %}<tr><td colspan="5">Нет данных.</td></tr>{% endfor %}
+</table>
+</div>
 </div>
 
 {% if compare %}

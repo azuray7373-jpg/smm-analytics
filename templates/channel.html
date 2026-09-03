@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ ch.platform|upper }} — {{ ch.name }} <small>({{ period[0] }} — {{ period[1] }})</small></h1>
+<p><a href="{{ ch.url }}" target="_blank">Открыть канал ↗</a> · <a href="{{ url_for('metric_history', channel_id=ch.id, metric='followers', day=period[1]) }}">История метрики подписчиков</a></p>
+
+<div class="cards">
+  <div class="card" title="Количество на последний день периода"><h3>Подписчики</h3><div class="big">{{ p.agg.followers_end|numfmt }}</div></div>
+  <div class="card" title="Подписались − Отписались"><h3>Чистый прирост</h3><div class="big">{{ p.ind.net_growth|numfmt }}</div></div>
+  <div class="card" title="Взаимодействия / Охват × 100"><h3>ERR</h3><div class="big">{{ p.ind.ERR|pctfmt }}</div></div>
+  <div class="card" title="Взаимодействия / средние подписчики × 100"><h3>ER</h3><div class="big">{{ p.ind.ER|pctfmt }}</div></div>
+  <div class="card" title="Регистрации канала / Охват × 100"><h3>CV из охвата</h3><div class="big">{{ p.ind.CV_reach|pctfmt(3) }}</div></div>
+  <div class="card" title="Регистрации с UTM этого канала за период"><h3>Регистрации (UTM)</h3><div class="big">{{ total_regs|numfmt }}</div></div>
+</div>
+
+<h2>Динамика по дням</h2>
+<canvas id="chDay" height="70"></canvas>
+<script>
+new Chart(document.getElementById('chDay'), {
+  type: 'line',
+  data: { labels: {{ chart.labels|tojson }},
+    datasets: [
+      { label: 'Охват', data: {{ chart.reach|tojson }}, tension: .3 },
+      { label: 'Взаимодействия', data: {{ chart.inter|tojson }}, tension: .3 },
+      { label: 'Регистрации', data: {{ chart.regs|tojson }}, yAxisID: 'y1', tension: .3 }
+    ]},
+  options: { scales: { y: { position: 'left' }, y1: { position: 'right', grid: { drawOnChartArea: false } } } }
+});
+</script>
+
+<h2>Тренд по неделям (8 недель)</h2>
+<canvas id="chWeek" height="60"></canvas>
+<script>
+new Chart(document.getElementById('chWeek'), {
+  type: 'line',
+  data: { labels: {{ trends|map(attribute='label')|list|tojson }},
+    datasets: [
+      { label: 'ERR, %', data: {{ trends|map(attribute='ERR')|list|tojson }}, yAxisID: 'y', tension: .3 },
+      { label: 'CV, %', data: {{ trends|map(attribute='CV')|list|tojson }}, yAxisID: 'y', tension: .3 },
+      { label: 'Регистрации', data: {{ trends|map(attribute='regs')|list|tojson }}, yAxisID: 'y1', tension: .3 }
+    ]},
+  options: { scales: { y: { position: 'left' }, y1: { position: 'right', grid: { drawOnChartArea: false } } } }
+});
+</script>
+
+<div style="display:flex; gap:24px; flex-wrap:wrap;">
+<div style="flex:1.4; min-width:340px;">
+<h2>Материалы канала (топ по охвату)</h2>
+<table class="tbl">
+<tr><th>Дата</th><th>Формат</th><th>Название</th><th>Рубрика</th><th>Охват</th><th>ERR</th><th>Регистр.</th></tr>
+{% for i in items %}
+{% set tags = (i.item.ai_tags | fromjson) if i.item.ai_tags else {} %}
+<tr><td>{{ i.item.published_at.strftime('%d.%m') if i.item.published_at }}</td>
+<td>{{ i.item.format }}</td>
+<td><a href="{{ i.item.link }}" target="_blank">{{ i.item.title or '(без названия)' }}</a></td>
+<td>{{ tags.get('рубрика', '—') }}</td>
+<td>{{ i.reach|numfmt }}</td><td>{{ i.ERR|pctfmt }}</td><td>{{ i.registrations|numfmt }}</td></tr>
+{% else %}<tr><td colspan="7">Материалов за период нет.</td></tr>{% endfor %}
+</table>
+</div>
+<div style="flex:1; min-width:280px;">
+<h2>Регистрации по UTM-источникам</h2>
+<table class="tbl">
+<tr><th>UTM source</th><th>Регистрации</th></tr>
+{% for src, cnt in by_utm if src %}<tr><td>{{ src }}</td><td>{{ cnt|numfmt }}</td></tr>{% endfor %}
+</table>
+<p class="muted">Показаны все источники за период; к каналу относятся те, что маппятся на его платформу ({{ ch.platform }}).</p>
+</div>
+</div>
+{% endblock %}

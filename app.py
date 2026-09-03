@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import json, os, threading
+import io, json, os, threading
 from datetime import date, datetime
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, Response
 
@@ -129,7 +129,8 @@ def overview():
     p = calc.period_report(*d)
     chart = _chart_series(*d)
     return render_template("overview.html", p=p, period=d, chart=chart,
-                           report=_latest_report("weekly"))
+                           report=_latest_report("weekly"),
+                           trends=calc.weekly_series(8))
 
 
 @app.route("/comments")
@@ -204,11 +205,40 @@ def content_screen():
                                                        calc.content_stats_for_period(*d), "ERR", 10)
     rubrics = sorted({t.get("рубрика") for t in (json.loads(i["item"].ai_tags or "{}") for i in items) if t.get("рубрика")})
     types = sorted({t.get("продающий_тип") for t in (json.loads(i["item"].ai_tags or "{}") for i in items) if t.get("продающий_тип")})
+    if request.args.get("export") == "csv":
+        import csv as _csv
+        out = io.StringIO()
+        w = _csv.writer(out)
+        w.writerow(["дата", "канал", "формат", "название", "рубрика", "охват", "просмотры",
+                    "ERR%", "сохранения", "репосты", "подписки", "регистрации", "CV%"])
+        for i in items:
+            tags = json.loads(i["item"].ai_tags or "{}")
+            w.writerow([i["item"].published_at, i["item"].channel.name, i["item"].format,
+                        i["item"].title, tags.get("рубрика", ""), i["reach"], i["views"],
+                        round(i["ERR"], 2) if i.get("ERR") is not None else "",
+                        i["saves"], i["shares"], i["subs"], i["registrations"],
+                        round(i["CV"], 3) if i.get("CV") is not None else ""])
+        return Response("﻿" + out.getvalue(), mimetype="text/csv",
+                        headers={"Content-Disposition": "attachment; filename=content.csv"})
+    by_rubric, by_format = {}, {}
+    for i in items:
+        tags = json.loads(i["item"].ai_tags or "{}")
+        for key, agg in ((tags.get("рубрика") or "—", by_rubric), (i["item"].format or "—", by_format)):
+            a = agg.setdefault(key, {"n": 0, "reach": 0, "regs": 0, "err": []})
+            a["n"] += 1
+            a["reach"] += i.get("reach") or 0
+            a["regs"] += i.get("registrations") or 0
+            if i.get("ERR") is not None:
+                a["err"].append(i["ERR"])
+    for agg in (by_rubric, by_format):
+        for v in agg.values():
+            v["avg_reach"] = v["reach"] / v["n"] if v["n"] else 0
+            v["avg_err"] = sum(v["err"]) / len(v["err"]) if v["err"] else None
     return render_template("content.html", items=items[:200], period=d, sort=sort,
                            platforms=sorted({i["item"].channel.platform for i in items}),
                            formats=sorted({i["item"].format for i in items if i["item"].format}),
                            rubrics=rubrics, types=types, compare=compare_text,
-                           preset=preset,
+                           preset=preset, by_rubric=by_rubric, by_format=by_format,
                            total_matched=len(items))
 
 
@@ -558,6 +588,37 @@ def ai_reclassify():
           (" (через LLM)" if used_llm else
            " (эвристически — LLM недоступна, проверьте баланс OpenAI в Настройках)"))
     return redirect(url_for("ai_screen"))
+
+
+@app.route("/guide")
+def guide():
+    return render_template("guide.html")
+
+
+@app.route("/channel/<int:channel_id>")
+def channel_detail(channel_id):
+    """Детализация канала: KPI, динамика по дням, материалы, регистрации, история метрик."""
+    ch = Channel.query.get_or_404(channel_id)
+    d = _period_from_args()
+    p = calc.period_report(*d, ch.id)
+    chart = _chart_series(*d)
+    items = calc.content_stats_for_period(*d, ch.id)
+    items.sort(key=lambda x: x.get("reach") or 0, reverse=True)
+    # регистрации по UTM этого канала
+    q = Registration.query.filter(Registration.date >= d[0], Registration.date <= d[1],
+                                  Registration.status == "OK",
+                                  ~Registration.utm_source.like("demo_%"))
+    by_utm = {}
+    from sqlalchemy import func as _f
+    rows = db.session.query(Registration.utm_source, _f.sum(Registration.count)).filter(
+        Registration.date >= d[0], Registration.date <= d[1],
+        Registration.status == "OK", ~Registration.utm_source.like("demo_%")).group_by(
+        Registration.utm_source).all()
+    plat = calc.UTM_TO_PLATFORM.get((ch.platform or "").lower())
+    total_regs = sum(r[1] or 0 for r in rows if plat and calc.UTM_TO_PLATFORM.get((r[0] or "").lower()) == plat)
+    return render_template("channel.html", ch=ch, p=p, chart=chart, period=d,
+                           items=items[:30], by_utm=rows, total_regs=total_regs,
+                           trends=calc.weekly_series(8, ch.id))
 
 
 @app.route("/notifications")

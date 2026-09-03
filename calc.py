@@ -266,3 +266,20 @@ def compare_best_worst(items, key="ERR", n=10):
                  f"{sf['avg_reach']:,.0f} у худшего "
                  f"(x{sb['avg_reach']/sf['avg_reach']:.1f}).".replace(",", " "))
     return "\n".join("- " + x for x in L), best, flop
+
+
+def weekly_series(weeks=8, channel_id=None):
+    """Тренды по последним N неделям: ERR, CV, регистрации, охват — для графика."""
+    from datetime import timedelta
+    end = week_bounds(date.today())[1]
+    out = []
+    for i in range(weeks - 1, -1, -1):
+        e = end - timedelta(days=7 * i)
+        s_, e_ = e - timedelta(days=6), e
+        p = period_report(s_, e_, channel_id)
+        out.append({"label": s_.strftime("%d.%m"),
+                    "ERR": p["ind"].get("ERR"),
+                    "CV": p["ind"].get("CV_reach"),
+                    "regs": p["registrations"],
+                    "reach": p["agg"].get("reach") or 0})
+    return out

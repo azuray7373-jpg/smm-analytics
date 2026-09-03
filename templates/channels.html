@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <h1>Экран 2 — Каналы (сравнение 11 аккаунтов)</h1>
-<p>Instagram считается и по каждому аккаунту отдельно, и агрегированно. Сумма подписчиков по платформам — не уникальная аудитория. Δ — к предыдущему периоду той же длины.</p>
+<p class="muted">Клик по названию канала — детальная страница с графиками и материалами. Instagram считается и по каждому аккаунту отдельно, и агрегированно. Сумма подписчиков по платформам — не уникальная аудитория. Δ — к предыдущему периоду той же длины.</p>
 
 <canvas id="chChart" height="80"></canvas>
 <script>
@@ -20,7 +20,7 @@ new Chart(document.getElementById('chChart'), {
 <tr><th>Канал</th><th>Платформа</th><th>Подписчики</th><th>Δ охват</th><th>Прирост</th><th>Охват</th><th>Просмотры</th><th>Взаимодействия</th><th>ERR</th><th>ER</th><th>CV</th><th>Регистр.</th><th>Δ регистр.</th></tr>
 {% for r in rows %}
 <tr>
-  <td><a href="{{ r.ch.url }}" target="_blank">{{ r.ch.name }}</a></td>
+  <td><a href="{{ url_for('channel_detail', channel_id=r.ch.id) }}">{{ r.ch.name }}</a> <a class="muted" href="{{ r.ch.url }}" target="_blank">↗</a></td>
   <td>{{ r.ch.platform }}</td>
   <td><a href="{{ url_for('metric_history', channel_id=r.ch.id, metric='followers', day=period[1]) }}" title="История изменений">{{ r.p.agg.followers_end|numfmt }}</a></td>
   {% set rd = r.p.deltas.reach %}

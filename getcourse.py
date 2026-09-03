@@ -70,6 +70,10 @@ def _find_export_id(js):
 def _records(js):
     """Достаём список записей из ответа exports/{id} (формат 'поток данных в JSON-строке')."""
     if isinstance(js, dict):
+        info = js.get("info")
+        if isinstance(info, dict) and "fields" in info and "items" in info:
+            fields = info["fields"]
+            return [dict(zip(fields, row)) for row in info["items"] if isinstance(row, list)]
         for k in ("info", "data", "result", "users", "deals", "payments"):
             v = js.get(k)
             if isinstance(v, list) and v and isinstance(v[0], dict):
@@ -140,6 +144,17 @@ def _f(rec, *names, default=None):
     return default
 
 
+def _fz(rec, *needles):
+    """Первое поле, имя которого содержит подстроку (регистронезависимо) —
+    для реальных русских названий полей выгрузок ГК."""
+    rl = {str(k).lower().strip(): v for k, v in rec.items()}
+    for n in needles:
+        for k, v in rl.items():
+            if n in k:
+                return v
+    return None
+
+
 def _dt(v):
     if not v:
         return None
@@ -187,16 +202,20 @@ def _ingest_users(users, default_day):
         uid = _num(_f(u, "id", "user_id", "ID"))
         if uid is None:
             continue
-        created = _dt(_f(u, "created_at", "created", "date_created", "Дата создания"))
+        created = _dt(_f(u, "created_at", "created", "date_created", "создан",
+                          "дата создания") or _fz(u, "создан", "дата"))
         reg = Registration.query.filter_by(gc_user_id=int(uid)).first()
         if not reg:
             reg = Registration(count=1, gc_user_id=int(uid))
             db.session.add(reg)
         reg.date = (created.date() if created else default_day)
-        reg.utm_source = str(_f(u, "utm_source", "utm_source_text") or "")[:64]
-        reg.utm_medium = str(_f(u, "utm_medium") or "")[:64]
-        reg.utm_campaign = str(_f(u, "utm_campaign") or "")[:128]
-        reg.landing = str(_f(u, "page_url", "landing", "referer", "landing_page") or "")[:255]
+        reg.utm_source = str(_f(u, "utm_source", "lm_utm_source", "gc_system_user_utm_source")
+                             or _fz(u, "utm_source") or "")[:64]
+        reg.utm_medium = str(_f(u, "utm_medium", "lm_utm_medium", "gc_system_user_utm_medium") or "")[:64]
+        reg.utm_campaign = str(_f(u, "utm_campaign", "lm_utm_campaign",
+                                  "gc_system_user_utm_campaign") or "")[:128]
+        reg.landing = str(_f(u, "page_url", "landing", "referer", "landing_page",
+                             "страница регистрации") or "")[:255]
         reg.status = "OK"
         _log_event("user", uid, u)
         n += 1
@@ -210,24 +229,29 @@ def _ingest_deals(deals, default_day):
         did = _num(_f(d, "id", "deal_id", "ID"))
         if did is None:
             continue
-        created = _dt(_f(d, "created_at", "created", "Дата создания"))
+        created = _dt(_f(d, "created_at", "created", "создан", "дата создания")
+                      or _fz(d, "созда"))
         o = GcOrder.query.get(int(did)) or GcOrder(id=int(did))
         db.session.add(o)
-        o.deal_number = str(_f(d, "deal_number", "number", "Номер заказа") or "")[:64]
+        o.deal_number = str(_f(d, "deal_number", "number", "номер заказа")
+                            or _fz(d, "номер") or "")[:64]
         o.created_at = created
         o.date = created.date() if created else default_day
-        o.user_id = _num(_f(d, "user_id", "userID"))
-        o.email = str(_f(d, "email", "E-mail", "user_email") or "")[:255]
-        o.phone = str(_f(d, "phone", "Телефон", "user_phone") or "")[:64]
-        o.product = str(_f(d, "product_title", "product", "offer_name", "Название продукта",
-                           "product_name", "Название предложения") or "")[:255]
-        o.amount = _num(_f(d, "price", "amount", "deal_price", "Сумма заказа", "Сумма"))
-        o.currency = str(_f(d, "currency", "Валюта") or "RUB")[:8]
-        o.status = str(_f(d, "status", "deal_status", "Статус") or "")[:32]
-        o.status_title = str(_f(d, "status_title", "deal_status_name", "Название статуса") or "")[:64]
-        o.utm_source = str(_f(d, "utm_source") or "")[:64]
-        o.utm_medium = str(_f(d, "utm_medium") or "")[:64]
-        o.utm_campaign = str(_f(d, "utm_campaign") or "")[:128]
+        o.user_id = _num(_f(d, "user_id", "userid") or _fz(d, "id пользователя", "id юзера"))
+        o.email = str(_f(d, "email", "e-mail") or _fz(d, "email", "e-mail") or "")[:255]
+        o.phone = str(_f(d, "phone", "телефон") or _fz(d, "телефон") or "")[:64]
+        o.product = str(_f(d, "product_title", "product", "название продукта",
+                           "product_name", "название предложения")
+                        or _fz(d, "предложен", "продукт", "товар", "наименован") or "")[:255]
+        o.amount = _num(_f(d, "price", "amount", "deal_price", "сумма заказа")
+                        or _fz(d, "сумма", "цена", "стоимост", "price"))
+        o.currency = str(_f(d, "currency", "валюта") or _fz(d, "валют") or "RUB")[:8]
+        o.status = str(_f(d, "status", "deal_status", "статус") or "")[:32]
+        o.status_title = str(_f(d, "status_title", "deal_status_name", "название статуса")
+                             or _fz(d, "название статуса") or "")[:64]
+        o.utm_source = str(_f(d, "utm_source", "lm_utm_source") or "")[:64]
+        o.utm_medium = str(_f(d, "utm_medium", "lm_utm_medium") or "")[:64]
+        o.utm_campaign = str(_f(d, "utm_campaign", "lm_utm_campaign") or "")[:128]
         o.direction = _direction(o.utm_source)
         o.updated_at = datetime.utcnow()
         _log_event("deal", did, d)
@@ -244,18 +268,21 @@ def _ingest_payments(payments, default_day):
         pid = _num(_f(p, "id", "payment_id", "ID"))
         if pid is None:
             continue
-        created = _dt(_f(p, "created_at", "created", "Дата создания", "payed_at"))
+        created = _dt(_f(p, "created_at", "created", "создан", "дата создания", "payed_at")
+                      or _fz(p, "созда", "оплачен"))
         pay = GcPayment.query.get(int(pid)) or GcPayment(id=int(pid))
         db.session.add(pay)
         pay.created_at = created
         pay.date = created.date() if created else default_day
-        pay.user_id = _num(_f(p, "user_id", "userID"))
-        pay.email = str(_f(p, "email", "E-mail", "user_email") or "")[:255]
-        pay.amount = _num(_f(p, "amount", "sum", "Сумма", "price", "Сумма оплаты"))
-        pay.currency = str(_f(p, "currency", "Валюта") or "RUB")[:8]
-        pay.status = str(_f(p, "status", "Статус") or "")[:32]
-        pay.deal_id = _num(_f(p, "deal_id", "order_id"))
-        pay.product = str(_f(p, "product_title", "product", "Название продукта") or "")[:255]
+        pay.user_id = _num(_f(p, "user_id", "userid") or _fz(p, "id пользователя"))
+        pay.email = str(_f(p, "email", "e-mail") or _fz(p, "email") or "")[:255]
+        pay.amount = _num(_f(p, "amount", "sum", "сумма", "price", "сумма оплаты")
+                          or _fz(p, "сумма", "price"))
+        pay.currency = str(_f(p, "currency", "валюта") or _fz(p, "валют") or "RUB")[:8]
+        pay.status = str(_f(p, "status", "статус") or "")[:32]
+        pay.deal_id = _num(_f(p, "deal_id", "order_id") or _fz(p, "id заказа", "id сделки"))
+        pay.product = str(_f(p, "product_title", "product", "название продукта")
+                          or _fz(p, "предложен", "продукт") or "")[:255]
         pay.updated_at = datetime.utcnow()
         _log_event("payment", pid, p)
         n += 1

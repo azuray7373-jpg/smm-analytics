@@ -59,6 +59,8 @@ def request_export(kind, params):
         if code in (905, 906, 907, 908, 909):
             continue
         info = r.get("info")
+        if isinstance(info, dict) and "fields" in info and "items" in info:
+            return [dict(zip(info["fields"], row)) for row in info["items"] if isinstance(row, list)]
         if isinstance(info, list) and (not info or isinstance(info[0], dict)):
             return info
         if isinstance(info, str) and info.startswith("["):
@@ -72,14 +74,21 @@ def main():
         sys.exit("Нужны GC_API_KEY, PA_URL, PA_INGEST_TOKEN")
     attempts = int(os.environ.get("ATTEMPTS", "5"))
     pause = int(os.environ.get("RETRY_PAUSE", "900"))
+    import traceback
     for i in range(attempts):
         try:
             return _run_once()
         except _RateLimited as e:
             if i == attempts - 1:
-                print(f"лимит API ГК держится {attempts} попыток; сдaёмся до следующего запуска")
+                print(f"лимит/очередь API ГК держится {attempts} попыток; сдаёмся до следующего запуска")
                 sys.exit(2)
             print(f"попытка {i+1}: {e}; пауза {pause}с и повтор")
+            time.sleep(pause)
+        except Exception as e:
+            if i == attempts - 1:
+                traceback.print_exc()
+                sys.exit(1)
+            print(f"попытка {i+1}: ошибка {e}; пауза {pause}с и повтор")
             time.sleep(pause)
 
 
@@ -91,12 +100,20 @@ def _run_once():
     end = date.today()
     start = end - timedelta(days=DAYS)
     params = {"created_at[from]": start.isoformat(), "created_at[to]": end.isoformat()}
+    def slim(rows, keys):
+        out = []
+        for r in rows:
+            out.append({k: r.get(k) for k in keys if r.get(k) not in (None, "")})
+        return out
+    users = request_export("users", params)
+    deals = request_export("deals", params)
+    payments = request_export("payments", params)
     payload = {"window_start": start.isoformat(),
-               "users": request_export("users", params),
-               "deals": request_export("deals", params),
-               "payments": request_export("payments", params)}
-    print(f"получено: users={len(payload['users'])} deals={len(payload['deals'])} "
-          f"payments={len(payload['payments'])}")
+               "users": slim(users, ["id", "Создан", "created_at", "utm_source", "LM_utm_source",
+                                     "gc_system_user_utm_source", "utm_medium", "utm_campaign"]),
+               "deals": deals,
+               "payments": payments}
+    print(f"получено: users={len(users)} deals={len(deals)} payments={len(payments)}")
     r = requests.post(f"{PA_URL}/api/ingest", json=payload,
                       headers={"X-Ingest-Token": TOKEN}, timeout=300)
     print("ingest:", r.status_code, r.text[:200])

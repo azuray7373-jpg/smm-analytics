@@ -6,3 +6,5 @@ instance/
 server.log
 *.pyc
 export_*.json
+gm.json
+models.json

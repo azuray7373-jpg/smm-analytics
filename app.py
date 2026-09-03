@@ -354,8 +354,11 @@ def manual():
 
 @app.route("/settings", methods=["GET", "POST"])
 def settings():
-    keys = ["ai_api_key", "ai_base_url", "ai_model", "youtube_api_key", "youtube_channel_id",
-            "livedune_token", "gc_account", "gc_api_key"]
+    keys = ["livedune_token",
+            "youtube_api_key", "youtube_channel_id",
+            "instagram_token", "vk_token", "telegram_bot_token", "max_bot_tokens",
+            "gc_account", "gc_api_key",
+            "ai_api_key", "ai_base_url", "ai_model"]
     if request.method == "POST":
         for k in keys:
             set_setting(k, request.form.get(k, ""))

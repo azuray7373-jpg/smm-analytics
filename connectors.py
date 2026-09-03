@@ -75,19 +75,28 @@ def mark_missing(run_id, d=None):
     from datetime import date as _date, timedelta as _td
     since = _date.today() - _td(days=60)
     for ch in Channel.query.filter_by(is_active=True).all():
-        have = {m.metric for m in MetricSnapshot.query.filter_by(channel_id=ch.id, date=d).all()}
+        # итоговый статус каждой метрики = последний снапшот по (канал, дата, метрика)
+        latest = {}
+        for r in MetricSnapshot.query.filter_by(channel_id=ch.id, date=d).all():
+            k = r.metric
+            if k not in latest or (r.fetched_at or 0) >= (latest[k].fetched_at or 0):
+                latest[k] = r
         # адаптивная применимость: метрика применима, если приходила по каналу
-        # хоть раз за 60 дней (учитывает реальные возможности источников)
+        # хоть раз за 60 дней (реальные возможности источников)
         ever = {r.metric for r in db.session.query(MetricSnapshot.metric).filter(
             MetricSnapshot.channel_id == ch.id, MetricSnapshot.date >= since).distinct()}
         base = PLATFORM_METRICS.get(ch.platform, set(DAILY_METRICS)) & set(DAILY_METRICS)
         applicable = (ever & set(DAILY_METRICS)) or base
         for m in DAILY_METRICS:
-            if m in have:
-                continue
+            cur = latest.get(m)
+            if cur is not None and cur.status == "OK":
+                continue   # реальные данные есть
             status = "MISSING" if m in applicable else "NOT_AVAILABLE"
+            if cur is not None and cur.status == status:
+                continue   # уже так помечено
             save_metric(run_id, ch.id, d, m, None, "collector", status=status)
-        miss = [m for m in DAILY_METRICS if m not in have and m in applicable]
+        miss = [m for m in DAILY_METRICS if m in applicable
+                and (latest.get(m) is None or latest[m].status != "OK")]
         if miss:
             missing_by_channel[ch.name] = miss
     db.session.commit()

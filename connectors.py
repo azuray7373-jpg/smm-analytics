@@ -72,9 +72,16 @@ def mark_missing(run_id, d=None):
     чтобы отличать '0' от 'не получено'. Итог — сводное уведомление по ТЗ."""
     d = d or date.today()
     missing_by_channel = {}
+    from datetime import date as _date, timedelta as _td
+    since = _date.today() - _td(days=60)
     for ch in Channel.query.filter_by(is_active=True).all():
         have = {m.metric for m in MetricSnapshot.query.filter_by(channel_id=ch.id, date=d).all()}
-        applicable = PLATFORM_METRICS.get(ch.platform, set(DAILY_METRICS))
+        # адаптивная применимость: метрика применима, если приходила по каналу
+        # хоть раз за 60 дней (учитывает реальные возможности источников)
+        ever = {r.metric for r in db.session.query(MetricSnapshot.metric).filter(
+            MetricSnapshot.channel_id == ch.id, MetricSnapshot.date >= since).distinct()}
+        base = PLATFORM_METRICS.get(ch.platform, set(DAILY_METRICS)) & set(DAILY_METRICS)
+        applicable = (ever & set(DAILY_METRICS)) or base
         for m in DAILY_METRICS:
             if m in have:
                 continue

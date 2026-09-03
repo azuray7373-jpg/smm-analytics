@@ -277,7 +277,7 @@ def weekly_series(weeks=8, channel_id=None):
         e = end - timedelta(days=7 * i)
         s_, e_ = e - timedelta(days=6), e
         p = period_report(s_, e_, channel_id)
-        out.append({"label": s_.strftime("%d.%m"),
+        out.append({"label": s_.strftime("%d.%m"), "end": e_.isoformat(),
                     "ERR": p["ind"].get("ERR"),
                     "CV": p["ind"].get("CV_reach"),
                     "regs": p["registrations"],
@@ -290,7 +290,10 @@ def growth_points(start, end):
     kind: scale (масштабировать) | fix (чинить просадку) | insight (инсайт)."""
     out = []
     try:
-        series = weekly_series(5)
+        series = weekly_series(6)
+        # сравниваем по последней ЗАВЕРШЁННОЙ неделе (текущая может быть неполной)
+        if series and series[-1].get("end", "9999") >= date.today().isoformat():
+            series = series[:-1]
         if len(series) >= 3:
             cur, prev = series[-1], series[:-1][-4:]
             def avg(key):
@@ -300,6 +303,11 @@ def growth_points(start, end):
                                ("regs", "регистрации")):
                 a = avg(key)
                 c = cur.get(key)
+                # сравниваем CV/регистрации только если данные есть во всех неделях
+                # (иначе в истории нули из-за отсутствия источника, а не из-за результата)
+                if key in ("CV", "regs"):
+                    if any((p.get("regs") or 0) == 0 for p in prev):
+                        continue
                 if a and c is not None:
                     pct = (c - a) / a * 100
                     if pct < -10:
@@ -320,8 +328,9 @@ def growth_points(start, end):
                         "text": f"Лучшее размещение по регистрациям — {best_m}: {int(best_v['regs'])} рег., {int(best_v['orders'])} заказов. Масштабировать."})
         funnels = [(f, v) for f, v in br["by_funnel"].items()
                    if f != "Прочее" and v["regs"] > 0]
+        funnels = [(f, v) for f, v in funnels if v["regs"] >= 5 and 0 < v["orders"] < v["regs"]]
         if funnels:
-            worst_f, worst_v = min(funnels, key=lambda x: x[1]["orders"] / max(1, x[1]["regs"]))
+            worst_f, worst_v = min(funnels, key=lambda x: x[1]["orders"] / x[1]["regs"])
             out.append({"kind": "fix",
                         "text": f"Воронка «{worst_f}»: {int(worst_v['regs'])} рег. → {int(worst_v['orders'])} заказов "
                                 f"(CR {worst_v['orders'] / worst_v['regs'] * 100:.1f}%) — самая слабая связка, чинить CTA/страницу."})

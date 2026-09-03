@@ -28,20 +28,19 @@ def _fromjson(s):
 
 @app.template_filter("numfmt")
 def _numfmt(v):
-    """1234567 -> '1 234 567'; None -> 'н/д'."""
-    if v is None:
-        return "н/д"
+    """1234567 -> '1 234 567'; None/отсутствует -> 'н/д'."""
     try:
         return f"{float(v):,.0f}".replace(",", " ")
     except (TypeError, ValueError):
-        return str(v)
+        return "н/д"
 
 
 @app.template_filter("pctfmt")
 def _pctfmt(v, nd=2):
-    if v is None:
+    try:
+        return (f"{float(v):.{nd}f}%").replace(".", ",")
+    except (TypeError, ValueError):
         return "н/д"
-    return f"{v:.{nd}f}%".replace(".", ",")
 
 
 @app.route("/reports/view/<int:id>")
@@ -505,7 +504,9 @@ def start_scheduler():
                 reports.generate_report("monthly")
         def gc_daily():
             with app.app_context():
-                if getcourse.configured():
+                # на хостингах без прямого доступа к ГК (прокси PA) синхронизацию
+                # выполняет релей GitHub Actions — здесь только если сеть доступна
+                if getcourse.configured() and getcourse.can_reach():
                     getcourse.sync_getcourse(days=5)
         sched.add_job(daily, CronTrigger(hour=3))
         sched.add_job(gc_daily, CronTrigger(hour=4))

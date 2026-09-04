@@ -42,6 +42,7 @@ window.addEventListener('beforeunload', function(){
 <nav class="topnav">
   <div class="brand">📊 SMM Аналитика</div>
   {% set path = request.path %}
+  <a href="{{ url_for('assistant_screen') }}" class="{{ 'active' if path.startswith('/assistant') }}">🤖 AI SMM</a>
   <a href="{{ url_for('overview') }}" class="{{ 'active' if path == '/' }}">📊 Всё вместе</a>
   <a href="{{ url_for('channels_screen') }}" class="{{ 'active' if path.startswith('/channels') or path.startswith('/channel/') }}">📡 Каналы</a>
   <a href="{{ url_for('content_screen') }}" class="{{ 'active' if path.startswith('/content') }}">🎬 Контент</a>

@@ -6,7 +6,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, jso
 from db import db, Channel, MetricSnapshot, ContentItem, ContentStat, Registration, \
     ManualNote, Report, Notification, Setting, RunLog, get_setting, set_setting, \
     Comment, GcOrder, GcPayment, Spend
-import calc, connectors, reports, seed, getcourse, comments as comments_mod, livedune, intel
+import calc, connectors, reports, seed, getcourse, comments as comments_mod, livedune, intel, assistant
 
 IS_SERVERLESS = bool(os.environ.get("VERCEL"))
 
@@ -1328,6 +1328,22 @@ def save_template():
     db.session.commit()
     flash("Сохранено в Content Bank")
     return redirect(url_for("intel_screen"))
+
+
+@app.route("/assistant")
+def assistant_screen():
+    """AI SMM-специалист: чат с доступом ко всем данным."""
+    return render_template("assistant.html",
+                           suggestions=assistant.SUGGESTIONS,
+                           history=[])
+
+
+@app.route("/assistant/ask", methods=["POST"])
+def assistant_ask():
+    """Ответ ассистента на вопрос."""
+    q = request.form.get("question", "")
+    result = assistant.ask(q)
+    return jsonify(result)
 
 
 @app.route("/guide")

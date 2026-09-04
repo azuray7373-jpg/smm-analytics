@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>🤖 AI SMM-специалист <small>задайте любой вопрос о ваших данных</small></h1>
+
+<div class="chat-container" id="chat">
+  <div class="chat-msg assistant">
+    Привет! Я ваш AI SMM-специалист. Я вижу все ваши данные: охваты по 11 каналам,
+    регистрации из GetCourse, контент, комментарии, расходы. Спросите что угодно —
+    я отвечу на основе ваших реальных цифр.
+  </div>
+  {% for msg in history %}
+  <div class="chat-msg {{ msg.role }}">{{ msg.text | mdfmt | safe if msg.role == 'assistant' else msg.text }}</div>
+  {% endfor %}
+</div>
+
+<div class="chat-input">
+  <input id="chat_input" placeholder="Например: какой канал работает хуже всех и что делать?"
+         onkeydown="if(event.key==='Enter')send()" autocomplete="off">
+  <button onclick="send()">Отправить</button>
+</div>
+
+<div style="max-width:700px; margin:16px auto; display:flex; flex-wrap:wrap; gap:6px;">
+  <span class="muted" style="width:100%; font-size:11px;">Быстрые вопросы:</span>
+  {% for q in suggestions %}
+  <button class="chip" onclick="ask('{{ q }}')">{{ q }}</button>
+  {% endfor %}
+</div>
+
+<script>
+const chatEl = document.getElementById('chat');
+const inputEl = document.getElementById('chat_input');
+
+function scrollToBottom() { chatEl.scrollIntoView({behavior:'smooth', block:'end'}); }
+
+function addMsg(role, text) {
+  const d = document.createElement('div');
+  d.className = 'chat-msg ' + role;
+  d.textContent = text;
+  chatEl.appendChild(d);
+  scrollToBottom();
+}
+
+async function send() {
+  const q = inputEl.value.trim();
+  if (!q) return;
+  inputEl.value = '';
+  addMsg('user', q);
+  const typing = document.createElement('div');
+  typing.className = 'chat-msg assistant typing';
+  typing.textContent = '⏳ Анализирую ваши данные...';
+  chatEl.appendChild(typing);
+  scrollToBottom();
+  try {
+    const fd = new FormData();
+    fd.append('question', q);
+    const r = await fetch('{{ url_for("assistant_ask") }}', {method:'POST', body:fd});
+    const d = await r.json();
+    typing.remove();
+    if (d.answer) {
+      addMsg('assistant', d.answer);
+    } else {
+      addMsg('assistant', 'Извините, не смог обработать запрос.');
+    }
+  } catch(e) {
+    typing.remove();
+    addMsg('assistant', 'Ошибка соединения: ' + e.message);
+  }
+}
+
+function ask(q) { inputEl.value = q; send(); }
+</script>
+{% endblock %}

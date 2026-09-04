@@ -499,7 +499,7 @@ def sync_getcourse(days=5, backfill_months=0, threaded=False):
     return "завершена"
 
 
-@calc_ttl(120)
+@calc_ttl(600)
 def funnel(start: date, end: date):
     """Воронка и разрезы за период: регистрации -> заказы -> оплаты."""
     regs = Registration.query.filter(Registration.date >= start, Registration.date <= end,

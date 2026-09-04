@@ -75,7 +75,7 @@ def _group_payments(start, end):
         GcPayment.status == "accepted").group_by(GcPayment.date).all()
 
 
-@_ttl(120)
+@_ttl(600)
 def breakdown(start: date, end: date, sdt=None, edt=None):
     """Разрезы по нашим меткам + проверка наличия всех меток в данных.
     sdt/edt — точные границы времени (для отчётных периодов с часами)."""
@@ -148,7 +148,7 @@ def breakdown(start: date, end: date, sdt=None, edt=None):
             "by_source": dict(by_source), "by_combo": combos, "missing": missing}
 
 
-@_ttl(300)
+@_ttl(900)
 def payments_by_platform(start, end):
     """Принятые оплаты по платформам (через utm_source заказов)."""
     from db import GcPayment, GcOrder

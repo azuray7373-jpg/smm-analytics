@@ -71,21 +71,23 @@ new Chart(document.getElementById('gcChart'), {
 {% endif %}
 
 <h2>Последние заказы</h2>
-<table class="tbl">
-<tr><th>Дата</th><th>Продукт</th><th>Сумма</th><th>Статус</th><th>Клиент</th><th>Направление</th><th>Новичок?</th><th>UTM source</th></tr>
+<div style="overflow-x:auto; -webkit-overflow-scrolling:touch;">
+<table class="tbl" style="min-width:900px;">
+<tr><th>Дата</th><th style="min-width:140px;">Продукт</th><th>Сумма</th><th style="min-width:100px;">Статус</th><th style="min-width:160px;">Клиент</th><th>Напр.</th><th>Новичок?</th><th>UTM</th></tr>
 {% for o in recent_orders %}
 <tr>
-  <td>{{ o.date }}</td>
-  <td>{{ o.product or '—' }}</td>
-  <td>{{ o.amount|numfmt }} {{ o.currency }}</td>
-  <td>{{ o.status_title or o.status or '—' }}</td>
-  <td>{{ o.email or '—' }}</td>
-  <td>{{ {'incoming':'входящая','outgoing':'исходящая'}.get(o.direction, '—') }}</td>
-  <td>{{ {'new':'новичок','returning':'старичок'}.get(o.customer_status, '—') }}</td>
-  <td>{{ o.utm_source or '—' }}</td>
+  <td style="white-space:nowrap;">{{ o.date }}</td>
+  <td style="white-space:normal; max-width:180px; overflow:hidden; text-overflow:ellipsis;" title="{{ o.product or '' }}">{{ o.product or '—' }}</td>
+  <td style="white-space:nowrap;">{{ o.amount|numfmt }} {{ o.currency }}</td>
+  <td style="white-space:normal; max-width:120px;">{{ o.status_title or o.status or '—' }}</td>
+  <td style="white-space:normal; max-width:160px; overflow:hidden; text-overflow:ellipsis;" title="{{ o.email or '' }}">{{ o.email or '—' }}</td>
+  <td style="white-space:nowrap;">{{ {'incoming':'вх.','outgoing':'исх.'}.get(o.direction, '—') }}</td>
+  <td style="white-space:nowrap;">{{ {'new':'новичок','returning':'старичок'}.get(o.customer_status, '—') }}</td>
+  <td style="white-space:nowrap;">{{ o.utm_source or '—' }}</td>
 </tr>
 {% else %}<tr><td colspan="8">Заказов пока нет — данные появятся после синхронизации.</td></tr>{% endfor %}
 </table>
+</div>
 
 <div style="display:flex; gap:20px; flex-wrap:wrap;">
 <div style="flex:1; min-width:340px;">

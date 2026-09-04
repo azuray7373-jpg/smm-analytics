@@ -51,6 +51,16 @@ new Chart(document.getElementById('regChart'), {
 </table>
 </div>
 </div>
+<h2>🔗 Сборные метки (источник × размещение × воронка)</h2>
+<p class="muted">Как вы собираете в таблице: «Инста Алексей + bot + openlesson» = воронка чатплейс, «Telegram + canal-anons» = пост канала, «ВК + пост/канал/stories/taplink» и т.д.</p>
+<table class="tbl">
+<tr><th>Источник</th><th>Размещение</th><th>Воронка</th><th>Регистрации</th><th>Заказы</th></tr>
+{% for combo, v in utm.by_combo[:25] %}
+<tr><td>{{ combo[0] }}</td><td>{{ combo[1] }}</td><td>{{ combo[2] or '—' }}</td>
+<td>{{ v.regs|numfmt }}</td><td>{{ v.orders|numfmt }}</td></tr>
+{% else %}<tr><td colspan="5">Нет данных за период.</td></tr>{% endfor %}
+</table>
+
 <h3 class="muted">По источникам (utm_source — 13 наших)</h3>
 <table class="tbl">
 <tr><th>Источник</th><th>Регистрации</th><th>Заказы</th></tr>

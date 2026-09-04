@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <h1>💰 Расходы и ROI <small>({{ period[0] }} — {{ period[1] }})</small></h1>
+<div class="warnbox">Расходы вносить <b>необязательно</b> — только если хотите видеть окупаемость каналов (ROI). Без них все остальные экраны работают как обычно.</div>
 <div class="cards">
   <div class="card"><h3>💸 Расходы за период</h3><div class="big">{{ total_spend|numfmt }} ₽</div></div>
   <div class="card"><h3>💵 Оплаты (принятые)</h3><div class="big">{{ total_pay|numfmt }} ₽</div></div>

@@ -46,9 +46,16 @@ def invalidate_caches():
 
 
 def week_bounds(d: date):
-    """Неделя: фиксированный интервал понедельник–воскресенье."""
-    monday = d - timedelta(days=d.weekday())
-    return monday, monday + timedelta(days=6)
+    """Отчётная неделя. Начало недели настраивается (По ТЗ клиента: воскресенье).
+    Возвращает интервал длиной 7 дней, заканчивающийся в субботу при вс-старте."""
+    from db import get_setting
+    try:
+        start_wd = int(get_setting("week_start_day", "6"))   # 0=пн ... 6=вс
+    except Exception:
+        start_wd = 6
+    delta = (d.weekday() - start_wd) % 7
+    start = d - timedelta(days=delta)
+    return start, start + timedelta(days=6)
 
 
 def month_bounds(d: date):

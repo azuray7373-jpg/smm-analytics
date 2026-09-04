@@ -46,7 +46,7 @@ window.addEventListener('beforeunload', function(){
   <a href="{{ url_for('channels_screen') }}" class="{{ 'active' if path.startswith('/channels') or path.startswith('/channel/') }}">📡 Каналы</a>
   <a href="{{ url_for('content_screen') }}" class="{{ 'active' if path.startswith('/content') }}">🎬 Контент</a>
   <a href="{{ url_for('registrations_screen') }}" class="{{ 'active' if path.startswith('/registrations') }}">📝 Регистрации</a>
-  <a href="{{ url_for('getcourse_screen') }}" class="{{ 'active' if path.startswith('/getcourse') }}">🛒 GetCourse</a>
+  <a href="{{ url_for('getcourse_screen') }}" class="{{ 'active' if path.startswith('/getcourse') }}">🛒 Продажи</a>
   <a href="{{ url_for('comments_screen') }}" class="{{ 'active' if path.startswith('/comments') }}">💬 Комментарии</a>
   <a href="{{ url_for('ai_screen') }}" class="{{ 'active' if path.startswith('/ai') }}">🤖 AI-аналитика</a>
   <a href="{{ url_for('reports_list') }}" class="{{ 'active' if path.startswith('/reports') }}">📄 Отчёты</a>
@@ -84,9 +84,11 @@ window.addEventListener('beforeunload', function(){
 
 <form class="filters" method="get">
   <label>Начало <input type="date" name="start" value="{{ period[0] }}"></label>
+  <label>с <input type="time" name="t0" value="{{ request.args.get('t0','') }}" style="width:100px" title="время начала (необязательно)"></label>
   <label>Конец <input type="date" name="end" value="{{ period[1] }}"></label>
+  <label>до <input type="time" name="t1" value="{{ request.args.get('t1','') }}" style="width:100px" title="время конца (необязательно)"></label>
   <button>Применить</button>
-  <a class="chip" href="?preset=week">Неделя</a>
+  <a class="chip" href="?preset=week" title="отчётная неделя: вс–сб">Неделя (вс–сб)</a>
   <a class="chip" href="?preset=7d">7 дней</a>
   <a class="chip" href="?preset=30d">30 дней</a>
   <a class="chip" href="?preset=month">Этот месяц</a>
@@ -94,6 +96,7 @@ window.addEventListener('beforeunload', function(){
   {% if request.path == '/' %}
   <button type="submit" formaction="{{ url_for('collect') }}" formmethod="post">▶ Собрать данные</button>
   {% endif %}
+  <span class="muted" style="font-size:11.5px">обе даты включаются целиком</span>
 </form>
 
 {% block content %}{% endblock %}

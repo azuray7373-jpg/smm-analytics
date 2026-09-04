@@ -246,8 +246,10 @@ def channels_screen():
     """Экран 2. Каналы — сравнение 11 аккаунтов + динамика к прошлому периоду."""
     d = _period_from_args()
     rows = []
+    days_n = max((d[1] - d[0]).days + 1, 1)
     for ch in Channel.query.filter_by(is_active=True).all():
-        rows.append({"ch": ch, "p": cached_period_report(*d, ch.id)})
+        p = cached_period_report(*d, ch.id)
+        rows.append({"ch": ch, "p": p, "avg_reach": (p["agg"].get("reach") or 0) / days_n})
     if request.args.get("export") == "csv":
         import csv as _csv
         out = io.StringIO()
@@ -373,6 +375,16 @@ def content_screen():
                            total_matched=len(items))
 
 
+def _regs_with_time(q):
+    """Если задано время границ — фильтруем регистрации по точному времени."""
+    sdt, edt = _period_datetimes()
+    if sdt and edt:
+        with_time = Registration.query.filter(Registration.created_at.isnot(None))
+        if with_time.count():
+            return q.filter(Registration.created_at >= sdt, Registration.created_at < edt)
+    return q
+
+
 @app.route("/registrations")
 def registrations_screen():
     """Экран 4. Регистрации: источник → канал → CV."""
@@ -380,6 +392,7 @@ def registrations_screen():
     q = Registration.query.filter(Registration.date >= d[0], Registration.date <= d[1],
                                   Registration.status == "OK",
                                   ~Registration.utm_source.like("demo_%"))
+    q = _regs_with_time(q)
     by_source = {}
     for r in q.all():
         s = by_source.setdefault(r.utm_source or "(нет)", {"count": 0, "landings": {}})
@@ -970,7 +983,7 @@ def manual():
 
 @app.route("/settings", methods=["GET", "POST"])
 def settings():
-    keys = ["app_password", "alert_reach_drop", "alert_views_drop", "alert_err_drop",
+    keys = ["app_password", "week_start_day", "alert_reach_drop", "alert_views_drop", "alert_err_drop",
             "tg_bot_token", "tg_chat_id", "livedune_token",
             "youtube_api_key", "youtube_channel_id",
             "instagram_token", "vk_token", "telegram_bot_token", "max_bot_tokens",
@@ -1130,6 +1143,10 @@ def gc_webhook():
                     reg = Registration(count=1, gc_user_id=uid)
                     db.session.add(reg)
                 reg.date = _dateval("created", "created_at", "Создан")
+                try:
+                    reg.created_at = datetime.strptime(str(_val("created", "created_at", "Создан"))[:19].replace("T", " "), "%Y-%m-%d %H:%M:%S")
+                except Exception:
+                    pass
                 reg.utm_source = str(_val("utm_source") or "")[:64]
                 reg.utm_medium = str(_val("utm_medium") or "")[:64]
                 reg.utm_campaign = str(_val("utm_campaign") or "")[:128]
@@ -1257,6 +1274,7 @@ def channel_detail(channel_id):
     q = Registration.query.filter(Registration.date >= d[0], Registration.date <= d[1],
                                   Registration.status == "OK",
                                   ~Registration.utm_source.like("demo_%"))
+    q = _regs_with_time(q)
     by_utm = {}
     from sqlalchemy import func as _f
     rows = db.session.query(Registration.utm_source, _f.sum(Registration.count)).filter(
@@ -1291,6 +1309,8 @@ def metric_history(channel_id, metric, day):
 # ---------------- helpers ----------------
 
 def _period_from_args():
+    """Период с датами и (опционально) точным временем границ — по ТЗ клиента
+    отчётная неделя типа «с 30-го 10:00 до 6-го 10:00»."""
     ps = request.args.get("start"); pe = request.args.get("end")
     preset = request.args.get("preset", "week")
     anchor = datetime.strptime(ps, "%Y-%m-%d").date() if ps else date.today()
@@ -1311,6 +1331,36 @@ def _period_from_args():
 
 
 @calc.ttl_cache(120)
+def _period_datetimes():
+    """(start_dt, end_dt) с учётом полей t0/t1 (часы:минуты), None если не заданы."""
+    t0 = request.args.get("t0", "")
+    t1 = request.args.get("t1", "")
+    try:
+        from datetime import datetime as _dt
+        d0 = _dt.strptime(request.args.get("start", ""), "%Y-%m-%d")
+    except ValueError:
+        d0 = None
+    try:
+        from datetime import datetime as _dt
+        d1 = _dt.strptime(request.args.get("end", ""), "%Y-%m-%d")
+    except ValueError:
+        d1 = None
+    import datetime as _dtm
+    sdt = None
+    edt = None
+    if d0:
+        sdt = _dtm.datetime.combine(d0, _dtm.time())
+        if ":" in t0:
+            h, m = t0.split(":")[:2]
+            sdt = _dtm.datetime.combine(d0, _dtm.time(int(h), int(m)))
+    if d1:
+        edt = _dtm.datetime.combine(d1 + _dtm.timedelta(days=1), _dtm.time())  # конец дня включительно
+        if ":" in t1:
+            h, m = t1.split(":")[:2]
+            edt = _dtm.datetime.combine(d1, _dtm.time(int(h), int(m)))
+    return sdt, edt
+
+
 def _chart_series(start, end):
     days = []
     d = start
@@ -1497,6 +1547,7 @@ with app.app_context():
         "ALTER TABLE notifications ADD COLUMN delivered BOOLEAN DEFAULT 0",
         "ALTER TABLE channels ADD COLUMN is_competitor BOOLEAN DEFAULT 0",
         "ALTER TABLE channels ADD COLUMN ld_account_id INTEGER",
+        "ALTER TABLE registrations ADD COLUMN created_at TIMESTAMP",
     ):
         try:
             db.session.execute(_text(ddl_a))

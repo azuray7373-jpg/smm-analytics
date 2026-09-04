@@ -79,24 +79,57 @@ def breakdown(start: date, end: date):
     regs = _group_registrations(start, end)
     orders = _group_orders(start, end)
 
+    AD_HINTS = ("yandex", "ya_", "direct", "vkads", "vk_ads", "вк реклам", "fb_", "facebook",
+                "mytarget", "sms", "сайт", "site", "partner", "lead_sv", "google", "директ")
+    def classify(s, m, c):
+        """(категория, источник-метка). Наша = есть наша campaign ИЛИ наш medium.
+        Остальное: рекламные кабинеты отдельно, пустой source отдельно."""
+        src = (s or "").strip().lower()
+        if campaign_type(c) or known_medium(m):
+            if not src:
+                return "наши", "без метки (проверить ссылку)"
+            return "наши", known_source(s) or src
+        if any(h in src for h in AD_HINTS):
+            return "реклама", src or "реклама"
+        if not src:
+            return "без метки", "без метки"
+        return "реклама", src   # чужой source без наших меток = не соцсети
+
     by_funnel = defaultdict(lambda: {"regs": 0, "orders": 0, "sum": 0})
     by_medium = defaultdict(lambda: {"regs": 0, "orders": 0})
     by_source = defaultdict(lambda: {"regs": 0, "orders": 0})
+    by_combo = defaultdict(lambda: {"regs": 0, "orders": 0})
     for s, m, c, n in regs:
-        ft = campaign_type(c) or "Прочее"
-        by_funnel[ft]["regs"] += n or 0
-        mk = known_medium(m) or "прочее"
-        by_medium[mk]["regs"] += n or 0
-        sk = known_source(s) or ("прочее" if (s or "").strip() else "без метки")
-        by_source[sk]["regs"] += n or 0
+        cat, srckey = classify(s, m, c)
+        if cat == "наши":
+            ft = campaign_type(c) or "без campaign"
+            by_funnel[ft]["regs"] += n or 0
+            mk = known_medium(m) or ((m or "").strip().lower() or "без medium")
+            by_medium[mk]["regs"] += n or 0
+            by_source[srckey]["regs"] += n or 0
+            key = (srckey, mk, campaign_type(c) or "")
+            by_combo[key]["regs"] += n or 0
+        elif cat == "реклама":
+            by_funnel["Реклама (не соцсети)"]["regs"] += n or 0
+            by_source[srckey]["regs"] += n or 0
+        else:
+            by_funnel["Без метки"]["regs"] += n or 0
+            by_source["без метки (проверить ссылку)"]["regs"] += n or 0
     for s, m, c, n, total in orders:
-        ft = campaign_type(c) or "Прочее"
-        by_funnel[ft]["orders"] += n
-        by_funnel[ft]["sum"] += total or 0
-        mk = known_medium(m) or "прочее"
-        by_medium[mk]["orders"] += n
-        sk = known_source(s) or ("прочее" if (s or "").strip() else "без метки")
-        by_source[sk]["orders"] += n
+        cat, srckey = classify(s, m, c)
+        if cat == "наши":
+            ft = campaign_type(c) or "без campaign"
+            by_funnel[ft]["orders"] += n
+            by_funnel[ft]["sum"] += total or 0
+            mk = known_medium(m) or ((m or "").strip().lower() or "без medium")
+            by_medium[mk]["orders"] += n
+            by_source[srckey]["orders"] += n
+            key = (srckey, mk, campaign_type(c) or "")
+            by_combo[key]["orders"] += n
+        elif cat == "реклама":
+            by_funnel["Реклама (не соцсети)"]["orders"] += n
+        else:
+            by_funnel["Без метки"]["orders"] += n
 
     # проверки наличия наших меток в данных
     seen_c = {c for _, _, c, _ in regs} | {c for _, _, c, _, _ in orders}
@@ -107,8 +140,9 @@ def breakdown(start: date, end: date):
     missing = {"campaigns": [c for c in CAMPAIGN_TYPES if c not in nc],
                "mediums": [m for m in MEDIUMS if m not in nm],
                "sources": [s for s in SOURCES if s not in ns]}
+    combos = sorted(by_combo.items(), key=lambda x: -x[1]["regs"])
     return {"by_funnel": dict(by_funnel), "by_medium": dict(by_medium),
-            "by_source": dict(by_source), "missing": missing}
+            "by_source": dict(by_source), "by_combo": combos, "missing": missing}
 
 
 @_ttl(300)

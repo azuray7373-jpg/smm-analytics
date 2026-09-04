@@ -18,7 +18,7 @@ new Chart(document.getElementById('chChart'), {
 
 <div class="filters"><a class="btn" href="?{{ request.query_string.decode() if request.query_string else 'start=' ~ period[0] ~ '&end=' ~ period[1] }}&export=csv">⬇️ CSV</a></div>
 <table class="tbl">
-<tr><th>Канал</th><th>Платформа</th><th>Подписчики</th><th>Δ охват</th><th>Прирост</th><th>Охват</th><th>Просмотры</th><th>Взаимодействия</th><th>ERR</th><th>ER</th><th>CV</th><th>Регистр.</th><th>Δ регистр.</th></tr>
+<tr><th>Канал</th><th>Платформа</th><th>Подписчики</th><th>Подписались</th><th>Отписались</th><th>Δ охват</th><th>Охват (общий)</th><th>Средний охват</th><th>Stories, просмотры</th><th>Просмотры</th><th>ERR</th><th>ER</th><th>CV</th><th>Регистр.</th></tr>
 {% for r in rows %}
 <tr>
   <td><a href="{{ url_for('channel_detail', channel_id=r.ch.id) }}">{{ r.ch.name }}</a> <a class="muted" href="{{ r.ch.url }}" target="_blank">↗</a></td>
@@ -26,10 +26,13 @@ new Chart(document.getElementById('chChart'), {
   <td><a href="{{ url_for('metric_history', channel_id=r.ch.id, metric='followers', day=period[1]) }}" title="История изменений">{{ r.p.agg.followers_end|numfmt }}</a></td>
   {% set rd = r.p.deltas.reach %}
   <td>{% if rd and rd.d is not none %}<span class="badge {{ 'up' if rd.d >= 0 else 'down' }}">{{ '%+d'|format(rd.d) }}%</span>{% else %}—{% endif %}</td>
-  <td>{{ r.p.ind.net_growth|numfmt }}</td>
+  <td><span style="color:#34d399">+{{ r.p.agg.subscribed|numfmt }}</span></td>
+  <td><span style="color:#fb7185">−{{ r.p.agg.unsubscribed|numfmt }}</span></td>
+  <td>PLACEHOLDER_DELTA</td>
   <td>{{ r.p.agg.reach|numfmt }}</td>
+  <td>{{ r.avg_reach|numfmt }}</td>
+  <td>{{ r.p.agg.opens|numfmt }}</td>
   <td>{{ r.p.agg.views|numfmt }}</td>
-  <td>{{ r.p.ind.interactions|numfmt }}</td>
   <td>{{ r.p.ind.ERR|pctfmt }}</td>
   <td>{{ r.p.ind.ER|pctfmt }}</td>
   <td>{{ r.p.ind.CV_reach|pctfmt(3) }}</td>

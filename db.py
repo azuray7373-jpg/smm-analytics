@@ -87,6 +87,7 @@ class Registration(db.Model):
     count = db.Column(db.Float, default=0)
     status = db.Column(db.String(16), default="OK")
     gc_user_id = db.Column(db.Integer, index=True)   # если регистрация пришла из GetCourse
+    created_at = db.Column(db.DateTime, index=True)  # точное время регистрации (для периодов с временем)
 
 
 class GcOrder(db.Model):

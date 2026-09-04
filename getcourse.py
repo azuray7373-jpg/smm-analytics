@@ -210,6 +210,8 @@ def _ingest_users(users, default_day):
             reg = Registration(count=1, gc_user_id=int(uid))
             db.session.add(reg)
         reg.date = (created.date() if created else default_day)
+        if created:
+            reg.created_at = created
         reg.utm_source = str(_f(u, "utm_source", "lm_utm_source", "gc_system_user_utm_source")
                              or _fz(u, "utm_source") or "")[:64]
         reg.utm_medium = str(_f(u, "utm_medium", "lm_utm_medium", "gc_system_user_utm_medium") or "")[:64]

@@ -44,7 +44,7 @@
 </div>
 <p class="muted">Ширина полос = доля от регистраций (визуальная воронка, не суммирование разных сущностей).</p>
 
-<canvas id="gcChart" height="70"></canvas>
+<div class="chart-box"><canvas id="gcChart"></canvas></div>
 <script>
 new Chart(document.getElementById('gcChart'), {
   type: 'bar',
@@ -54,7 +54,7 @@ new Chart(document.getElementById('gcChart'), {
       { label: 'Оплаты', data: {{ chart.payments|tojson }}, backgroundColor: '#3ddc8488' },
       { type: 'line', label: 'Сумма оплат, ₽', data: {{ chart.sums|tojson }}, yAxisID: 'y1', tension: .3 }
     ]},
-  options: { scales: { y: { beginAtZero: true }, y1: { position: 'right', grid: { drawOnChartArea: false } } } }
+  options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true }, y1: { position: 'right', grid: { drawOnChartArea: false } } } }
 });
 </script>
 

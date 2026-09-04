@@ -35,14 +35,14 @@
 
 {% if chart.labels %}
 <h2>Накопительная динамика</h2>
-<canvas id="itemChart" height="55"></canvas>
+<div class="chart-box sm"><canvas id="itemChart"></canvas></div>
 <script>
 new Chart(document.getElementById('itemChart'), {
   type: 'line',
   data: { labels: {{ chart.labels|tojson }},
     datasets: [{ label: 'Охват (накопл.)', data: {{ chart.reach|tojson }}, tension: .3 },
                { label: 'Регистрации', data: {{ chart.regs|tojson }}, yAxisID: 'y1', tension: .3 }]},
-  options: { scales: { y: { position: 'left' }, y1: { position: 'right', grid: { drawOnChartArea: false } } } }
+  options: { responsive: true, maintainAspectRatio: false, scales: { y: { position: 'left' }, y1: { position: 'right', grid: { drawOnChartArea: false } } } }
 });
 </script>
 {% endif %}

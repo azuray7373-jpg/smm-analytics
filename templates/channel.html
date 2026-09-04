@@ -13,7 +13,7 @@
 </div>
 
 <h2>Динамика по дням</h2>
-<canvas id="chDay" height="70"></canvas>
+<div class="chart-box"><canvas id="chDay"></canvas></div>
 <script>
 new Chart(document.getElementById('chDay'), {
   type: 'line',
@@ -23,12 +23,12 @@ new Chart(document.getElementById('chDay'), {
       { label: 'Взаимодействия', data: {{ chart.inter|tojson }}, tension: .3 },
       { label: 'Регистрации', data: {{ chart.regs|tojson }}, yAxisID: 'y1', tension: .3 }
     ]},
-  options: { scales: { y: { position: 'left' }, y1: { position: 'right', grid: { drawOnChartArea: false } } } }
+  options: { responsive: true, maintainAspectRatio: false, scales: { y: { position: 'left' }, y1: { position: 'right', grid: { drawOnChartArea: false } } } }
 });
 </script>
 
 <h2>Тренд по неделям (8 недель)</h2>
-<canvas id="chWeek" height="60"></canvas>
+<div class="chart-box sm"><canvas id="chWeek"></canvas></div>
 <script>
 new Chart(document.getElementById('chWeek'), {
   type: 'line',
@@ -38,7 +38,7 @@ new Chart(document.getElementById('chWeek'), {
       { label: 'CV, %', data: {{ trends|map(attribute='CV')|list|tojson }}, yAxisID: 'y', tension: .3 },
       { label: 'Регистрации', data: {{ trends|map(attribute='regs')|list|tojson }}, yAxisID: 'y1', tension: .3 }
     ]},
-  options: { scales: { y: { position: 'left' }, y1: { position: 'right', grid: { drawOnChartArea: false } } } }
+  options: { responsive: true, maintainAspectRatio: false, scales: { y: { position: 'left' }, y1: { position: 'right', grid: { drawOnChartArea: false } } } }
 });
 </script>
 

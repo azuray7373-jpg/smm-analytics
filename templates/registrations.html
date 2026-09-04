@@ -6,14 +6,14 @@
   <div class="card"><h3>Суммарный охват</h3><div class="big">{{ '{:,.0f}'.format(total_reach or 0) }}</div></div>
   <div class="card"><h3>Общая CV</h3><div class="big">{{ '%.3f'|format(total_cv or 0) }}%</div></div>
 </div>
-<canvas id="regChart" height="60"></canvas>
+<div class="chart-box sm"><canvas id="regChart"></canvas></div>
 <script>
 new Chart(document.getElementById('regChart'), {
   type: 'bar',
   data: { labels: {{ chart.labels|tojson }},
     datasets: [{ type: 'line', label: 'Охват', data: {{ chart.reach|tojson }}, yAxisID: 'y', tension: .3 },
                { label: 'Регистрации', data: {{ chart.regs|tojson }}, backgroundColor: '#3ddc8488', yAxisID: 'y1' } ]},
-  options: { scales: { y: { position: 'left' }, y1: { position: 'right', grid: { drawOnChartArea: false } } } }
+  options: { responsive: true, maintainAspectRatio: false, scales: { y: { position: 'left' }, y1: { position: 'right', grid: { drawOnChartArea: false } } } }
 });
 </script>
 

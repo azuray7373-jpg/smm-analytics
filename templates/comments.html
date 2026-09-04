@@ -19,7 +19,7 @@
 
 {% if trend.labels %}
 <h2>Тренд тональности по неделям</h2>
-<canvas id="toneChart" height="55"></canvas>
+<div class="chart-box sm"><canvas id="toneChart"></canvas></div>
 <script>
 new Chart(document.getElementById('toneChart'), {
   type: 'bar',
@@ -29,7 +29,7 @@ new Chart(document.getElementById('toneChart'), {
       { label: "{{ mt }}", data: {{ arr|tojson }} },
       {% endfor %}
     ]},
-  options: { scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } }
+  options: { responsive: true, maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } }
 });
 </script>
 {% endif %}

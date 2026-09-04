@@ -1,72 +1,66 @@
 <!doctype html>
-<html lang="ru">
+<html lang="ru" style="background:#0a0e14" data-theme="dark">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#0a0e14">
 <title>SMM Аналитика</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=3">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=8">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <script>
 (function(){
-  if (localStorage.getItem('theme') === 'light')
+  var t = localStorage.getItem('theme');
+  if (t === 'light') {
     document.documentElement.setAttribute('data-theme', 'light');
+    document.documentElement.style.background = '#fafbfc';
+  }
 })();
 function toggleTheme(){
   var el = document.documentElement;
   var light = el.getAttribute('data-theme') === 'light';
-  if (light) { el.removeAttribute('data-theme'); localStorage.setItem('theme','dark'); }
-  else { el.setAttribute('data-theme','light'); localStorage.setItem('theme','light'); }
+  if (light) {
+    el.setAttribute('data-theme', 'dark');
+    el.style.background = '#0a0e14';
+    localStorage.setItem('theme','dark');
+  } else {
+    el.setAttribute('data-theme', 'light');
+    el.style.background = '#fafbfc';
+    localStorage.setItem('theme','light');
+  }
   document.getElementById('themeIcon').textContent = light ? '🌙' : '☀️';
 }
 </script>
 </head>
 <body>
-<div id="loadbar" style="position:fixed;top:0;left:0;height:3px;width:0;
-     background:linear-gradient(90deg,#5b8cff,#8b5cf6,#22d3ee);z-index:99;transition:width .3s"></div>
-<script>
-document.addEventListener('click', function(e){
-  var a = e.target.closest('a[href]:not([href^="#"]):not([target])');
-  if(!a) return;
-  document.getElementById('loadbar').style.width = '70%';
-});
-window.addEventListener('pageshow', function(){
-  var b = document.getElementById('loadbar');
-  b.style.width = '100%';
-  setTimeout(function(){ b.style.transition='none'; b.style.width='0';
-    setTimeout(function(){ b.style.transition='width .3s'; },50); }, 150);
-});
-window.addEventListener('beforeunload', function(){
-  document.getElementById('loadbar').style.width = '70%';
-});
-</script>
 <nav class="topnav">
-  <div class="brand">📊 SMM Аналитика</div>
+  <div class="brand">SMM Аналитика</div>
   {% set path = request.path %}
-  <a href="{{ url_for('assistant_screen') }}" class="{{ 'active' if path.startswith('/assistant') }}">🤖 AI SMM</a>
-  <a href="{{ url_for('overview') }}" class="{{ 'active' if path == '/' }}">📊 Всё вместе</a>
-  <a href="{{ url_for('channels_screen') }}" class="{{ 'active' if path.startswith('/channels') or path.startswith('/channel/') }}">📡 Каналы</a>
-  <a href="{{ url_for('content_screen') }}" class="{{ 'active' if path.startswith('/content') }}">🎬 Контент</a>
-  <a href="{{ url_for('registrations_screen') }}" class="{{ 'active' if path.startswith('/registrations') }}">📝 Регистрации</a>
-  <a href="{{ url_for('getcourse_screen') }}" class="{{ 'active' if path.startswith('/getcourse') }}">🛒 Продажи</a>
-  <a href="{{ url_for('comments_screen') }}" class="{{ 'active' if path.startswith('/comments') }}">💬 Комментарии</a>
-  <a href="{{ url_for('intel_screen') }}" class="{{ 'active' if path.startswith('/intel') }}">🧠 Интеллект</a>
-  <a href="{{ url_for('ai_screen') }}" class="{{ 'active' if path.startswith('/ai') }}">🤖 AI-аналитика</a>
-  <a href="{{ url_for('reports_list') }}" class="{{ 'active' if path.startswith('/reports') }}">📄 Отчёты</a>
-  <a href="{{ url_for('compare_screen') }}" class="{{ 'active' if path.startswith('/compare') }}">⚖️ Сравнение</a>
-  <a href="{{ url_for('competitors_screen') }}" class="{{ 'active' if path.startswith('/competitors') }}">🥊 Конкуренты</a>
-  <a href="{{ url_for('hypotheses_screen') }}" class="{{ 'active' if path.startswith('/hypotheses') }}">🧪 Гипотезы</a>
-  <a href="{{ url_for('tasks_screen') }}" class="{{ 'active' if path.startswith('/tasks') }}">✅ Задачи</a>
-  <a href="{{ url_for('spends_screen') }}" class="{{ 'active' if path.startswith('/spends') }}">💰 Расходы</a>
-  <a href="{{ url_for('goals_screen') }}" class="{{ 'active' if path.startswith('/goals') }}">🎯 Цели</a>
-  <a href="{{ url_for('calendar_screen') }}" class="{{ 'active' if path.startswith('/calendar') }}">📅 Календарь</a>
-  <a href="{{ url_for('utm_builder') }}" class="{{ 'active' if path.startswith('/utm') }}">🔗 UTM</a>
-  <a href="{{ url_for('guide') }}" class="{{ 'active' if path.startswith('/guide') }}">📖 Руководство</a>
-  <a href="{{ url_for('import_csv') }}" class="{{ 'active' if path.startswith('/import') }}">⬆️ Импорт</a>
-  <a href="{{ url_for('manual') }}" class="{{ 'active' if path.startswith('/manual') }}">✍️ Ручной ввод</a>
-  <a href="{{ url_for('settings') }}" class="{{ 'active' if path.startswith('/settings') }}">⚙️ Настройки</a>
-  <button class="theme-btn" onclick="toggleTheme()" title="Светлая/тёмная тема"><span id="themeIcon">🌙</span></button>
-  <a href="{{ url_for('logout') }}" title="Выйти">🔐</a>
-  <a href="{{ url_for('notifications') }}" class="bell">🔔{% if unread_notifications %} ({{ unread_notifications }}){% endif %}</a>
+  <a href="{{ url_for('assistant_screen') }}" class="{{ 'active' if path.startswith('/assistant') }}">AI SMM</a>
+  <a href="{{ url_for('overview') }}" class="{{ 'active' if path == '/' }}">Обзор</a>
+  <a href="{{ url_for('intel_screen') }}" class="{{ 'active' if path.startswith('/intel') }}">Интеллект</a>
+  <a href="{{ url_for('ai_screen') }}" class="{{ 'active' if path.startswith('/ai') }}">Отчёты AI</a>
+  <a href="{{ url_for('channels_screen') }}" class="{{ 'active' if path.startswith('/channel') }}">Каналы</a>
+  <a href="{{ url_for('content_screen') }}" class="{{ 'active' if path.startswith('/content') }}">Контент</a>
+  <a href="{{ url_for('registrations_screen') }}" class="{{ 'active' if path.startswith('/registrations') }}">Регистрации</a>
+  <a href="{{ url_for('getcourse_screen') }}" class="{{ 'active' if path.startswith('/getcourse') }}">Продажи</a>
+  <a href="{{ url_for('spends_screen') }}" class="{{ 'active' if path.startswith('/spends') }}">ROI</a>
+  <a href="{{ url_for('comments_screen') }}" class="{{ 'active' if path.startswith('/comments') }}">Комментарии</a>
+  <a href="{{ url_for('calendar_screen') }}" class="{{ 'active' if path.startswith('/calendar') }}">Календарь</a>
+  <a href="{{ url_for('goals_screen') }}" class="{{ 'active' if path.startswith('/goals') }}">Цели</a>
+  <a href="{{ url_for('tasks_screen') }}" class="{{ 'active' if path.startswith('/tasks') }}">Задачи</a>
+  <a href="{{ url_for('competitors_screen') }}" class="{{ 'active' if path.startswith('/competitors') }}">Конкуренты</a>
+  <a href="{{ url_for('hypotheses_screen') }}" class="{{ 'active' if path.startswith('/hypotheses') }}">Гипотезы</a>
+  <a href="{{ url_for('compare_screen') }}" class="{{ 'active' if path.startswith('/compare') }}">Сравнение</a>
+  <a href="{{ url_for('utm_builder') }}" class="{{ 'active' if path.startswith('/utm') }}">UTM</a>
+  <a href="{{ url_for('reports_list') }}" class="{{ 'active' if path.startswith('/reports') }}">Архив</a>
+  <a href="{{ url_for('guide') }}" class="{{ 'active' if path.startswith('/guide') }}">Справка</a>
+  <a href="{{ url_for('import_csv') }}" class="{{ 'active' if path.startswith('/import') }}">Импорт</a>
+  <a href="{{ url_for('manual') }}" class="{{ 'active' if path.startswith('/manual') }}">Ввод</a>
+  <a href="{{ url_for('settings') }}" class="{{ 'active' if path.startswith('/settings') }}">⚙</a>
+  <button class="theme-btn" onclick="toggleTheme()"><span id="themeIcon">{{ '☀️' if request.cookies.get('theme') == 'light' else '🌙' }}</span></button>
+  <a href="{{ url_for('notifications') }}" class="bell">🔔{% if unread_notifications %} {{ unread_notifications }}{% endif %}</a>
+  <a href="{{ url_for('logout') }}" title="Выйти">⏻</a>
 </nav>
 <main>
 {% with msgs = get_flashed_messages() %}
@@ -75,44 +69,45 @@ window.addEventListener('beforeunload', function(){
 
 {% if health is defined and health %}
 <div class="healthbar">
-  <span>🟢 Сбор: {{ health.collect or '—' }}</span>
-  <span>🔁 Релей ГК: {{ health.relay or '—' }}</span>
-  <span>📡 LiveDune: {{ health.livedune or '—' }}</span>
-  {% if health.missing %}<span class="warn">⚠ MISSING за вчера: {{ health.missing }}</span>{% endif %}
-  <span>💬 Комментарии: {{ health.comments or 0 }}</span>
-  <span>🛒 Заказов в базе: {{ health.gc_orders or 0 }}</span>
+  <span>Сбор: {{ health.collect or '—' }}</span>
+  <span>ГК: {{ health.relay or '—' }}</span>
+  <span>LiveDune: {{ health.livedune or '—' }}</span>
+  {% if health.missing %}<span class="warn">⚠ MISSING: {{ health.missing }}</span>{% endif %}
+  <span>💬 {{ health.comments or 0 }}</span>
+  <span>🛒 {{ health.gc_orders or 0 }}</span>
 </div>
 {% endif %}
 
 <form class="filters" method="get">
-  <label>Начало <input type="date" name="start" value="{{ period[0] }}"></label>
-  <label>с <input type="time" name="t0" value="{{ request.args.get('t0','') }}" style="width:100px" title="время начала (необязательно)"></label>
-  <label>Конец <input type="date" name="end" value="{{ period[1] }}"></label>
-  <label>до <input type="time" name="t1" value="{{ request.args.get('t1','') }}" style="width:100px" title="время конца (необязательно)"></label>
-  <button>Применить</button>
-  <a class="chip" href="?preset=week" title="отчётная неделя: вс–сб">Неделя (вс–сб)</a>
+  <input type="date" name="start" value="{{ period[0] }}">
+  <input type="date" name="end" value="{{ period[1] }}">
+  <input type="time" name="t0" value="{{ request.args.get('t0','') }}" style="width:80px" title="время начала">
+  <input type="time" name="t1" value="{{ request.args.get('t1','') }}" style="width:80px" title="время конца">
+  <button>OK</button>
+  <a class="chip {{ 'on' if request.args.get('preset') == 'week' }}" href="?preset=week">Неделя</a>
   <a class="chip" href="?preset=7d">7 дней</a>
   <a class="chip" href="?preset=30d">30 дней</a>
-  <a class="chip" href="?preset=month">Этот месяц</a>
-  <a class="chip" href="?preset=prevmonth">Прошлый месяц</a>
+  <a class="chip" href="?preset=month">Месяц</a>
+  <a class="chip" href="?preset=prevmonth">Прошлый</a>
   {% if request.path == '/' %}
-  <button type="submit" formaction="{{ url_for('collect') }}" formmethod="post">▶ Собрать данные</button>
+  <button type="submit" formaction="{{ url_for('collect') }}" formmethod="post">▶ Собрать</button>
   {% endif %}
-  <span class="muted" style="font-size:11.5px">обе даты включаются целиком</span>
 </form>
 
 {% block content %}{% endblock %}
 </main>
-<footer>Схема по ТЗ: источники → база → расчёты → проверки → нейросеть → выводы. AI не считает цифры.{% if render_ms is not none %} Страница отрисована за {{ render_ms }} мс.{% endif %}</footer>
+<footer>источники → база → расчёты → проверки → AI → выводы · AI не считает цифры</footer>
 <script>
 if (window.Chart) {
-  Chart.defaults.color = '#93a0b8';
-  Chart.defaults.font.family = 'Inter, Segoe UI, system-ui';
-  Chart.defaults.borderColor = 'rgba(147,160,184,.12)';
-  Chart.defaults.plugins.legend.labels.boxWidth = 12;
-  Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(11,16,28,.95)';
+  Chart.defaults.color = '#8b95a3';
+  Chart.defaults.font.family = '-apple-system, Segoe UI, system-ui, sans-serif';
+  Chart.defaults.font.size = 11;
+  Chart.defaults.borderColor = 'rgba(255,255,255,.04)';
+  Chart.defaults.plugins.legend.labels.boxWidth = 10;
+  Chart.defaults.plugins.tooltip.backgroundColor = '#141a23';
   Chart.defaults.plugins.tooltip.padding = 10;
-  Chart.defaults.plugins.tooltip.cornerRadius = 8;
+  Chart.defaults.plugins.tooltip.cornerRadius = 6;
 }
 </script>
-</body></html>
+</body>
+</html>

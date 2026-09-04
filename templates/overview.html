@@ -43,19 +43,30 @@
     </div>
     {% if card.breakdown %}
     <div class="kpi-detail" id="detail_{{ card.id }}">
-      <div class="kpi-detail-header">Расшифровка по каналам</div>
+      <div class="kpi-detail-header">По каналам — нажмите для деталей</div>
       <div class="kpi-breakdown">
         {% for row in card.breakdown %}
-        <div class="kpi-breakdown-row">
-          <span class="bd-name">{{ row.name }}</span>
+        <a class="kpi-breakdown-row" href="{{ url_for('channel_detail', channel_id=1) }}"
+           onclick="event.stopPropagation()">
+          <span class="bd-icon">{{ row.icon }}</span>
+          <span class="bd-name" title="{{ row.platform }}">{{ row.name }}</span>
           <div class="bd-bar"><i style="width: {{ row.pct }}%"></i></div>
           <span class="bd-value">{{ row.value }}</span>
+          {% if row.delta is not none %}
+          <span class="bd-delta {{ 'pos' if row.delta >= 0 else 'neg' }}">{{ '%+d'|format(row.delta) }}%</span>
+          {% else %}
           <span class="bd-pct">{{ '%.0f'|format(row.pct) }}%</span>
-        </div>
+          {% endif %}
+        </a>
         {% endfor %}
       </div>
+      <div class="kpi-hint">
+        <span class="bd-pct">доля от общего</span>
+        <span class="bd-delta pos">↑ рост</span>
+        <span class="bd-delta neg">↓ падение</span>
+      </div>
       {% if card.formula %}
-      <div class="kpi-formula">{{ card.formula }}</div>
+      <div class="kpi-formula">📐 {{ card.formula }}</div>
       {% endif %}
     </div>
     {% endif %}
@@ -66,11 +77,11 @@
 <div class="section-grid">
   <div class="section-item">
     <h2>Динамика по дням</h2>
-    <canvas id="chart" height="90"></canvas>
+    <div class="chart-box"><canvas id="chart"></canvas></div>
   </div>
   <div class="section-item">
     <h2>Тренды (8 недель)</h2>
-    <canvas id="trendChart" height="55"></canvas>
+    <div class="chart-box sm"><canvas id="trendChart"></canvas></div>
   </div>
 </div>
 
@@ -141,8 +152,20 @@
 }
 .kpi-breakdown { display: flex; flex-direction: column; gap: 4px; }
 .kpi-breakdown-row {
-  display: grid; grid-template-columns: 70px 1fr 60px 32px;
-  gap: 6px; align-items: center; font-size: 11px;
+  display: grid; grid-template-columns: 18px 70px 1fr 60px 40px;
+  gap: 4px; align-items: center; font-size: 11px;
+  padding: 2px 4px; border-radius: 3px;
+  text-decoration: none; color: inherit;
+  transition: background .12s;
+}
+.kpi-breakdown-row:hover { background: var(--bg-hover); }
+.bd-icon { font-size: 13px; text-align: center; }
+.bd-delta { font-size: 10px; font-weight: 600; text-align: right; }
+.bd-delta.pos { color: var(--success); }
+.bd-delta.neg { color: var(--danger); }
+.kpi-hint {
+  display: flex; gap: 10px; margin-top: 6px; font-size: 9px;
+  color: var(--txt-tertiary); padding: 4px 0;
 }
 .bd-name { color: var(--txt-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bd-bar { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }

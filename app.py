@@ -187,11 +187,32 @@ def overview():
             "unsubscribed": cp["agg"].get("unsubscribed") or 0,
         })
 
-    def breakdown(key, fmt="{:,.0f}", total=None):
+    PLAT_ICONS = {"instagram":"📸","youtube":"▶️","telegram":"✈️","vk":"🔵",
+                  "tiktok":"🎵","dzen":"◉","max":"💬"}
+
+    def breakdown(key, fmt="{:,.0f}", total=None, prev_key=None):
         total = total or sum(c[key] for c in ch_data) or 1
         rows = sorted(ch_data, key=lambda c: c[key], reverse=True)
-        return [{"name": c["ch"].name, "value": fmt.format(c[key]).replace(",", " "),
-                 "pct": c[key] / total * 100 if total else 0} for c in rows if c[key] > 0]
+        out = []
+        for c in rows:
+            if c[key] <= 0:
+                continue
+            # динамика к прошлому периоду
+            delta_pct = None
+            if prev_key:
+                cur = c.get(key) or 0
+                prev = c.get(prev_key) or 0
+                if prev > 0:
+                    delta_pct = round((cur - prev) / prev * 100)
+            out.append({
+                "name": c["ch"].name,
+                "platform": c["ch"].platform,
+                "icon": PLAT_ICONS.get(c["ch"].platform, "📡"),
+                "value": fmt.format(c[key]).replace(",", " "),
+                "pct": c[key] / total * 100 if total else 0,
+                "delta": delta_pct,
+            })
+        return out
 
     def delta(key):
         dd = p["deltas"].get(key)
@@ -200,28 +221,28 @@ def overview():
     kpi_cards = [
         {"id": "reach", "icon": "👁", "title": "Охват", "value": "{:,.0f}".format(p["agg"].get("reach") or 0).replace(",", " "),
          "delta": delta("reach"), "sub": "суммарный за период",
-         "breakdown": breakdown("reach"), "formula": "Сумма охватов всех публикаций"},
+         "breakdown": breakdown("reach"), "formula": "Сумма охватов всех публикаций на всех каналах"},
         {"id": "views", "icon": "▶️", "title": "Просмотры", "value": "{:,.0f}".format(p["agg"].get("views") or 0).replace(",", " "),
          "delta": delta("views"), "sub": "все каналы",
-         "breakdown": breakdown("views"), "formula": "Показы/просмотры контента"},
+         "breakdown": breakdown("views"), "formula": "Показы и просмотры контента за период"},
         {"id": "regs", "icon": "📝", "title": "Регистрации", "value": "{:,.0f}".format(p["registrations"]),
          "delta": delta("registrations"), "sub": "реальные (демо исключены)",
-         "breakdown": breakdown("regs"), "formula": "Из GetCourse с UTM"},
+         "breakdown": breakdown("regs"), "formula": "Из GetCourse, атрибуция по UTM-меткам"},
         {"id": "err", "icon": "⚡", "title": "ERR", "value": "{:.2f}%".format(p["ind"].get("ERR") or 0),
          "delta": delta("ERR"), "sub": "вовлечённость/охват",
-         "breakdown": breakdown("err", "{:.2f}%"), "formula": "Взаимодействия / Охват × 100"},
+         "breakdown": breakdown("err", "{:.2f}%"), "formula": "(лайки + комменты + сохранения + репосты + реакции) / охват × 100"},
         {"id": "cv", "icon": "🎯", "title": "CV из охвата", "value": "{:.3f}%".format(p["ind"].get("CV_reach") or 0),
          "delta": delta("CV_reach"), "sub": "охват → регистрация",
-         "breakdown": breakdown("regs", "{:,.0f}"), "formula": "Регистрации / Охват × 100"},
+         "breakdown": breakdown("regs", "{:,.0f}"), "formula": "Регистрации / Охват × 100 — сколько охват превратился в заявки"},
         {"id": "followers", "icon": "👥", "title": "Подписчики", "value": "{:,.0f}".format(p["agg"].get("followers_end") or 0).replace(",", " "),
          "delta": delta("followers_end"), "sub": "на конец периода",
-         "breakdown": breakdown("followers"), "formula": "Все каналы суммарно"},
+         "breakdown": breakdown("followers"), "formula": "Сумма подписчиков всех 11 аккаунтов"},
         {"id": "growth", "icon": "➕", "title": "Чистый прирост", "value": "{:+,.0f}".format(p["ind"].get("net_growth") or 0).replace(",", " "),
          "delta": delta("net_growth"), "sub": "подписались − отписались",
-         "breakdown": breakdown("subscribed"), "formula": "Подписались − Отписались"},
+         "breakdown": breakdown("subscribed"), "formula": "Новые подписки минус отписки за период"},
         {"id": "inter", "icon": "❤️", "title": "Взаимодействия", "value": "{:,.0f}".format(p["ind"].get("interactions") or 0).replace(",", " "),
          "delta": None, "sub": "лайки+комм+сохр+репосты",
-         "breakdown": breakdown("inter"), "formula": "Лайки + Комменты + Сохранения + Репосты + Реакции"},
+         "breakdown": breakdown("inter"), "formula": "лайки + комментарии + сохранения + репосты + реакции"},
     ]
 
     return render_template("overview.html", p=p, period=d, chart=chart,

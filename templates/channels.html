@@ -3,7 +3,7 @@
 <h1>Экран 2 — Каналы (сравнение 11 аккаунтов)</h1>
 <p class="muted">Клик по названию канала — детальная страница с графиками и материалами. Instagram считается и по каждому аккаунту отдельно, и агрегированно. Сумма подписчиков по платформам — не уникальная аудитория. Δ — к предыдущему периоду той же длины.</p>
 
-<canvas id="chChart" height="80"></canvas>
+<div class="chart-box"><canvas id="chChart"></canvas></div>
 <script>
 new Chart(document.getElementById('chChart'), {
   type: 'bar',
@@ -12,7 +12,7 @@ new Chart(document.getElementById('chChart'), {
       { label: 'Охват', data: {{ chart.reach|tojson }}, backgroundColor: '#4f8cff88' },
       { label: 'Регистрации', data: {{ chart.regs|tojson }}, backgroundColor: '#3ddc8488', yAxisID: 'y1' }
     ]},
-  options: { scales: { y: { position: 'left' }, y1: { position: 'right', grid: { drawOnChartArea: false } } } }
+  options: { responsive: true, maintainAspectRatio: false, scales: { y: { position: 'left' }, y1: { position: 'right', grid: { drawOnChartArea: false } } } }
 });
 </script>
 

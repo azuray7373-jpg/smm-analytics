@@ -313,13 +313,7 @@ details {
 summary { cursor: pointer; font-weight: 600; font-size: 13px; }
 li.warn { color: var(--warning); } li.error { color: var(--danger); }
 
-canvas {
-  background: var(--bg-elevated);
-  border-radius: var(--radius);
-  padding: 12px; border: 1px solid var(--border);
-  margin: var(--space-sm) 0;
-  max-width: 100%;
-}
+canvas { max-width: 100%; }
 
 /* ═══ HEALTH ═══ */
 .healthbar {
@@ -460,7 +454,7 @@ canvas {
   .aireport { padding: 4px 12px 12px; }
   .cal-grid { grid-template-columns: repeat(2, 1fr); }
   .cal-hdr:nth-child(n+3) { display: none; }
-  canvas { padding: 6px; }
+  canvas { max-width: 100%; }
   .chat-msg { max-width: 95%; }
   .chat-input { flex-direction: column; }
 }
@@ -483,3 +477,15 @@ canvas {
     background: #fff !important;
   }
 }
+
+
+/* ─── Графики: фиксированная высота ─── */
+.chart-box {
+  position: relative;
+  width: 100%;
+  height: 220px;
+  min-height: 180px;
+  max-height: 300px;
+}
+.chart-box.sm { height: 160px; }
+.chart-box canvas { max-width: 100%; }

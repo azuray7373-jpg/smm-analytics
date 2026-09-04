@@ -1010,25 +1010,7 @@ def getcourse_screen():
     f = getcourse.funnel(*d)
     logs = RunLog.query.filter(RunLog.kind.in_(["gc_sync", "gc_relay"])) \
         .order_by(RunLog.started_at.desc()).limit(10).all()
-    # динамика по дням: заказы и оплаты
-    from sqlalchemy import func as _f
-    days = []
-    cur = d[0]
-    from datetime import timedelta as _td
-    while cur <= d[1]:
-        days.append(cur.isoformat())
-        cur += _td(days=1)
-    o_by_day = dict(db.session.query(_f.date(GcOrder.date), _f.count(GcOrder.id))
-                    .filter(GcOrder.date >= d[0], GcOrder.date <= d[1]).group_by(GcOrder.date).all())
-    p_by_day = dict(db.session.query(_f.date(GcPayment.date), _f.count(GcPayment.id))
-                    .filter(GcPayment.date >= d[0], GcPayment.date <= d[1]).group_by(GcPayment.date).all())
-    s_by_day = dict(db.session.query(_f.date(GcPayment.date), _f.coalesce(_f.sum(GcPayment.amount), 0))
-                    .filter(GcPayment.date >= d[0], GcPayment.date <= d[1],
-                            GcPayment.status == "accepted").group_by(GcPayment.date).all())
-    chart = {"labels": days,
-             "orders": [o_by_day.get(x, 0) for x in days],
-             "payments": [p_by_day.get(x, 0) for x in days],
-             "sums": [s_by_day.get(x, 0) for x in days]}
+    chart = _gc_daily_chart(d)
     recent_orders = GcOrder.query.order_by(GcOrder.created_at.desc().nullslast()).limit(20).all()
     import utm as utm_mod
     cohorts = utm_mod.retention_cohorts(6)
@@ -1362,6 +1344,29 @@ def _period_datetimes():
     return sdt, edt
 
 
+@calc.ttl_cache(600)
+def _gc_daily_chart(d):
+    """По-дневная динамика заказов/оплат (кэш 10 минут)."""
+    from sqlalchemy import func as _f
+    from datetime import timedelta as _td
+    days = []
+    cur = d[0]
+    while cur <= d[1]:
+        days.append(cur.isoformat())
+        cur += _td(days=1)
+    o_by_day = dict(db.session.query(_f.date(GcOrder.date), _f.count(GcOrder.id))
+                    .filter(GcOrder.date >= d[0], GcOrder.date <= d[1]).group_by(GcOrder.date).all())
+    p_by_day = dict(db.session.query(_f.date(GcPayment.date), _f.count(GcPayment.id))
+                    .filter(GcPayment.date >= d[0], GcPayment.date <= d[1]).group_by(GcPayment.date).all())
+    s_by_day = dict(db.session.query(_f.date(GcPayment.date), _f.coalesce(_f.sum(GcPayment.amount), 0))
+                    .filter(GcPayment.date >= d[0], GcPayment.date <= d[1],
+                            GcPayment.status == "accepted").group_by(GcPayment.date).all())
+    return {"labels": days,
+            "orders": [o_by_day.get(x, 0) for x in days],
+            "payments": [p_by_day.get(x, 0) for x in days],
+            "sums": [s_by_day.get(x, 0) for x in days]}
+
+
 def _chart_series(start, end):
     days = []
     d = start
@@ -1507,6 +1512,21 @@ def _start_timer():
     from flask import g as _g
     import time as _t
     _g._t0 = _t.time()
+
+
+@app.after_request
+def _gzip_response(resp):
+    """Сжатие HTML/JSON — страницы грузятся в 3-5 раз быстрее по сети."""
+    try:
+        if (resp.mimetype and resp.mimetype.startswith("text/") and len(resp.data) > 1024
+                and "gzip" in request.headers.get("Accept-Encoding", "")):
+            import zlib
+            resp.data = zlib.compress(resp.data, 5)
+            resp.headers["Content-Encoding"] = "gzip"
+            resp.headers["Vary"] = "Accept-Encoding"
+    except Exception:
+        pass
+    return resp
 
 
 @app.after_request

@@ -228,6 +228,7 @@ def _ingest_users(users, default_day):
 
 def _ingest_deals(deals, default_day):
     n = 0
+    uids, emails = set(), set()
     for d in deals:
         did = _num(_f(d, "id", "deal_id") or _fz(d, "id заказа", "id сделки", "deal_id"))
         if did is None:
@@ -261,9 +262,13 @@ def _ingest_deals(deals, default_day):
         o.direction = _direction(o.utm_source)
         o.updated_at = datetime.utcnow()
         _log_event("deal", did, d)
+        if o.user_id:
+            uids.add(o.user_id)
+        if o.email:
+            emails.add(o.email.lower())
         n += 1
     db.session.commit()
-    _recompute_customer_status()
+    _recompute_customer_status(user_ids=uids, emails=emails)
     db.session.commit()
     return n
 
@@ -308,11 +313,21 @@ def sync_window(start, end, run_id):
     return {"users": nu, "deals": nd, "payments": np_}
 
 
-def _recompute_customer_status():
-    """Новичок = первый заказ контакта; старичок = были более ранние заказы."""
-    orders = GcOrder.query.order_by(GcOrder.created_at).all()
+def _recompute_customer_status(user_ids=None, emails=None):
+    """Новичок = первый заказ контакта; старичок = повторный.
+    При импорте пересчитываем только затронутых клиентов (быстро на 20к+ заказов);
+    без аргументов — полную историю (обслуживание/лечение)."""
+    q = GcOrder.query.order_by(GcOrder.created_at)
+    if user_ids or emails:
+        from sqlalchemy import or_
+        conds = []
+        if user_ids:
+            conds.append(GcOrder.user_id.in_(list(user_ids)))
+        if emails:
+            conds.append(GcOrder.email.in_([e.lower() for e in emails]))
+        q = q.filter(or_(*conds))
     seen = set()
-    for o in orders:
+    for o in q.all():
         key = o.user_id or (o.email or "").lower() or None
         if key is None:
             o.customer_status = None

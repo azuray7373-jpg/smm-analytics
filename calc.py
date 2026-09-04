@@ -123,21 +123,20 @@ def aggregate(start: date, end: date, channel_id=None):
     ch_ids = [c.id for c in q.all()]
 
     def followers_batch(on_date):
-        """Последнее известное значение followers на/до даты для каждого канала."""
-        rows = (db.session.query(MetricSnapshot.channel_id,
-                                 MetricSnapshot.date, MetricSnapshot.value,
-                                 db.func.max(MetricSnapshot.fetched_at))
-                .filter(MetricSnapshot.channel_id.in_(ch_ids),
-                        MetricSnapshot.metric == "followers",
-                        MetricSnapshot.date <= on_date,
-                        MetricSnapshot.value.isnot(None))
-                .group_by(MetricSnapshot.channel_id, MetricSnapshot.date,
-                          MetricSnapshot.value)
-                .order_by(MetricSnapshot.channel_id, MetricSnapshot.date.desc()).all())
+        """Последний известный followers на/до даты — точечные запросы по
+        составному индексу (channel_id, date, metric, fetched_at), мгновенно
+        даже на большой истории."""
         best = {}
-        for r in rows:
-            if r[0] not in best:
-                best[r[0]] = r[2]   # первая (=самая поздняя) дата на канал
+        for cid in ch_ids:
+            row = (db.session.query(MetricSnapshot.value)
+                   .filter(MetricSnapshot.channel_id == cid,
+                           MetricSnapshot.metric == "followers",
+                           MetricSnapshot.date <= on_date,
+                           MetricSnapshot.value.isnot(None))
+                   .order_by(MetricSnapshot.date.desc(), MetricSnapshot.fetched_at.desc())
+                   .first())
+            if row and row[0] is not None:
+                best[cid] = row[0]
         return best
 
     fe = followers_batch(end) if ch_ids else {}
@@ -181,7 +180,7 @@ def indicators(agg: dict, regs: float) -> dict:
     return out
 
 
-@ttl_cache(120)
+@ttl_cache(600)
 def period_report(start: date, end: date, channel_id=None):
     """Полный срез по периоду: агрегаты + показатели + сравнение с предыдущим периодом."""
     agg, statuses = aggregate(start, end, channel_id)
@@ -307,7 +306,7 @@ def compare_best_worst(items, key="ERR", n=10):
     return "\n".join("- " + x for x in L), best, flop
 
 
-@ttl_cache(300)
+@ttl_cache(1800)
 def weekly_series(weeks=8, channel_id=None):
     """Тренды по последним N неделям: ERR, CV, регистрации, охват — для графика."""
     from datetime import timedelta
@@ -325,7 +324,7 @@ def weekly_series(weeks=8, channel_id=None):
     return out
 
 
-@ttl_cache(300)
+@ttl_cache(1800)
 def growth_points(start, end):
     """Точки роста: только из рассчитанных чисел. Возвращает [{kind, text}],
     kind: scale (масштабировать) | fix (чинить просадку) | insight (инсайт)."""

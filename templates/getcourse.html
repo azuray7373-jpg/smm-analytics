@@ -72,20 +72,28 @@ new Chart(document.getElementById('gcChart'), {
 
 <h2>Последние заказы</h2>
 <div class="tbl-wrap">
-<table class="tbl">
+<table class="tbl orders-table">
+<colgroup>
+  <col style="width:9%"><col style="width:22%"><col style="width:12%">
+  <col style="width:13%"><col style="width:18%"><col style="width:8%">
+  <col style="width:9%"><col style="width:9%">
+</colgroup>
 <thead>
-<tr><th>Дата</th><th>Продукт</th><th class="num">Сумма</th><th>Статус</th><th>Клиент</th><th>Напр.</th><th>Клиент</th><th>UTM</th></tr>
+<tr>
+  <th>Дата</th><th>Продукт</th><th>Сумма</th><th>Статус</th>
+  <th>Клиент</th><th>Напр.</th><th>Тип</th><th>UTM</th>
+</tr>
 </thead>
 <tbody>
 {% for o in recent_orders %}
 <tr>
   <td>{{ o.date }}</td>
-  <td class="ellipsis" title="{{ o.product or '' }}">{{ o.product or '—' }}</td>
-  <td class="num">{{ o.amount|numfmt }} {{ o.currency }}</td>
+  <td class="wrap">{{ o.product or '—' }}</td>
+  <td class="num">{{ o.amount|numfmt }}</td>
   <td class="wrap">{{ o.status_title or o.status or '—' }}</td>
-  <td class="ellipsis" title="{{ o.email or '' }}">{{ o.email or '—' }}</td>
-  <td>{{ {'incoming':'вх.','outgoing':'исх.'}.get(o.direction, '—') }}</td>
-  <td>{{ {'new':'новичок','returning':'старичок'}.get(o.customer_status, '—') }}</td>
+  <td class="wrap">{{ o.email or '—' }}</td>
+  <td>{{ {'i':'вх.','o':'исх.'}.get((o.direction or '')[:1], '—') }}</td>
+  <td>{{ {'n':'нов.','r':'стар.'}.get((o.customer_status or '')[:1], '—') }}</td>
   <td>{{ o.utm_source or '—' }}</td>
 </tr>
 {% else %}<tr><td colspan="8" class="muted" style="text-align:center; padding:24px;">Заказов пока нет</td></tr>{% endfor %}

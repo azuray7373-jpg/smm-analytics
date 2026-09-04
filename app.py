@@ -423,7 +423,8 @@ def registrations_screen():
         return Response("﻿" + out.getvalue(), mimetype="text/csv",
                         headers={"Content-Disposition": "attachment; filename=registrations.csv"})
     import utm as utm_mod
-    br = utm_mod.breakdown(*d)
+    sdt, edt = _period_datetimes()
+    br = utm_mod.breakdown(d[0], d[1], sdt, edt)
     return render_template("registrations.html", rows=cv_rows, total=total,
                            total_reach=total_reach,
                            total_cv=total / total_reach * 100 if total_reach else None, period=d,

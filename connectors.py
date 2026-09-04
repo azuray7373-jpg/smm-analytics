@@ -259,7 +259,22 @@ def import_xlsx(fileobj, default_year=None):
     wb = openpyxl.load_workbook(fileobj, data_only=True, read_only=True)
     run_id = start_run("xlsx_import")
     stats = {"reach": 0, "leads": 0, "followers": 0, "generic": 0, "skipped": []}
-    for name in wb.sheetnames:
+    def sheet_key(n):
+        """Порядок обработки: охватные листы по возрастанию года (2023 → 2024 → 2526),
+        чтобы свежие данные учебного года 25/26 перезаписывали старые на тех же датах."""
+        low = n.lower()
+        is_reach = low.startswith("итоги") or "охваты месяц" in low
+        if "2023" in low:
+            y = 0
+        elif "2024" in low:
+            y = 1
+        elif is_reach:
+            y = 2
+        else:
+            y = 3
+        return (0 if is_reach else 1, y)
+
+    for name in sorted(wb.sheetnames, key=sheet_key):
         ws = wb[name]
         rows = [list(r) for r in ws.iter_rows(values_only=True)]
         low = name.lower()

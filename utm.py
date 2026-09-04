@@ -48,14 +48,16 @@ def known_medium(v):
     return v if v in MEDIUMS else None
 
 
-def _group_registrations(start, end):
-    rows = db.session.query(Registration.utm_source, Registration.utm_medium,
-                            Registration.utm_campaign, func.sum(Registration.count)).filter(
+def _group_registrations(start, end, sdt=None, edt=None):
+    q = db.session.query(Registration.utm_source, Registration.utm_medium,
+                         Registration.utm_campaign, func.sum(Registration.count)).filter(
         Registration.date >= start, Registration.date <= end,
         Registration.status == "OK",
-        ~Registration.utm_source.like("demo_%")).group_by(
-        Registration.utm_source, Registration.utm_medium, Registration.utm_campaign).all()
-    return rows
+        ~Registration.utm_source.like("demo_%"))
+    if sdt and edt and Registration.query.filter(Registration.created_at.isnot(None)).count():
+        q = q.filter(Registration.created_at >= sdt, Registration.created_at < edt)
+    return q.group_by(Registration.utm_source, Registration.utm_medium,
+                      Registration.utm_campaign).all()
 
 
 def _group_orders(start, end):
@@ -74,9 +76,10 @@ def _group_payments(start, end):
 
 
 @_ttl(120)
-def breakdown(start: date, end: date):
-    """Разрезы по нашим меткам + проверка наличия всех меток в данных."""
-    regs = _group_registrations(start, end)
+def breakdown(start: date, end: date, sdt=None, edt=None):
+    """Разрезы по нашим меткам + проверка наличия всех меток в данных.
+    sdt/edt — точные границы времени (для отчётных периодов с часами)."""
+    regs = _group_registrations(start, end, sdt, edt)
     orders = _group_orders(start, end)
 
     AD_HINTS = ("yandex", "ya_", "direct", "vkads", "vk_ads", "вк реклам", "fb_", "facebook",

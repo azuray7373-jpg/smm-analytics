@@ -18,7 +18,7 @@ CAMPAIGN_TYPES = {
     "otvety": "ВИО",
     "autoweb": "Автовебинар",
 }
-MEDIUMS = ["post", "canal-anons", "bot", "story", "taplink", "gayd"]
+MEDIUMS = ["post", "canal-anons", "bot", "botVL2", "story", "taplink", "gayd", "shapka"]
 SOURCES = ["insta-alexey", "insta-alexeynew", "insta-dina", "insta-venera",
            "max-venera", "telegram", "max", "vkontakte", "youtube", "ticktock",
            "dzen", "vk_maya", "telegram_maya"]

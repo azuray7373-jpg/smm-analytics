@@ -667,6 +667,43 @@ def spends_screen():
                            total_roi=((total_pay - total_spend) / total_spend * 100) if total_spend else None)
 
 
+@app.route("/tasks", methods=["GET", "POST"])
+def tasks_screen():
+    """Задачи недели: план и отчёт (листы «Еженедельные статистики»/«Задачи» таблицы)."""
+    from db import Task
+    from datetime import timedelta as _td
+    ws_, we_ = calc.week_bounds(date.today())
+    if request.method == "POST":
+        action = request.form.get("action")
+        if action == "add":
+            txt = (request.form.get("text") or "").strip()
+            if txt:
+                try:
+                    d = datetime.strptime(request.form.get("week", ""), "%Y-%m-%d").date()
+                except ValueError:
+                    d = ws_
+                db.session.add(Task(week_start=calc.week_bounds(d)[0], text=txt))
+                db.session.commit()
+                flash("Задача добавлена.")
+        elif action == "status":
+            t = Task.query.get(int(request.form.get("id") or 0))
+            if t:
+                t.status = {"план": "в работе", "в работе": "сделано", "сделано": "план"}.get(t.status, "план")
+                db.session.commit()
+        elif action == "delete":
+            t = Task.query.get(int(request.form.get("id") or 0))
+            if t:
+                db.session.delete(t)
+                db.session.commit()
+        return redirect(url_for("tasks_screen"))
+    items = Task.query.filter(Task.week_start >= ws_ - _td(days=60))         .order_by(Task.week_start.desc(), Task.id).all()
+    weeks = {}
+    for t in items:
+        weeks.setdefault(t.week_start, []).append(t)
+    return render_template("tasks.html", weeks=sorted(weeks.items(), reverse=True),
+                           week=ws_)
+
+
 @app.route("/calendar")
 def calendar_screen():
     """Контент-календарь: месяц публикаций с эффективностью (фича Metricool)."""
@@ -879,11 +916,20 @@ def import_csv():
         f = request.files.get("file")
         if not f or not f.filename:
             flash("Файл не выбран")
-        elif not f.filename.lower().endswith((".csv", ".txt", ".tsv")):
-            flash("Нужен CSV/XLSX-экспорт в текстовом виде")
-        else:
+            return redirect(url_for("import_csv"))
+        if f.filename.lower().endswith((".xlsx", ".xlsm")):
+            year = request.form.get("year", "").strip()
+            stats = connectors.import_xlsx(f, int(year) if year.isdigit() else None)
+            calc.invalidate_caches()
+            flash(f"XLSX обработан: охваты {stats['reach']} значений, лиды {stats['leads']} строк, "
+                  f"подписчики {stats['followers']} значений"
+                  + (f", пропущены листы: {'; '.join(stats['skipped'])}" if stats["skipped"] else ""))
+        elif f.filename.lower().endswith((".csv", ".txt", ".tsv")):
             n = connectors.import_csv_channel(f)
+            calc.invalidate_caches()
             flash(f"Импортировано строк: {n}")
+        else:
+            flash("Поддерживаются .xlsx и .csv")
         return redirect(url_for("import_csv"))
     return render_template("import.html")
 
@@ -1464,6 +1510,8 @@ with app.app_context():
         db.session.commit()
         set_setting("demo_regfix", "1")
         db.session.commit()
+    if _os.environ.get("YOUTUBE_API_KEY") and not get_setting("youtube_api_key"):
+        set_setting("youtube_api_key", _os.environ["YOUTUBE_API_KEY"])
     if _os.environ.get("APP_PASSWORD") and not get_setting("app_password"):
         set_setting("app_password", _os.environ["APP_PASSWORD"])
     if _os.environ.get("LIVEDUNE_TOKEN") and not get_setting("livedune_token"):

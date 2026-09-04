@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>✅ Задачи недели</h1>
+<form method="post" class="form-card">
+  <input type="hidden" name="action" value="add">
+  <div class="fgrid" style="grid-template-columns:2fr 1fr auto">
+    <div class="field"><label>Новая задача</label><input name="text" required placeholder="Снять 3 рилса, посчитать статистики…"></div>
+    <div class="field"><label>Неделя (пн)</label><input type="date" name="week" value="{{ week }}"></div>
+    <div class="field"><label>&nbsp;</label><button style="width:100%">➕ Добавить</button></div>
+  </div>
+</form>
+
+{% for wk, items in weeks %}
+<h2>Неделя {{ wk }}</h2>
+<table class="tbl">
+<tr><th>Задача</th><th>Статус</th><th></th></tr>
+{% for t in items %}
+<tr>
+  <td style="white-space:normal;">{{ t.text }}</td>
+  <td>
+    <form method="post" style="display:inline">
+      <input type="hidden" name="action" value="status"><input type="hidden" name="id" value="{{ t.id }}">
+      <button style="padding:4px 12px; font-size:12px;">
+        {% if t.status == 'сделано' %}✅ сделано{% elif t.status == 'в работе' %}🔄 в работе{% else %}🕒 план{% endif %}
+      </button>
+    </form>
+  </td>
+  <td>
+    <form method="post" style="display:inline">
+      <input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="{{ t.id }}">
+      <button style="padding:4px 10px;">🗑</button>
+    </form>
+  </td>
+</tr>
+{% endfor %}
+</table>
+{% else %}<p class="muted">Задач пока нет — добавьте первую, как в листе «Задачи» вашей таблицы.</p>{% endfor %}
+<p class="muted">Клик по статусу переключает: план → в работе → сделано. Задачи хранятся по неделям и не теряются.</p>
+{% endblock %}

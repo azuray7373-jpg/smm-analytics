@@ -3,9 +3,11 @@
 <h1>Импорт CSV (официальные выгрузки)</h1>
 <p>Схема приоритета по ТЗ: официальный API → официальный XLSX/CSV → браузер-робот → ручной ввод. Этот экран — второй уровень.</p>
 <form method="post" enctype="multipart/form-data" class="box">
-  <input type="file" name="file" accept=".csv,.txt,.tsv" required>
+  <input type="file" name="file" accept=".xlsx,.xlsm,.csv,.txt,.tsv" required>
+  <input name="year" placeholder="год для лидов без даты (напр. 2024)" style="width:240px">
   <button>Загрузить</button>
 </form>
+<p class="muted">XLSX «ПЛАН-ОТЧЁТ. Статистики СММ» разбирается автоматически: листы «Итоги недели*»/«Охваты месяц» → охваты каналов, «Лиды*» → регистрации с UTM (ОТКРЫТЫЙ УРОК→openlesson, ОТВЕТЫ→otvety; метки post/canal-anons/bot/botVL2/story/taplink/gayd/shapka), «ТГ подписчики»/«вк» → подписчики. Если в листах лидов даты без года — укажите год в поле выше (лиды без дат сохраняются сегодняшним числом).</p>
 <h3>Формат файлов</h3>
 <pre class="json">Статистика канала:
 date,channel_id,metric,value[,status]

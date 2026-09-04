@@ -53,6 +53,7 @@ window.addEventListener('beforeunload', function(){
   <a href="{{ url_for('compare_screen') }}" class="{{ 'active' if path.startswith('/compare') }}">⚖️ Сравнение</a>
   <a href="{{ url_for('competitors_screen') }}" class="{{ 'active' if path.startswith('/competitors') }}">🥊 Конкуренты</a>
   <a href="{{ url_for('hypotheses_screen') }}" class="{{ 'active' if path.startswith('/hypotheses') }}">🧪 Гипотезы</a>
+  <a href="{{ url_for('tasks_screen') }}" class="{{ 'active' if path.startswith('/tasks') }}">✅ Задачи</a>
   <a href="{{ url_for('spends_screen') }}" class="{{ 'active' if path.startswith('/spends') }}">💰 Расходы</a>
   <a href="{{ url_for('goals_screen') }}" class="{{ 'active' if path.startswith('/goals') }}">🎯 Цели</a>
   <a href="{{ url_for('calendar_screen') }}" class="{{ 'active' if path.startswith('/calendar') }}">📅 Календарь</a>

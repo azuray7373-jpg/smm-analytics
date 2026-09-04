@@ -253,3 +253,13 @@ class Spend(db.Model):
     amount = db.Column(db.Float, nullable=False)
     note = db.Column(db.String(255))
     source = db.Column(db.String(16), default="manual")
+
+
+class Task(db.Model):
+    """Задачи недели (план/отчёт) — из листов «Еженедельные статистики»/«Задачи»."""
+    __tablename__ = "tasks"
+    id = db.Column(db.Integer, primary_key=True)
+    week_start = db.Column(db.Date, index=True)
+    text = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String(24), default="план")   # план / в работе / сделано
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)

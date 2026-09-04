@@ -24,11 +24,10 @@ new Chart(document.getElementById('chChart'), {
   <td><a href="{{ url_for('channel_detail', channel_id=r.ch.id) }}">{{ r.ch.name }}</a> <a class="muted" href="{{ r.ch.url }}" target="_blank">↗</a></td>
   <td>{{ {'instagram':'📸','youtube':'▶️','telegram':'✈️','vk':'🔵','tiktok':'🎵','dzen':'◉','max':'💬'}.get(r.ch.platform, '📡') }} {{ r.ch.platform }}</td>
   <td><a href="{{ url_for('metric_history', channel_id=r.ch.id, metric='followers', day=period[1]) }}" title="История изменений">{{ r.p.agg.followers_end|numfmt }}</a></td>
+  <td style="color:var(--success)">+{{ r.p.agg.subscribed|numfmt }}</td>
+  <td style="color:var(--danger)">−{{ r.p.agg.unsubscribed|numfmt }}</td>
   {% set rd = r.p.deltas.reach %}
   <td>{% if rd and rd.d is not none %}<span class="badge {{ 'up' if rd.d >= 0 else 'down' }}">{{ '%+d'|format(rd.d) }}%</span>{% else %}—{% endif %}</td>
-  <td><span style="color:#34d399">+{{ r.p.agg.subscribed|numfmt }}</span></td>
-  <td><span style="color:#fb7185">−{{ r.p.agg.unsubscribed|numfmt }}</span></td>
-  <td>PLACEHOLDER_DELTA</td>
   <td>{{ r.p.agg.reach|numfmt }}</td>
   <td>{{ r.avg_reach|numfmt }}</td>
   <td>{{ r.p.agg.opens|numfmt }}</td>

@@ -17,7 +17,7 @@ new Chart(document.getElementById('chChart'), {
 </script>
 
 <div class="filters"><a class="btn" href="?{{ request.query_string.decode() if request.query_string else 'start=' ~ period[0] ~ '&end=' ~ period[1] }}&export=csv">⬇️ CSV</a></div>
-<table class="tbl">
+<div class="tbl-wrap"><table class="tbl">
 <tr><th>Канал</th><th>Платформа</th><th>Подписчики</th><th>Подписались</th><th>Отписались</th><th>Δ охват</th><th>Охват (общий)</th><th>Средний охват</th><th>Stories, просмотры</th><th>Просмотры</th><th>ERR</th><th>ER</th><th>CV</th><th>Регистр.</th></tr>
 {% for r in rows %}
 <tr>
@@ -41,5 +41,5 @@ new Chart(document.getElementById('chChart'), {
   <td>{% if regd and regd.d is not none %}<span class="badge {{ 'up' if regd.d >= 0 else 'down' }}">{{ '%+d'|format(regd.d) }}%</span>{% else %}—{% endif %}</td>
 </tr>
 {% endfor %}
-</table>
+</table></div>
 {% endblock %}

@@ -16,15 +16,15 @@
 {% endmacro %}
 
 <h2>Итоги по всей системе</h2>
-<table class="tbl">
+<div class="tbl-wrap"><table class="tbl">
 <tr><th>Показатель</th><th>Период A</th><th>Период B</th><th>Δ A к B</th></tr>
 {% for row in total_rows %}
 <tr><td>{{ row.name }}</td><td>{{ row.a }}</td><td>{{ row.b }}</td><td>{{ dl(row.d) }}</td></tr>
 {% endfor %}
-</table>
+</table></div>
 
 <h2>По каналам</h2>
-<table class="tbl">
+<div class="tbl-wrap"><table class="tbl">
 <tr><th>Канал</th><th>Охват A</th><th>Охват B</th><th>Δ охват</th>
     <th>Рег. A</th><th>Рег. B</th><th>ERR A</th><th>ERR B</th></tr>
 {% for c in channel_rows %}
@@ -35,6 +35,6 @@
   <td>{{ c.err_a|pctfmt }}</td><td>{{ c.err_b|pctfmt }}</td>
 </tr>
 {% endfor %}
-</table>
+</table></div>
 <p class="muted">A — первый выбранный период, B — второй. Δ считается по формуле (A − B) / B × 100. Подписчики и проценты не суммируются по дням — сравниваются корректно (на конец периода / пересчёт из абсолютов).</p>
 {% endblock %}

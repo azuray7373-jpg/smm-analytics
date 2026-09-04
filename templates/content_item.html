@@ -15,7 +15,7 @@
 
 <h2>AI-разметка</h2>
 <div class="aireport">
-<table class="tbl">
+<div class="tbl-wrap"><table class="tbl">
 <tr><th>Тема</th><th>Рубрика</th><th>Тип</th><th>Боль</th><th>Сегмент</th><th>Триггер</th><th>Оффер</th><th>Рег. CTA</th></tr>
 <tr>
   <td style="white-space:normal; max-width:260px;">{{ tags.get('тема', '—') }}</td>
@@ -27,7 +27,7 @@
   <td>{{ '✅' if tags.get('есть_оффер') else '—' }}</td>
   <td>{{ '✅' if tags.get('есть_регистрационный_CTA') else '—' }}</td>
 </tr>
-</table>
+</table></div>
 </div>
 
 <h2>Текст</h2>
@@ -48,12 +48,12 @@ new Chart(document.getElementById('itemChart'), {
 {% endif %}
 
 <h2>Статистика по дням</h2>
-<table class="tbl">
+<div class="tbl-wrap"><table class="tbl">
 <tr><th>Дата</th><th>Просмотры</th><th>Охват</th><th>Лайки</th><th>Коммент.</th><th>Сохран.</th><th>Репосты</th><th>Подписки</th><th>Регистр.</th></tr>
 {% for s in stats|reverse %}
 <tr><td>{{ s.date }}</td><td>{{ s.views|numfmt }}</td><td>{{ s.reach|numfmt }}</td>
 <td>{{ s.likes|numfmt }}</td><td>{{ s.comments|numfmt }}</td><td>{{ s.saves|numfmt }}</td>
 <td>{{ s.shares|numfmt }}</td><td>{{ s.subs|numfmt }}</td><td>{{ s.registrations|numfmt }}</td></tr>
 {% endfor %}
-</table>
+</table></div>
 {% endblock %}

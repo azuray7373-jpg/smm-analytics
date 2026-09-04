@@ -45,7 +45,7 @@ new Chart(document.getElementById('chWeek'), {
 <div style="display:flex; gap:24px; flex-wrap:wrap;">
 <div style="flex:1.4; min-width:340px;">
 <h2>Материалы канала (топ по охвату)</h2>
-<table class="tbl">
+<div class="tbl-wrap"><table class="tbl">
 <tr><th>Дата</th><th>Формат</th><th>Название</th><th>Рубрика</th><th>Охват</th><th>ERR</th><th>Регистр.</th></tr>
 {% for i in items %}
 {% set tags = (i.item.ai_tags | fromjson) if i.item.ai_tags else {} %}
@@ -55,14 +55,14 @@ new Chart(document.getElementById('chWeek'), {
 <td>{{ tags.get('рубрика', '—') }}</td>
 <td>{{ i.reach|numfmt }}</td><td>{{ i.ERR|pctfmt }}</td><td>{{ i.registrations|numfmt }}</td></tr>
 {% else %}<tr><td colspan="7">Материалов за период нет.</td></tr>{% endfor %}
-</table>
+</table></div>
 </div>
 <div style="flex:1; min-width:280px;">
 <h2>Регистрации по UTM-источникам</h2>
-<table class="tbl">
+<div class="tbl-wrap"><table class="tbl">
 <tr><th>UTM source</th><th>Регистрации</th></tr>
 {% for src, cnt in by_utm if src %}<tr><td>{{ src }}</td><td>{{ cnt|numfmt }}</td></tr>{% endfor %}
-</table>
+</table></div>
 <p class="muted">Показаны все источники за период; к каналу относятся те, что маппятся на его платформу ({{ ch.platform }}).</p>
 </div>
 </div>

@@ -60,67 +60,71 @@ new Chart(document.getElementById('gcChart'), {
 
 {% if cohorts %}
 <h2>🔄 Удержание новичков (когорты)</h2>
-<table class="tbl">
+<div class="tbl-wrap"><table class="tbl">
 <tr><th>Месяц первого заказа</th><th>Новичков</th><th>Повторили в 30 дней</th><th>% удержания</th></tr>
 {% for c in cohorts %}
 <tr><td>{{ c.month }}</td><td>{{ c.new|numfmt }}</td><td>{{ c.repeated|numfmt }}</td>
 <td>{% if c.pct is not none %}<span class="cellbar"><i style="width: {{ [c.pct * 2, 100]|min|int }}%"></i><span>{{ '%.1f'|format(c.pct) }}%</span></span>{% else %}—{% endif %}</td></tr>
 {% endfor %}
-</table>
+</table></div>
 <p class="muted">Новичок = первый заказ контакта в этом месяце; удержание = оформил ещё заказ в течение 30 дней.</p>
 {% endif %}
 
 <h2>Последние заказы</h2>
-<div style="overflow-x:auto; -webkit-overflow-scrolling:touch;">
-<table class="tbl" style="min-width:900px;">
-<tr><th>Дата</th><th style="min-width:140px;">Продукт</th><th>Сумма</th><th style="min-width:100px;">Статус</th><th style="min-width:160px;">Клиент</th><th>Напр.</th><th>Новичок?</th><th>UTM</th></tr>
+<div class="tbl-wrap">
+<table class="tbl">
+<thead>
+<tr><th>Дата</th><th>Продукт</th><th class="num">Сумма</th><th>Статус</th><th>Клиент</th><th>Напр.</th><th>Клиент</th><th>UTM</th></tr>
+</thead>
+<tbody>
 {% for o in recent_orders %}
 <tr>
-  <td style="white-space:nowrap;">{{ o.date }}</td>
-  <td style="white-space:normal; max-width:180px; overflow:hidden; text-overflow:ellipsis;" title="{{ o.product or '' }}">{{ o.product or '—' }}</td>
-  <td style="white-space:nowrap;">{{ o.amount|numfmt }} {{ o.currency }}</td>
-  <td style="white-space:normal; max-width:120px;">{{ o.status_title or o.status or '—' }}</td>
-  <td style="white-space:normal; max-width:160px; overflow:hidden; text-overflow:ellipsis;" title="{{ o.email or '' }}">{{ o.email or '—' }}</td>
-  <td style="white-space:nowrap;">{{ {'incoming':'вх.','outgoing':'исх.'}.get(o.direction, '—') }}</td>
-  <td style="white-space:nowrap;">{{ {'new':'новичок','returning':'старичок'}.get(o.customer_status, '—') }}</td>
-  <td style="white-space:nowrap;">{{ o.utm_source or '—' }}</td>
+  <td>{{ o.date }}</td>
+  <td class="ellipsis" title="{{ o.product or '' }}">{{ o.product or '—' }}</td>
+  <td class="num">{{ o.amount|numfmt }} {{ o.currency }}</td>
+  <td class="wrap">{{ o.status_title or o.status or '—' }}</td>
+  <td class="ellipsis" title="{{ o.email or '' }}">{{ o.email or '—' }}</td>
+  <td>{{ {'incoming':'вх.','outgoing':'исх.'}.get(o.direction, '—') }}</td>
+  <td>{{ {'new':'новичок','returning':'старичок'}.get(o.customer_status, '—') }}</td>
+  <td>{{ o.utm_source or '—' }}</td>
 </tr>
-{% else %}<tr><td colspan="8">Заказов пока нет — данные появятся после синхронизации.</td></tr>{% endfor %}
+{% else %}<tr><td colspan="8" class="muted" style="text-align:center; padding:24px;">Заказов пока нет</td></tr>{% endfor %}
+</tbody>
 </table>
 </div>
 
 <div style="display:flex; gap:20px; flex-wrap:wrap;">
 <div style="flex:1; min-width:340px;">
 <h2>Статусы заказов</h2>
-<table class="tbl">
+<div class="tbl-wrap"><table class="tbl">
 <tr><th>Статус</th><th>Кол-во</th></tr>
 {% for s, n in f.by_status.items() %}<tr><td>{{ s }}</td><td>{{ n }}</td></tr>{% endfor %}
-</table>
+</table></div>
 </div>
 <div style="flex:1; min-width:340px;">
 <h2>Топ товаров</h2>
-<table class="tbl">
+<div class="tbl-wrap"><table class="tbl">
 <tr><th>Продукт</th><th>Заказов</th><th>Сумма</th></tr>
 {% for p, n, s in f.top_products %}<tr><td>{{ p or '—' }}</td><td>{{ n }}</td><td>{{ '{:,.0f}'.format(s) }}</td></tr>{% endfor %}
-</table>
+</table></div>
 </div>
 </div>
 
 <h2>Заказы по источникам (UTM)</h2>
-<table class="tbl">
+<div class="tbl-wrap"><table class="tbl">
 <tr><th>UTM source</th><th>Заказов</th><th>Сумма</th><th>Направление</th></tr>
 {% for s, n, sum_ in f.top_sources %}
 <tr><td>{{ s or '(без utm — исходящие)' }}</td><td>{{ n }}</td><td>{{ '{:,.0f}'.format(sum_) }}</td>
 <td>{{ 'входящая' if s else 'исходящая' }}</td></tr>
 {% endfor %}
-</table>
+</table></div>
 
 <h2>Последние синхронизации</h2>
-<table class="tbl">
+<div class="tbl-wrap"><table class="tbl">
 <tr><th>Когда</th><th>Статус</th><th>Детали</th></tr>
 {% for l in logs %}<tr><td>{{ l.started_at }}</td><td>{{ l.status }}</td><td>{{ l.details or '' }}</td></tr>
 {% else %}<tr><td colspan="3">Синхронизаций ещё не было.</td></tr>{% endfor %}
-</table>
+</table></div>
 
 <p class="muted">Правила: «входящая» = заказ с заполненным utm_source (пришёл из трафика), «исходящая» = без метки (менеджер/рассылка). «Новичок» = первый заказ контакта в истории ГК, «старичок» = повторный. Вся история изменений хранится в таблице gc_events.</p>
 {% endblock %}

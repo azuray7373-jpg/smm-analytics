@@ -18,7 +18,7 @@ new Chart(document.getElementById('regChart'), {
 </script>
 
 <div class="filters"><a class="btn" href="?start={{ period[0] }}&end={{ period[1] }}&export=csv">⬇️ CSV</a></div>
-<table class="tbl">
+<div class="tbl-wrap"><table class="tbl">
 <tr><th>UTM source</th><th>Канал</th><th>Регистрации</th><th>Доля</th><th>Охват канала</th><th>CV</th></tr>
 {% for r in rows %}
 <tr>
@@ -29,45 +29,45 @@ new Chart(document.getElementById('regChart'), {
   <td>{{ '%.3f'|format(r.CV or 0) }}%</td>
 </tr>
 {% endfor %}
-</table>
+</table></div>
 <h2>Наши метки</h2>
 <div style="display:flex; gap:24px; flex-wrap:wrap;">
 <div style="flex:1; min-width:300px;">
 <h3 class="muted">По воронкам (utm_campaign)</h3>
-<table class="tbl">
+<div class="tbl-wrap"><table class="tbl">
 <tr><th>Воронка</th><th>Регистрации</th><th>Заказы</th><th>Сумма заказов, ₽</th></tr>
 {% for f, v in utm.by_funnel.items()|sort(attribute='1.regs', reverse=True) %}
 <tr><td>{{ f }}</td><td>{{ v.regs|numfmt }}</td><td>{{ v.orders|numfmt }}</td><td>{{ v.sum|numfmt }}</td></tr>
 {% else %}<tr><td colspan="4">Нет данных за период.</td></tr>{% endfor %}
-</table>
+</table></div>
 </div>
 <div style="flex:1; min-width:300px;">
 <h3 class="muted">По размещению (utm_medium)</h3>
-<table class="tbl">
+<div class="tbl-wrap"><table class="tbl">
 <tr><th>Medium</th><th>Регистрации</th><th>Заказы</th></tr>
 {% for m, v in utm.by_medium.items()|sort(attribute='1.regs', reverse=True) %}
 <tr><td>{{ m }}</td><td>{{ v.regs|numfmt }}</td><td>{{ v.orders|numfmt }}</td></tr>
 {% else %}<tr><td colspan="3">Нет данных.</td></tr>{% endfor %}
-</table>
+</table></div>
 </div>
 </div>
 <h2>🔗 Сборные метки (источник × размещение × воронка)</h2>
 <p class="muted">Как вы собираете в таблице: «Инста Алексей + bot + openlesson» = воронка чатплейс, «Telegram + canal-anons» = пост канала, «ВК + пост/канал/stories/taplink» и т.д.</p>
-<table class="tbl">
+<div class="tbl-wrap"><table class="tbl">
 <tr><th>Источник</th><th>Размещение</th><th>Воронка</th><th>Регистрации</th><th>Заказы</th></tr>
 {% for combo, v in utm.by_combo[:25] %}
 <tr><td>{{ combo[0] }}</td><td>{{ combo[1] }}</td><td>{{ combo[2] or '—' }}</td>
 <td>{{ v.regs|numfmt }}</td><td>{{ v.orders|numfmt }}</td></tr>
 {% else %}<tr><td colspan="5">Нет данных за период.</td></tr>{% endfor %}
-</table>
+</table></div>
 
 <h3 class="muted">По источникам (utm_source — 13 наших)</h3>
-<table class="tbl">
+<div class="tbl-wrap"><table class="tbl">
 <tr><th>Источник</th><th>Регистрации</th><th>Заказы</th></tr>
 {% for m, v in utm.by_source.items()|sort(attribute='1.regs', reverse=True) %}
 <tr><td>{{ m }}</td><td>{{ v.regs|numfmt }}</td><td>{{ v.orders|numfmt }}</td></tr>
 {% else %}<tr><td colspan="3">Нет данных.</td></tr>{% endfor %}
-</table>
+</table></div>
 {% set miss_c = utm.missing.campaigns|length + utm.missing.mediums|length + utm.missing.sources|length %}
 {% if miss_c %}
 <div class="warnbox">⚠ Не встретились за период наших меток: {{ miss_c }}

@@ -28,21 +28,21 @@
 <div style="display:flex; gap:24px; flex-wrap:wrap;">
 <div style="flex:1; min-width:320px;">
 <h2>🕐 Лучшее время публикации</h2>
-<table class="tbl">
+<div class="tbl-wrap"><table class="tbl">
 <tr><th>День недели</th><th>Материалов</th><th>Средний охват</th></tr>
 {% for k, v in best_time.wd[:7] %}
 <tr><td>{{ k }}</td><td>{{ v.n }}</td><td><span class="cellbar"><i style="width: {{ [(v.avg / (best_time.wd[0][1].avg or 1) * 100) | round | int, 100] | min }}%"></i><span>{{ v.avg|numfmt }}</span></span></td></tr>
 {% endfor %}
-</table>
+</table></div>
 </div>
 <div style="flex:1; min-width:320px;">
 <h2>Часы публикации (топ)</h2>
-<table class="tbl">
+<div class="tbl-wrap"><table class="tbl">
 <tr><th>Час</th><th>Материалов</th><th>Средний охват</th></tr>
 {% for k, v in best_time.hr[:8] %}
 <tr><td>{{ k }}:00</td><td>{{ v.n }}</td><td><span class="cellbar"><i style="width: {{ [(v.avg / (best_time.hr[0][1].avg or 1) * 100) | round | int, 100] | min }}%"></i><span>{{ v.avg|numfmt }}</span></span></td></tr>
 {% endfor %}
-</table>
+</table></div>
 </div>
 </div>
 {% endif %}
@@ -50,36 +50,36 @@
 <div style="display:flex; gap:24px; flex-wrap:wrap;">
 <div style="flex:1; min-width:320px;">
 <h2>Эффективность по рубрикам</h2>
-<table class="tbl">
+<div class="tbl-wrap"><table class="tbl">
 <tr><th>Рубрика</th><th>Материалов</th><th>Средний охват</th><th>Средний ERR</th><th>Регистрации</th></tr>
 {% for r, a in by_rubric.items()|sort(attribute='1.avg_reach', reverse=True) %}
 <tr><td>{{ r }}</td><td>{{ a.n }}</td><td>{{ a.avg_reach|numfmt }}</td>
 <td>{{ a.avg_err|pctfmt if a.avg_err is not none else 'н/д' }}</td><td>{{ a.regs|numfmt }}</td></tr>
 {% else %}<tr><td colspan="5">Нет данных — классифицируйте контент на экране AI-аналитики.</td></tr>{% endfor %}
-</table>
+</table></div>
 </div>
 <div style="flex:1; min-width:320px;">
 <h2>Эффективность по форматам</h2>
-<table class="tbl">
+<div class="tbl-wrap"><table class="tbl">
 <tr><th>Формат</th><th>Материалов</th><th>Средний охват</th><th>Средний ERR</th><th>Регистрации</th></tr>
 {% for r, a in by_format.items()|sort(attribute='1.avg_reach', reverse=True) %}
 <tr><td>{{ r }}</td><td>{{ a.n }}</td><td>{{ a.avg_reach|numfmt }}</td>
 <td>{{ a.avg_err|pctfmt if a.avg_err is not none else 'н/д' }}</td><td>{{ a.regs|numfmt }}</td></tr>
 {% else %}<tr><td colspan="5">Нет данных.</td></tr>{% endfor %}
-</table>
+</table></div>
 </div>
 </div>
 
 {% if hashtags %}
 <h2>#️⃣ Топ хэштегов по среднему охвату</h2>
-<table class="tbl">
+<div class="tbl-wrap"><table class="tbl">
 <tr><th>Хэштег</th><th>Материалов</th><th>Средний охват</th><th>Регистрации</th></tr>
 {% for t, a in hashtags[:10] %}
 <tr><td><b>#{{ t }}</b></td><td>{{ a.n }}</td>
 <td><span class="cellbar"><i style="width: {{ [(a.avg / (hashtags[0][1].avg or 1) * 100)|round|int, 100]|min }}%"></i><span>{{ a.avg|numfmt }}</span></span></td>
 <td>{{ a.regs|numfmt }}</td></tr>
 {% endfor %}
-</table>
+</table></div>
 {% endif %}
 
 {% if compare %}
@@ -87,7 +87,7 @@
 {{ compare }}</div>
 {% endif %}
 
-<table class="tbl">
+<div class="tbl-wrap"><table class="tbl">
 <tr><th>Дата</th><th>Канал</th><th>Формат</th><th>Название</th><th>Рубрика (AI)</th><th>Тип (AI)</th><th>CTA</th><th>Длит.</th><th>Охват</th><th>ERR</th><th>Сохран.</th><th>Репосты</th><th>Подписки</th><th>Регистр.</th><th>CV</th></tr>
 {% for i in items %}
 {% set tags = (i.item.ai_tags | fromjson) if i.item.ai_tags else {} %}
@@ -109,5 +109,5 @@
   <td><span class="cellbar"><i style="width: {{ [((i.CV or 0) * 150)|round, 100]|min }}%"></i><span>{{ i.CV|pctfmt(3) }}</span></span></td>
 </tr>
 {% else %}<tr><td colspan="15">Материалов нет — измените фильтры или период.</td></tr>{% endfor %}
-</table>
+</table></div>
 {% endblock %}

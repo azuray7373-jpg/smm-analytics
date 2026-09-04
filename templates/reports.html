@@ -6,7 +6,7 @@
   <input type="date" name="anchor" value="{{ period[1] }}">
   <button>Сформировать</button>
 </form>
-<table class="tbl">
+<div class="tbl-wrap"><table class="tbl">
 <tr><th>Тип</th><th>Период</th><th>Создан</th><th>AI-вывод</th><th>Контролёр</th></tr>
 {% for r in reports %}
 <tr>
@@ -17,5 +17,5 @@
   <td>{{ r.controller_text[:120] }}…</td>
 </tr>
 {% endfor %}
-</table>
+</table></div>
 {% endblock %}

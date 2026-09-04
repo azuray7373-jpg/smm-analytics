@@ -55,11 +55,11 @@ new Chart(document.getElementById('toneChart'), {
 </div>
 
 <h2>Последние 50 комментариев</h2>
-<table class="tbl">
+<div class="tbl-wrap"><table class="tbl">
 <tr><th>Дата</th><th>Тип</th><th>Текст</th><th>Автор</th><th>Лайки</th></tr>
 {% for c in recent %}
 <tr><td>{{ c.date }}</td><td><span class="badge na">{{ c.main_type }}</span></td>
 <td>{{ c.text[:160] }}</td><td>{{ c.author or '—' }}</td><td>{{ c.likes|numfmt }}</td></tr>
 {% else %}<tr><td colspan="5">Комментариев пока нет.</td></tr>{% endfor %}
-</table>
+</table></div>
 {% endblock %}

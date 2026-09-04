@@ -4,7 +4,7 @@
 <p class="muted">Конкуренты исключены из всех общих итогов системы — сравнение честное, только по открытым метрикам.</p>
 
 <h2>Сравнение за период</h2>
-<table class="tbl">
+<div class="tbl-wrap"><table class="tbl">
 <tr><th>Аккаунт</th><th>Тип</th><th>Подписчики</th><th>Δ охват к прошлому периоду</th><th>Охват</th><th>ERR</th><th>ER</th></tr>
 {% for r in comps %}
 <tr style="opacity:.95">
@@ -24,7 +24,7 @@
   <td>{{ r.p.agg.reach|numfmt }}</td><td>{{ r.p.ind.ERR|pctfmt }}</td><td>{{ r.p.ind.ER|pctfmt }}</td>
 </tr>
 {% endfor %}
-</table>
+</table></div>
 <p class="muted">Данные конкурентов появляются автоматически, если указан их id в LiveDune (заведите их в кабинете LiveDune в разделе «Проверки аккаунтов»), либо вносите вручную/CSV.</p>
 
 <h2>Добавить конкурента</h2>

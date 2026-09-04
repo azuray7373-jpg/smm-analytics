@@ -12,7 +12,7 @@
 
 {% for wk, items in weeks %}
 <h2>Неделя {{ wk }}</h2>
-<table class="tbl">
+<div class="tbl-wrap"><table class="tbl">
 <tr><th>Задача</th><th>Статус</th><th></th></tr>
 {% for t in items %}
 <tr>
@@ -33,7 +33,7 @@
   </td>
 </tr>
 {% endfor %}
-</table>
+</table></div>
 {% else %}<p class="muted">Задач пока нет — добавьте первую, как в листе «Задачи» вашей таблицы.</p>{% endfor %}
 <p class="muted">Клик по статусу переключает: план → в работе → сделано. Задачи хранятся по неделям и не теряются.</p>
 {% endblock %}

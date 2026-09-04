@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>🧠 Интеллект <small>то, чего нет у конкурентов за $500/мес</small></h1>
+
+<!-- ═══ AI PERFORMANCE PREDICTOR ═══ -->
+<h2>🔮 AI Performance Predictor</h2>
+<p class="muted">Предскажите охват ДО публикации. Основано на ваших исторических данных по форматам.</p>
+<div class="form-card">
+  <div class="fgrid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
+    <div class="field"><label>Формат</label>
+      <select id="pr_format">
+        {% for f in ['reels','post','story','video','shorts','clip','article'] %}
+        <option value="{{ f }}">{{ f }}</option>
+        {% endfor %}
+      </select></div>
+    <div class="field"><label>Длительность (сек)</label>
+      <input id="pr_duration" type="number" placeholder="30"></div>
+    <div class="field" style="grid-column:1/-1"><label>Описание / первая строка</label>
+      <input id="pr_title" placeholder="Сыр с плесенью ОПАСЕН? Нет, он полезен..."></div>
+  </div>
+  <div class="form-actions">
+    <button onclick="predict()">🔮 Предсказать охват</button>
+    <span id="pr_result" class="muted"></span>
+  </div>
+</div>
+
+<!-- ═══ WEEKLY TEAM BRIEF ═══ -->
+<h2>📋 Team Brief (для планёрки)</h2>
+<div class="cards">
+  <div class="card" style="min-width:280px;">
+    <h3>🏆 Победы недели</h3>
+    {% for w in brief.wins %}<p style="font-size:13px; margin:6px 0;">• {{ w }}</p>{% endfor %}
+    {% if not brief.wins %}<p class="muted">Пока пусто</p>{% endif %}
+  </div>
+  <div class="card" style="min-width:280px;">
+    <h3>⚠️ Проблемы</h3>
+    {% for p in brief.problems %}<p style="font-size:13px; margin:6px 0; color:var(--red);">• {{ p }}</p>{% endfor %}
+    {% if not brief.problems %}<p class="muted">Проблем не обнаружено</p>{% endif %}
+  </div>
+  <div class="card" style="min-width:280px;">
+    <h3>🎯 Действия</h3>
+    {% for a in brief.actions %}<p style="font-size:13px; margin:6px 0;">→ {{ a }}</p>{% endfor %}
+  </div>
+</div>
+
+<!-- ═══ TREND RADAR ═══ -->
+<h2>📡 Trend Radar</h2>
+<p class="muted">Жизненный цикл рубрик: что растёт, что выгорает.</p>
+<div class="tbl-wrap">
+<table class="tbl">
+<thead><tr><th>Рубрика</th><th>Статус</th><th>Средний охват (4 нед.)</th><th>Тренд</th><th>Материалов</th></tr></thead>
+<tbody>
+{% for t in trends %}
+<tr>
+  <td class="wrap">{{ t.rubric }}</td>
+  <td>{{ t.status }}</td>
+  <td class="num">{{ t.recent_avg|numfmt }}</td>
+  <td>{% if t.trend_pct %}<span class="badge {{ 'up' if t.trend_pct >= 0 else 'down' }}">{{ '%+d'|format(t.trend_pct) }}%</span>{% else %}—{% endif %}</td>
+  <td class="num">{{ t.materials }}</td>
+</tr>
+{% else %}<tr><td colspan="5" class="muted">Недостаточно данных — классифицируйте контент на AI-экране.</td></tr>{% endfor %}
+</tbody>
+</table>
+</div>
+
+<!-- ═══ PERFORMANCE SCORE ═══ -->
+<h2>⭐ Content Performance Score</h2>
+<p class="muted">Балл 0–100 каждому материалу: охват + ERR + регистрации + сохранения + репосты.</p>
+<div class="tbl-wrap">
+<table class="tbl">
+<thead><tr><th>Балл</th><th>Материал</th><th>Формат</th><th>Рубрика</th><th>Охват</th><th>ERR</th><th>Рег.</th><th></th></tr></thead>
+<tbody>
+{% for s in scored %}
+<tr>
+  <td>
+    <span class="cellbar"><i style="width:{{ s.score }}%; {% if s.score >= 60 %}background:linear-gradient(90deg,#4ade80,#22d3ee){% elif s.score >= 30 %}background:linear-gradient(90deg,#fbbf24,#f97316){% else %}background:linear-gradient(90deg,#fb7185,#ef4444){% endif %};"></i>
+    <span><b>{{ s.score }}</b></span></span>
+  </td>
+  <td class="wrap" style="max-width:220px;"><a href="{{ url_for('content_item', item_id=s.item.id) }}">{{ s.item.title or '(без названия)' }}</a></td>
+  <td>{{ s.format }}</td>
+  <td>{{ s.rubric }}</td>
+  <td class="num">{{ s.reach|numfmt }}</td>
+  <td class="num">{{ s.err|pctfmt if s.err else '—' }}</td>
+  <td class="num">{{ s.regs|numfmt }}</td>
+  <td>
+    <form method="post" action="{{ url_for('save_template') }}">
+      <input type="hidden" name="item_id" value="{{ s.item.id }}">
+      <button style="padding:4px 10px; font-size:11px;">📋 В банк</button>
+    </form>
+  </td>
+</tr>
+{% else %}<tr><td colspan="8" class="muted">Нет данных за период.</td></tr>{% endfor %}
+</tbody>
+</table>
+</div>
+
+<script>
+async function predict() {
+  const format = document.getElementById('pr_format').value;
+  const duration = document.getElementById('pr_duration').value;
+  const title = document.getElementById('pr_title').value;
+  const el = document.getElementById('pr_result');
+  el.textContent = '⏳ Анализирую...';
+  const fd = new FormData();
+  fd.append('format', format);
+  if (duration) fd.append('duration', duration);
+  fd.append('title', title);
+  fd.append('text', title);
+  const r = await fetch('{{ url_for("intel_predict") }}', {method:'POST', body:fd});
+  const d = await r.json();
+  if (d.predicted_reach) {
+    el.innerHTML = `✅ <b>Прогноз:</b> охват ~${d.predicted_reach.toLocaleString('ru')}, ERR ~${d.predicted_err}%. ` +
+      `Уверенность: ${d.confidence} (${d.reason}).`;
+  } else {
+    el.textContent = `⚠ ${d.reason}`;
+  }
+}
+</script>
+{% endblock %}

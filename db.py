@@ -264,3 +264,19 @@ class Task(db.Model):
     text = db.Column(db.Text, nullable=False)
     status = db.Column(db.String(24), default="план")   # план / в работе / сделано
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class ContentTemplate(db.Model):
+    """Content Bank: лучшие материалы как шаблоны для переиспользования."""
+    __tablename__ = "content_templates"
+    id = db.Column(db.Integer, primary_key=True)
+    source_item_id = db.Column(db.Integer, db.ForeignKey("content_items.id"))
+    title = db.Column(db.String(512))
+    hook = db.Column(db.Text)           # цепляющая фраза / первая строка
+    format = db.Column(db.String(32))
+    rubric = db.Column(db.String(64))
+    avg_reach = db.Column(db.Float)     # охват на момент сохранения
+    avg_err = db.Column(db.Float)
+    ai_notes = db.Column(db.Text)       # почему сработало
+    times_used = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)

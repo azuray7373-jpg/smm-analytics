@@ -48,6 +48,7 @@ window.addEventListener('beforeunload', function(){
   <a href="{{ url_for('registrations_screen') }}" class="{{ 'active' if path.startswith('/registrations') }}">📝 Регистрации</a>
   <a href="{{ url_for('getcourse_screen') }}" class="{{ 'active' if path.startswith('/getcourse') }}">🛒 Продажи</a>
   <a href="{{ url_for('comments_screen') }}" class="{{ 'active' if path.startswith('/comments') }}">💬 Комментарии</a>
+  <a href="{{ url_for('intel_screen') }}" class="{{ 'active' if path.startswith('/intel') }}">🧠 Интеллект</a>
   <a href="{{ url_for('ai_screen') }}" class="{{ 'active' if path.startswith('/ai') }}">🤖 AI-аналитика</a>
   <a href="{{ url_for('reports_list') }}" class="{{ 'active' if path.startswith('/reports') }}">📄 Отчёты</a>
   <a href="{{ url_for('compare_screen') }}" class="{{ 'active' if path.startswith('/compare') }}">⚖️ Сравнение</a>

@@ -6,7 +6,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, jso
 from db import db, Channel, MetricSnapshot, ContentItem, ContentStat, Registration, \
     ManualNote, Report, Notification, Setting, RunLog, get_setting, set_setting, \
     Comment, GcOrder, GcPayment, Spend
-import calc, connectors, reports, seed, getcourse, comments as comments_mod, livedune
+import calc, connectors, reports, seed, getcourse, comments as comments_mod, livedune, intel
 
 IS_SERVERLESS = bool(os.environ.get("VERCEL"))
 
@@ -1283,6 +1283,51 @@ def ai_reclassify():
     run_in_background("reclassify", _job,
                       "Классификация контента идёт в фоне (~1 минута) — обновите страницу.")
     return redirect(url_for("ai_screen"))
+
+
+@app.route("/intel")
+def intel_screen():
+    """Интеллектуальный слой: Performance Score, Predictor, Trend Radar, Team Brief."""
+    scored = intel.score_all_content(30)
+    trends = intel.trend_radar(8)
+    brief = intel.team_brief()
+    return render_template("intel.html", scored=scored[:20], trends=trends,
+                           brief=brief, period=calc.week_bounds(date.today()))
+
+
+@app.route("/intel/predict", methods=["POST"])
+def intel_predict():
+    """AI Performance Predictor: прогноз охвата до публикации."""
+    result = intel.predict_performance(
+        request.form.get("title", ""),
+        request.form.get("text", ""),
+        request.form.get("format", "reels"),
+        int(request.form["duration"]) if request.form.get("duration", "").isdigit() else None)
+    return jsonify(result)
+
+
+@app.route("/intel/save_template", methods=["POST"])
+def save_template():
+    """Сохранить материал в Content Bank."""
+    from db import ContentTemplate, ContentItem as _CI
+    ci = _CI.query.get(int(request.form.get("item_id") or 0))
+    if not ci:
+        flash("Материал не найден")
+        return redirect(url_for("intel_screen"))
+    tags = json.loads(ci.ai_tags or "{}")
+    stats = (ContentStat.query.filter_by(content_id=ci.id)
+             .with_entities(func.sum(ContentStat.reach), func.sum(ContentStat.likes),
+                            func.sum(ContentStat.comments)).first())
+    db.session.add(ContentTemplate(
+        source_item_id=ci.id, title=ci.title or ci.link,
+        hook=(ci.text or "")[:200], format=ci.format,
+        rubric=tags.get("рубрика", ""),
+        avg_reach=stats[0] or 0,
+        avg_err=(stats[1] or 0) / (stats[0] or 1) * 100 if stats[0] else 0,
+        ai_notes=request.form.get("notes", "")))
+    db.session.commit()
+    flash("Сохранено в Content Bank")
+    return redirect(url_for("intel_screen"))
 
 
 @app.route("/guide")

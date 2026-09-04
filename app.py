@@ -555,7 +555,7 @@ def competitors_add():
                 ld_account_id=int(ld) if ld.isdigit() else None)
         db.session.add(ch)
         db.session.commit()
-        calc.invalidate_caches()
+        schedule_rewarm()
         flash(f"Конкурент «{name}» добавлен" + (" и будет синхронизироваться с LiveDune." if ld.isdigit() else ". Для автосборки укажите его id аккаунта в LiveDune (экран LiveDune в кабинете)."))
     return redirect(url_for("competitors_screen"))
 
@@ -566,7 +566,7 @@ def competitors_remove():
     if ch and ch.is_competitor:
         ch.is_active = False
         db.session.commit()
-        calc.invalidate_caches()
+        schedule_rewarm()
         flash("Конкурент скрыт.")
     return redirect(url_for("competitors_screen"))
 
@@ -905,7 +905,7 @@ def heal_missing():
         return jsonify({"error": "invalid token"}), 403
     from datetime import timedelta as _td
     run_id = connectors.start_run("heal_missing")
-    calc.invalidate_caches()
+    schedule_rewarm(delay=30)
     app.config["_HEALTH_CACHE"] = None
     results = []
     for back in range(1, int(request.args.get("days", 7)) + 1):
@@ -931,7 +931,7 @@ def livedune_sync():
 
 @app.route("/collect", methods=["POST"])
 def collect():
-    calc.invalidate_caches()
+    schedule_rewarm()
     results = connectors.run_daily_collection()
     flash("Сбор данных выполнен: " + "; ".join(results))
     return redirect(request.referrer or url_for("overview"))
@@ -947,13 +947,13 @@ def import_csv():
         if f.filename.lower().endswith((".xlsx", ".xlsm")):
             year = request.form.get("year", "").strip()
             stats = connectors.import_xlsx(f, int(year) if year.isdigit() else None)
-            calc.invalidate_caches()
+            schedule_rewarm()
             flash(f"XLSX обработан: охваты {stats['reach']} значений, лиды {stats['leads']} строк, "
                   f"подписчики {stats['followers']} значений"
                   + (f", пропущены листы: {'; '.join(stats['skipped'])}" if stats["skipped"] else ""))
         elif f.filename.lower().endswith((".csv", ".txt", ".tsv")):
             n = connectors.import_csv_channel(f)
-            calc.invalidate_caches()
+            schedule_rewarm()
             flash(f"Импортировано строк: {n}")
         else:
             flash("Поддерживаются .xlsx и .csv")
@@ -1059,7 +1059,7 @@ def api_ingest():
     if request.headers.get("X-Ingest-Token") != token:
         return jsonify({"error": "invalid token"}), 403
     data = request.get_json(force=True, silent=True) or {}
-    calc.invalidate_caches()
+    schedule_rewarm()
     app.config["_HEALTH_CACHE"] = None
     default = date.today()
     ws = data.get("window_start")
@@ -1106,7 +1106,7 @@ def gc_webhook():
     if args.get("token") != token and request.headers.get("X-Ingest-Token") != token:
         return jsonify({"error": "invalid token"}), 403
     t = (args.get("type") or "").lower()
-    calc.invalidate_caches()
+    schedule_rewarm()
     from datetime import datetime as _dtx
     def _val(*names):
         for n in names:
@@ -1612,6 +1612,27 @@ with app.app_context():
         set_setting("gc_account", _os.environ["GC_ACCOUNT"])
     db.session.commit()
     seed.seed()
+
+_rewarm_scheduled = [False]
+
+
+def schedule_rewarm(delay=90):
+    """Данные обновились: страницы продолжают отдаваться из кэша мгновенно,
+    пересчёт запускается в фоне через delay секунд (однократно)."""
+    if _rewarm_scheduled[0]:
+        return
+    _rewarm_scheduled[0] = True
+
+    def _later():
+        import time as _t
+        _t.sleep(delay)
+        try:
+            prewarm()()
+        finally:
+            _rewarm_scheduled[0] = False
+    import threading as _th
+    _th.Thread(target=_later, daemon=True).start()
+
 
 def prewarm():
     """Прогрев кэшей тяжёлых расчётов после старта — первый посетитель не ждёт."""

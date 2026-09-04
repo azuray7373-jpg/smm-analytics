@@ -1565,16 +1565,7 @@ def _start_timer():
 
 @app.after_request
 def _gzip_response(resp):
-    """Сжатие HTML/JSON — страницы грузятся в 3-5 раз быстрее по сети."""
-    try:
-        if (resp.mimetype and resp.mimetype.startswith("text/") and len(resp.data) > 1024
-                and "gzip" in request.headers.get("Accept-Encoding", "")):
-            import zlib
-            resp.data = zlib.compress(resp.data, 5)
-            resp.headers["Content-Encoding"] = "gzip"
-            resp.headers["Vary"] = "Accept-Encoding"
-    except Exception:
-        pass
+    # gzip отключён: убран для максимальной совместимости
     return resp
 
 

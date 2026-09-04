@@ -402,13 +402,20 @@ def registrations_screen():
     cv_rows = []
     agg, _ = calc.aggregate(*d)
     total_reach = agg.get("reach")
+    # охват каждой платформы одним группирующим запросом (было 11 агрегатов)
+    from sqlalchemy import func as _f
+    reach_by_platform = {}
+    for pid, rsum in db.session.query(Channel.id, _f.coalesce(_f.sum(MetricSnapshot.value), 0)).join(
+            MetricSnapshot, MetricSnapshot.channel_id == Channel.id).filter(
+            MetricSnapshot.date >= d[0], MetricSnapshot.date <= d[1],
+            MetricSnapshot.metric == "reach", MetricSnapshot.value.isnot(None),
+            Channel.is_competitor == False).group_by(Channel.id).all():  # noqa
+        ch = Channel.query.get(pid)
+        if ch:
+            reach_by_platform[ch.platform] = reach_by_platform.get(ch.platform, 0) + rsum
     for src, v in sorted(by_source.items(), key=lambda x: -x[1]["count"]):
         plat = calc.UTM_TO_PLATFORM.get(src.lower())
-        ch_reach = None
-        if plat:
-            for ch in Channel.query.filter_by(platform=plat).all():
-                a, _ = calc.aggregate(*d, ch.id)
-                ch_reach = (ch_reach or 0) + (a.get("reach") or 0)
+        ch_reach = reach_by_platform.get(plat) if plat else None
         cv_rows.append({"source": src, "platform": plat or "—", "count": v["count"],
                         "share": v["count"] / total * 100 if total else None,
                         "reach": ch_reach, "CV": (v["count"] / ch_reach * 100) if ch_reach else None})
@@ -1468,6 +1475,9 @@ def start_scheduler():
                 # выполняет релей GitHub Actions — здесь только если сеть доступна
                 if getcourse.configured() and getcourse.can_reach():
                     getcourse.sync_getcourse(days=5)
+        warm_fn = prewarm()
+        for h in (2, 8, 14, 20):
+            sched.add_job(warm_fn, CronTrigger(hour=h, minute=12))
         sched.add_job(daily, CronTrigger(hour=3))
         sched.add_job(gc_daily, CronTrigger(hour=4))
         sched.add_job(weekly, CronTrigger(day_of_week="mon", hour=6))
@@ -1616,11 +1626,16 @@ def prewarm():
                 calc.growth_points(*d)
                 getcourse.funnel(*d)
                 _chart_series(*d)
+                _gc_daily_chart(d)
+                import utm as utm_mod
+                utm_mod.breakdown(*d)
+                utm_mod.retention_cohorts(6)
                 for ch in Channel.query.filter_by(is_active=True).all():
                     calc.period_report(*d, ch.id)
             except Exception:
                 pass
     threading.Thread(target=_warm, daemon=True).start()
+    return _warm
 
 
 if not IS_SERVERLESS and (os.environ.get("RENDER") or os.environ.get("SMM_SCHEDULER", "1") == "1"):

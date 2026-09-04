@@ -173,13 +173,14 @@ def retention_cohorts(months=6):
     from db import GcOrder
     from sqlalchemy import func as _f
     from collections import defaultdict
-    first_order = {}
-    q = GcOrder.query.filter(GcOrder.created_at.isnot(None)).order_by(GcOrder.created_at)
     orders_by_user = defaultdict(list)
-    for o in q.all():
-        key = o.user_id or (o.email or "").lower()
+    rows = (db.session.query(GcOrder.user_id, GcOrder.email, GcOrder.created_at)
+            .filter(GcOrder.created_at.isnot(None))
+            .order_by(GcOrder.created_at).all())
+    for uid, email, created in rows:
+        key = uid or (email or "").lower()
         if key:
-            orders_by_user[key].append(o.created_at)
+            orders_by_user[key].append(created)
     cohorts = {}
     for key, times in orders_by_user.items():
         times = sorted(times)

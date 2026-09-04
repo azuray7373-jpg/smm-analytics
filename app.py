@@ -556,7 +556,13 @@ def ld_map_endpoint():
     token = os.environ.get("INGEST_TOKEN") or get_setting("ingest_token")
     if request.args.get("token") != token:
         return jsonify({"error": "invalid token"}), 403
-    m = {}
+    m = {str(k): v for k, v in livedune.DEFAULT_LD_MAP.items()}
+    raw = get_setting("livedune_map", "")
+    if raw:
+        try:
+            m.update({str(k): int(v) for k, v in json.loads(raw).items()})
+        except Exception:
+            pass
     for c in Channel.query.filter(Channel.ld_account_id.isnot(None)):
         m[str(c.ld_account_id)] = c.id
     return jsonify(m)

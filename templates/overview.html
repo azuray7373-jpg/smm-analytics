@@ -45,7 +45,12 @@
   <details style="margin-left:auto; color:var(--muted); font-size:12px;">
     <summary>детали</summary>
     {% for st, info in p.data_statuses.items() %}{% for it in info.sample %}<div>{{ st }}: {{ it }}</div>{% endfor %}{% endfor %}
-    <div class="muted">Полный список — в 🔔 Уведомлениях; закрыть пробелы — «Импорт» или «Ручной ввод».</div>
+    <div class="muted">
+      MISSING — источник не дал данные за дату (дождитесь релея или
+      <a href="https://github.com/azuray7373-jpg/smm-analytics/actions/workflows/gc-sync.yml" target="_blank">запустите его вручную ↗</a>;
+      пробел закрыть — <a href="{{ url_for('import_csv') }}">⬆️ Импорт</a> / <a href="{{ url_for('manual') }}">✍️ Ручной ввод</a>).
+      NOT_AVAILABLE — метрику не отдаёт сам источник для этой площадки/дня (например, reactions и saves в LiveDune, opens в день без сторис) — это не ошибка сбора.
+    </div>
   </details>
 </div>
 {% endif %}

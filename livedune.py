@@ -57,10 +57,17 @@ def list_accounts():
     return accs
 
 
+# проверенная карта наших аккаунтов LiveDune (id ЛД -> наш канал)
+DEFAULT_LD_MAP = {1482798: 1, 2079848: 2, 3411323: 3, 3126029: 4, 2667568: 5,
+                  3323948: 6, 2381086: 8, 2824731: 9, 2383823: 10, 3333744: 11}
+
+
 def channel_map():
     """ld_id -> channel_id. Сначала явные привязки каналов (ld_account_id,
     включая конкурентов), затем автосопоставление по именам."""
-    m = {c.ld_account_id: c.id for c in Channel.query.filter(Channel.ld_account_id.isnot(None))}
+    m = dict(DEFAULT_LD_MAP)
+    for c in Channel.query.filter(Channel.ld_account_id.isnot(None)):
+        m[c.ld_account_id] = c.id
     raw = get_setting("livedune_map", "")
     if raw:
         try:

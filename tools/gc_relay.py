@@ -108,16 +108,28 @@ def _run_once():
     users = request_export("users", params)
     deals = request_export("deals", params)
     payments = request_export("payments", params)
-    payload = {"window_start": start.isoformat(),
-               "users": slim(users, ["id", "Создан", "created_at", "utm_source", "LM_utm_source",
-                                     "gc_system_user_utm_source", "utm_medium", "utm_campaign"]),
-               "deals": deals,
-               "payments": payments}
-    print(f"получено: users={len(users)} deals={len(deals)} payments={len(payments)}")
-    r = requests.post(f"{PA_URL}/api/ingest", json=payload,
-                      headers={"X-Ingest-Token": TOKEN}, timeout=300)
-    print("ingest:", r.status_code, r.text[:200])
+    # PA ограничивает размер запроса (~10МБ): полная книга сделок не влезает,
+    # поэтому шлём пользователей, затем сделки чанками, затем оплаты
+    slim_users = slim(users, ["id", "Создан", "created_at", "utm_source", "LM_utm_source",
+                              "gc_system_user_utm_source", "utm_medium", "utm_campaign"])
+    r = requests.post(f"{PA_URL}/api/ingest",
+                      json={"window_start": start.isoformat(), "users": slim_users},
+                      headers={"X-Ingest-Token": TOKEN}, timeout=600)
+    print("ingest users:", r.status_code, r.text[:120])
     r.raise_for_status()
+    for i in range(0, len(deals), 1500):
+        r = requests.post(f"{PA_URL}/api/ingest",
+                          json={"window_start": start.isoformat(), "deals": deals[i:i + 1500]},
+                          headers={"X-Ingest-Token": TOKEN}, timeout=600)
+        print(f"ingest deals[{i // 1500}]:", r.status_code, r.text[:120])
+        r.raise_for_status()
+    r = requests.post(f"{PA_URL}/api/ingest",
+                      json={"window_start": start.isoformat(), "payments": payments},
+                      headers={"X-Ingest-Token": TOKEN}, timeout=600)
+    print("ingest payments:", r.status_code, r.text[:120])
+    r.raise_for_status()
+    return
+    print(f"получено: users={len(users)} deals={len(deals)} payments={len(payments)}")
 
 
 if __name__ == "__main__":

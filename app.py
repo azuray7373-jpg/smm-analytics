@@ -170,11 +170,66 @@ def overview():
     d = _period_from_args()
     p = calc.period_report(*d)
     chart = _chart_series(*d)
+    # KPI-карточки с расшифровками по каналам
+    active_channels = Channel.query.filter_by(is_active=True, is_competitor=False).all()
+    ch_data = []
+    for ch in active_channels:
+        cp = cached_period_report(*d, ch.id)
+        ch_data.append({
+            "ch": ch, "p": cp,
+            "reach": cp["agg"].get("reach") or 0,
+            "views": cp["agg"].get("views") or 0,
+            "regs": cp["registrations"],
+            "err": cp["ind"].get("ERR"),
+            "followers": cp["agg"].get("followers_end"),
+            "inter": cp["ind"].get("interactions") or 0,
+            "subscribed": cp["agg"].get("subscribed") or 0,
+            "unsubscribed": cp["agg"].get("unsubscribed") or 0,
+        })
+
+    def breakdown(key, fmt="{:,.0f}", total=None):
+        total = total or sum(c[key] for c in ch_data) or 1
+        rows = sorted(ch_data, key=lambda c: c[key], reverse=True)
+        return [{"name": c["ch"].name, "value": fmt.format(c[key]).replace(",", " "),
+                 "pct": c[key] / total * 100 if total else 0} for c in rows if c[key] > 0]
+
+    def delta(key):
+        dd = p["deltas"].get(key)
+        return dd["d"] if dd and dd.get("d") is not None else None
+
+    kpi_cards = [
+        {"id": "reach", "icon": "👁", "title": "Охват", "value": "{:,.0f}".format(p["agg"].get("reach") or 0).replace(",", " "),
+         "delta": delta("reach"), "sub": "суммарный за период",
+         "breakdown": breakdown("reach"), "formula": "Сумма охватов всех публикаций"},
+        {"id": "views", "icon": "▶️", "title": "Просмотры", "value": "{:,.0f}".format(p["agg"].get("views") or 0).replace(",", " "),
+         "delta": delta("views"), "sub": "все каналы",
+         "breakdown": breakdown("views"), "formula": "Показы/просмотры контента"},
+        {"id": "regs", "icon": "📝", "title": "Регистрации", "value": "{:,.0f}".format(p["registrations"]),
+         "delta": delta("registrations"), "sub": "реальные (демо исключены)",
+         "breakdown": breakdown("regs"), "formula": "Из GetCourse с UTM"},
+        {"id": "err", "icon": "⚡", "title": "ERR", "value": "{:.2f}%".format(p["ind"].get("ERR") or 0),
+         "delta": delta("ERR"), "sub": "вовлечённость/охват",
+         "breakdown": breakdown("err", "{:.2f}%"), "formula": "Взаимодействия / Охват × 100"},
+        {"id": "cv", "icon": "🎯", "title": "CV из охвата", "value": "{:.3f}%".format(p["ind"].get("CV_reach") or 0),
+         "delta": delta("CV_reach"), "sub": "охват → регистрация",
+         "breakdown": breakdown("regs", "{:,.0f}"), "formula": "Регистрации / Охват × 100"},
+        {"id": "followers", "icon": "👥", "title": "Подписчики", "value": "{:,.0f}".format(p["agg"].get("followers_end") or 0).replace(",", " "),
+         "delta": delta("followers_end"), "sub": "на конец периода",
+         "breakdown": breakdown("followers"), "formula": "Все каналы суммарно"},
+        {"id": "growth", "icon": "➕", "title": "Чистый прирост", "value": "{:+,.0f}".format(p["ind"].get("net_growth") or 0).replace(",", " "),
+         "delta": delta("net_growth"), "sub": "подписались − отписались",
+         "breakdown": breakdown("subscribed"), "formula": "Подписались − Отписались"},
+        {"id": "inter", "icon": "❤️", "title": "Взаимодействия", "value": "{:,.0f}".format(p["ind"].get("interactions") or 0).replace(",", " "),
+         "delta": None, "sub": "лайки+комм+сохр+репосты",
+         "breakdown": breakdown("inter"), "formula": "Лайки + Комменты + Сохранения + Репосты + Реакции"},
+    ]
+
     return render_template("overview.html", p=p, period=d, chart=chart,
                            report=_latest_report("weekly"),
                            trends=calc.weekly_series(8),
                            growth=calc.growth_points(*d),
-                           forecast=calc.month_forecast())
+                           forecast=calc.month_forecast(),
+                           kpi_cards=kpi_cards, channels=active_channels)
 
 
 @app.route("/comments")

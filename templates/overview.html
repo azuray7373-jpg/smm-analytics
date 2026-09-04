@@ -1,117 +1,256 @@
 {% extends "base.html" %}
-{% macro delta_badge(d, unit='%') %}
-  {% if d and d.d is not none %}
-    {% set sign = '+' if d.d >= 0 else '−' %}
-    <span class="badge {{ 'up' if d.d >= 0 else 'down' }}">{{ sign }}{{ '%.1f'|format(d.d|abs) if unit == 'п.п.' else '%d'|format(d.d|abs) }}{{ unit }}</span>
-  {% else %}<span class="badge na">н/д</span>{% endif %}
-{% endmacro %}
 
 {% block content %}
 <div class="hero">
   <div>
-    <h1>Командный центр <small>{{ p.start }} — {{ p.end }}</small></h1>
-    <div class="sub">11 каналов · GetCourse · AI-аналитика · обновление 4 раза в сутки</div>
+    <h1>Командный центр</h1>
+    <div class="sub">{{ p.start }} — {{ p.end }} · {{ channels|length }} каналов · GetCourse · AI</div>
   </div>
-  <div class="filters" style="margin:0; box-shadow:none; background:transparent; border:none">
-    <a class="btn" href="{{ url_for('reports_list') }}">📄 Отчёты</a>
-    <a class="btn" href="{{ url_for('ai_screen') }}">🤖 AI-выводы</a>
-    <a class="btn" href="{{ url_for('guide') }}">📖 Руководство</a>
+  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+    <a class="btn" href="{{ url_for('assistant_screen') }}">🤖 AI SMM</a>
+    <a class="btn" href="{{ url_for('intel_screen') }}">🧠 Интеллект</a>
+    <a class="btn" href="{{ url_for('guide') }}">📖</a>
   </div>
 </div>
 
-{% set err_ref = (trends[:-1]|map(attribute='ERR')|select|list|sum / (trends[:-1]|map(attribute='ERR')|select('ne', None)|list|length)) if trends|length > 1 else none %}
-<div class="cards">
-  <div class="card" title="Суммарный охват публикаций за период"><h3>👁 Охват</h3><div class="big">{{ '{:,.0f}'.format(p.agg.reach or 0) }}</div>{{ delta_badge(p.deltas.reach) }}</div>
-  <div class="card" title="Показы/просмотры контента за период"><h3>▶️ Просмотры</h3><div class="big">{{ '{:,.0f}'.format(p.agg.views or 0) }}</div>{{ delta_badge(p.deltas.views) }}</div>
-  <div class="card" title="Реальные регистрации (демо исключены)"><h3>📝 Регистрации</h3><div class="big">{{ '{:,.0f}'.format(p.registrations) }}</div>{{ delta_badge(p.deltas.registrations) }}</div>
-  <div class="card" title="Взаимодействия / Охват × 100"><h3>ERR</h3><div class="big">{{ p.ind.ERR|pctfmt }}</div>
-    {% if err_ref %}<div class="vbar" title="Средний ERR прошлых недель: {{ '%.2f'|format(err_ref) }}%"><i style="width: {{ [((p.ind.ERR or 0) / err_ref * 100)|round, 100]|min if err_ref else 0 }}%"></i></div>{% endif %}
-    {{ delta_badge(p.deltas.ERR, 'п.п.') }}</div>
-  <div class="card" title="Взаимодействия / среднее кол-во подписчиков × 100"><h3>💪 ER</h3><div class="big">{{ '%.2f'|format(p.ind.ER or 0) }}%</div><span class="badge na">—</span></div>
-  <div class="card" title="Регистрации / Охват × 100"><h3>🎯 CV из охвата</h3><div class="big">{{ '%.3f'|format(p.ind.CV_reach or 0) }}%</div>{{ delta_badge(p.deltas.CV_reach, 'п.п.') }}</div>
-  <div class="card" title="Открытия / Показы × 100"><h3>👆 CTR открытий</h3><div class="big">{{ '%.1f'|format(p.ind.open_CTR or 0) }}%</div></div>
-  <div class="card" title="Дочитывания / Открытия × 100"><h3>📖 Дочитывания</h3><div class="big">{{ '%.1f'|format(p.ind.read_through or 0) }}%</div></div>
-  <div class="card"><h3>👥 Подписчики (на конец)</h3><div class="big">{{ '{:,.0f}'.format(p.agg.followers_end or 0) }}</div>{{ delta_badge(p.deltas.followers_end, '') }}</div>
-  <div class="card" title="Подписались − Отписались"><h3>➕ Чистый прирост</h3><div class="big">{{ '{:,.0f}'.format(p.agg.subscribed - p.agg.unsubscribed) }}</div>{{ delta_badge(p.deltas.net_growth, '') }}</div>
-  <div class="card" title="(Подписчики конец − начало) / начало × 100"><h3>📈 Рост аудитории</h3><div class="big">{{ '%.2f'|format(p.ind.audience_growth_pct or 0) }}%</div></div>
-  <div class="card"><h3>❤️ Взаимодействия</h3><div class="big">{{ '{:,.0f}'.format(p.ind.interactions) }}</div></div>
-</div>
-
-{% if p.data_statuses %}
-<div class="warnbox" style="display:flex; gap:14px; align-items:baseline; flex-wrap:wrap;">
-  {% for st, info in p.data_statuses.items() %}
-  <span>⚠ {{ st }}: {{ info.count }} метрик за {{ info.days|length }} дн.</span>
+{% if forecast %}
+<div class="forecast-bar">
+  <span class="forecast-label">Прогноз месяца</span>
+  {% for k, lbl in [('reach','Охват'), ('regs','Рег.'), ('payments','Оплаты ₽')] %}
+    {% if forecast.get(k) is not none %}
+    <span class="forecast-item">{{ lbl }} <b>{{ forecast[k]|numfmt }}</b> → <b class="accent">{{ forecast[k + '_forecast']|numfmt }}</b></span>
+    {% endif %}
   {% endfor %}
-  <details style="margin-left:auto; color:var(--muted); font-size:12px;">
-    <summary>детали</summary>
-    {% for st, info in p.data_statuses.items() %}{% for it in info.sample %}<div>{{ st }}: {{ it }}</div>{% endfor %}{% endfor %}
-    <div class="muted">
-      MISSING — источник не дал данные за дату (дождитесь релея или
-      <a href="https://github.com/azuray7373-jpg/smm-analytics/actions/workflows/gc-sync.yml" target="_blank">запустите его вручную ↗</a>;
-      пробел закрыть — <a href="{{ url_for('import_csv') }}">⬆️ Импорт</a> / <a href="{{ url_for('manual') }}">✍️ Ручной ввод</a>).
-      NOT_AVAILABLE — метрику не отдаёт сам источник для этой площадки/дня (например, reactions и saves в LiveDune, opens в день без сторис) — это не ошибка сбора.
-    </div>
-  </details>
+  <span class="forecast-hint">{{ forecast.elapsed_days }}/{{ forecast.total_days }} дней</span>
 </div>
 {% endif %}
 
-<h2>Динамика по дням: охват, взаимодействия, регистрации</h2>
-<canvas id="chart" height="90"></canvas>
+<div class="kpi-grid">
+  {% for card in kpi_cards %}
+  <div class="kpi-card" id="card_{{ card.id }}" onclick="toggleKpi('{{ card.id }}')">
+    <div class="kpi-header">
+      <span class="kpi-icon">{{ card.icon }}</span>
+      <span class="kpi-title">{{ card.title }}</span>
+    </div>
+    <div class="kpi-value">{{ card.value }}</div>
+    <div class="kpi-footer">
+      {% if card.delta is not none %}
+      <span class="kpi-delta {{ 'pos' if card.delta >= 0 else 'neg' }}">{{ '%+d'|format(card.delta) }}%</span>
+      {% endif %}
+      {% if card.sub %}
+      <span class="kpi-sub">{{ card.sub }}</span>
+      {% endif %}
+    </div>
+    {% if card.breakdown %}
+    <div class="kpi-detail" id="detail_{{ card.id }}">
+      <div class="kpi-detail-header">Расшифровка по каналам</div>
+      <div class="kpi-breakdown">
+        {% for row in card.breakdown %}
+        <div class="kpi-breakdown-row">
+          <span class="bd-name">{{ row.name }}</span>
+          <div class="bd-bar"><i style="width: {{ row.pct }}%"></i></div>
+          <span class="bd-value">{{ row.value }}</span>
+          <span class="bd-pct">{{ '%.0f'|format(row.pct) }}%</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% if card.formula %}
+      <div class="kpi-formula">{{ card.formula }}</div>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+<div class="section-grid">
+  <div class="section-item">
+    <h2>Динамика по дням</h2>
+    <canvas id="chart" height="90"></canvas>
+  </div>
+  <div class="section-item">
+    <h2>Тренды (8 недель)</h2>
+    <canvas id="trendChart" height="55"></canvas>
+  </div>
+</div>
+
+{% if growth %}
+<h2>Точки роста</h2>
+<div class="growth-grid">
+  {% for g in growth %}
+  <div class="growth-card {{ g.kind }}">
+    <div class="growth-label">{{ {'scale': 'Масштабировать', 'fix': 'Исправить', 'insight': 'Инсайт'}[g.kind] }}</div>
+    <p>{{ g.text }}</p>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if report %}
+<h2>Вывод недели</h2>
+<div class="aireport">{{ report.ai_text | mdfmt | safe }}</div>
+{% if report.controller_text %}
+<div class="controller"><b>Проверка:</b> {{ report.controller_text }}</div>
+{% endif %}
+{% endif %}
+
+<style>
+/* ═══ KPI Grid ═══ */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px; margin: 20px 0;
+}
+.kpi-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 18px;
+  cursor: pointer;
+  transition: border-color .2s;
+  position: relative;
+  overflow: hidden;
+}
+.kpi-card:hover { border-color: var(--border-active); }
+.kpi-card:active { transform: scale(.985); }
+
+.kpi-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.kpi-icon { font-size: 18px; }
+.kpi-title { font-size: 11px; font-weight: 600; color: var(--txt-tertiary); text-transform: uppercase; letter-spacing: .06em; }
+.kpi-value { font: 700 26px/1.1 var(--font-ui); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.kpi-footer { display: flex; align-items: center; gap: 8px; margin-top: 6px; min-height: 20px; }
+.kpi-delta { font-size: 12px; font-weight: 600; }
+.kpi-delta.pos { color: var(--success); }
+.kpi-delta.neg { color: var(--danger); }
+.kpi-sub { font-size: 11px; color: var(--txt-tertiary); }
+
+/* ═══ Expandable Detail ═══ */
+.kpi-detail {
+  max-height: 0; overflow: hidden;
+  transition: max-height .35s ease, margin .35s ease;
+  border-top: 0 solid var(--border);
+}
+.kpi-card.expanded .kpi-detail {
+  max-height: 400px; margin-top: 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+.kpi-detail-header {
+  font-size: 10px; color: var(--txt-tertiary);
+  text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px;
+}
+.kpi-breakdown { display: flex; flex-direction: column; gap: 4px; }
+.kpi-breakdown-row {
+  display: grid; grid-template-columns: 70px 1fr 60px 32px;
+  gap: 6px; align-items: center; font-size: 11px;
+}
+.bd-name { color: var(--txt-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bd-bar { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.bd-bar > i { display: block; height: 100%; background: var(--accent); border-radius: 2px; }
+.bd-value { text-align: right; font-variant-numeric: tabular-nums; color: var(--txt-primary); }
+.bd-pct { text-align: right; color: var(--txt-tertiary); font-size: 10px; }
+.kpi-formula {
+  font-size: 10px; color: var(--txt-tertiary); margin-top: 8px;
+  padding: 4px 8px; background: var(--bg-surface); border-radius: 4px;
+}
+
+/* ═══ Forecast Bar ═══ */
+.forecast-bar {
+  display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 16px; margin: 12px 0;
+  font-size: 12px;
+}
+.forecast-label { font-weight: 700; color: var(--accent); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+.forecast-item { color: var(--txt-secondary); }
+.forecast-item b { color: var(--txt-primary); }
+.forecast-item .accent { color: var(--accent); }
+.forecast-hint { margin-left: auto; color: var(--txt-tertiary); font-size: 10px; }
+
+/* ═══ Section Grid ═══ */
+.section-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 20px 0; }
+.section-item { min-width: 0; }
+
+/* ═══ Growth ═══ */
+.growth-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin: 12px 0; }
+.growth-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+.growth-card.scale { border-left: 3px solid var(--success); }
+.growth-card.fix { border-left: 3px solid var(--danger); }
+.growth-card.insight { border-left: 3px solid var(--accent); }
+.growth-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 6px; }
+.growth-card.scale .growth-label { color: var(--success); }
+.growth-card.fix .growth-label { color: var(--danger); }
+.growth-card.insight .growth-label { color: var(--accent); }
+.growth-card p { font-size: 13px; color: var(--txt-secondary); margin: 0; }
+
+@media (max-width: 768px) {
+  .kpi-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .kpi-card { padding: 12px; }
+  .kpi-value { font-size: 20px; }
+  .section-grid { grid-template-columns: 1fr; }
+  .forecast-bar { font-size: 10px; padding: 8px 10px; gap: 4px 10px; }
+}
+</style>
+
 <script>
+function toggleKpi(id) {
+  const el = document.getElementById('card_' + id);
+  if (el) el.classList.toggle('expanded');
+}
+</script>
+
+<script>
+if (window.Chart) {
+  Chart.defaults.color = '#8b95a3';
+  Chart.defaults.font.family = '-apple-system, Segoe UI, system-ui, sans-serif';
+  Chart.defaults.font.size = 11;
+  Chart.defaults.borderColor = 'rgba(255,255,255,.05)';
+  Chart.defaults.plugins.legend.labels.boxWidth = 10;
+  Chart.defaults.plugins.tooltip.backgroundColor = '#141a23';
+  Chart.defaults.plugins.tooltip.padding = 10;
+  Chart.defaults.plugins.tooltip.cornerRadius = 6;
+  Chart.defaults.plugins.tooltip.titleFont = {size: 11, weight: '600'};
+  Chart.defaults.plugins.tooltip.bodyFont = {size: 11};
+}
 new Chart(document.getElementById('chart'), {
   type: 'line',
   data: { labels: {{ chart.labels|tojson }},
     datasets: [
-      { label: 'Охват', data: {{ chart.reach|tojson }}, yAxisID: 'y', tension: .3 },
-      { label: 'Регистрации', data: {{ chart.regs|tojson }}, yAxisID: 'y1', tension: .3 },
-      { label: 'Взаимодействия', data: {{ chart.inter|tojson }}, yAxisID: 'y', tension: .3 }
+      { label: 'Охват', data: {{ chart.reach|tojson }}, tension: .3, borderWidth: 2, pointRadius: 0 },
+      { label: 'Взаимодействия', data: {{ chart.inter|tojson }}, tension: .3, borderWidth: 2, pointRadius: 0 },
+      { label: 'Регистрации', data: {{ chart.regs|tojson }}, yAxisID: 'y1', tension: .3, borderWidth: 2, pointRadius: 0 }
     ]},
-  options: { scales: { y: { position: 'left' }, y1: { position: 'right', grid: { drawOnChartArea: false } } } }
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    interaction: { intersect: false, mode: 'index' },
+    scales: {
+      y: { position: 'left', grid: { color: 'rgba(255,255,255,.03)' } },
+      y1: { position: 'right', grid: { drawOnChartArea: false } }
+    }
+  }
 });
-</script>
-
-{% if forecast %}
-<div class="filters" style="gap:18px;">
-  <b>🔮 Прогноз месяца (ESTIMATED)</b>
-  <span class="muted">{{ forecast.elapsed_days }} из {{ forecast.total_days }} дней прошло · линейная экстраполяция</span>
-  {% for k, lbl in [('reach','охват'), ('regs','регистрации'), ('payments','оплаты, ₽')] %}
-    {% if forecast.get(k) is not none %}
-    <span>{{ lbl }}: <b>{{ forecast[k]|numfmt }}</b> → <b>{{ forecast[k + '_forecast']|numfmt }}</b></span>
-    {% endif %}
-  {% endfor %}
-</div>
-{% endif %}
-
-{% if growth %}
-<h2>🚀 Точки роста</h2>
-<div class="cards" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr));">
-  {% for g in growth %}
-  <div class="card" style="grid-column: span 1; min-width:280px;">
-    <h3>{{ {'scale': '📈 Масштабировать', 'fix': '🔧 Чинить', 'insight': '💡 Инсайт'}[g.kind] }}</h3>
-    <p style="margin:4px 0 0; font-size:13.5px;">{{ g.text }}</p>
-  </div>
-  {% endfor %}
-</div>
-{% endif %}
-
-<h2>Тренды по неделям (8 недель)</h2>
-<canvas id="trendChart" height="55"></canvas>
-<script>
 new Chart(document.getElementById('trendChart'), {
   type: 'line',
   data: { labels: {{ trends|map(attribute='label')|list|tojson }},
     datasets: [
-      { label: 'ERR, %', data: {{ trends|map(attribute='ERR')|list|tojson }}, yAxisID: 'y', tension: .3 },
-      { label: 'CV, %', data: {{ trends|map(attribute='CV')|list|tojson }}, yAxisID: 'y', tension: .3 },
-      { label: 'Регистрации', data: {{ trends|map(attribute='regs')|list|tojson }}, yAxisID: 'y1', tension: .3 }
+      { label: 'ERR %', data: {{ trends|map(attribute='ERR')|list|tojson }}, yAxisID: 'y', tension: .3, borderWidth: 2, pointRadius: 0 },
+      { label: 'CV %', data: {{ trends|map(attribute='CV')|list|tojson }}, yAxisID: 'y', tension: .3, borderWidth: 2, pointRadius: 0 },
+      { label: 'Регистрации', data: {{ trends|map(attribute='regs')|list|tojson }}, yAxisID: 'y1', tension: .3, borderWidth: 2, pointRadius: 0 }
     ]},
-  options: { scales: { y: { position: 'left' }, y1: { position: 'right', grid: { drawOnChartArea: false } } } }
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    interaction: { intersect: false, mode: 'index' },
+    scales: {
+      y: { position: 'left', grid: { color: 'rgba(255,255,255,.03)' } },
+      y1: { position: 'right', grid: { drawOnChartArea: false } }
+    }
+  }
 });
 </script>
-
-{% if report %}
-<h2>Вывод недели (AI)</h2>
-<div class="aireport">{{ report.ai_text | mdfmt | safe }}</div>
-{% if report.controller_text %}<div class="controller"><b>AI-контролёр:</b> {{ report.controller_text }}</div>{% endif %}
-{% endif %}
 {% endblock %}

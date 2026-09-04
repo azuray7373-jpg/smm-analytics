@@ -212,21 +212,24 @@ def comments_screen():
 
 @app.route("/comments/ai_summary", methods=["POST"])
 def comments_ai_summary():
-    """AI-вывод по комментариям за период (Gemini/эвристика — только из данных)."""
-    import ai_analyst
+    """AI-вывод по комментариям за период — в фоне."""
     d = _period_from_args()
-    dig = comments_mod.digest(*d)
-    if not dig["total"]:
+    if not comments_mod.digest(*d)["total"]:
         flash("Комментариев за период нет — сначала импортируйте.")
         return redirect(url_for("comments_screen"))
-    text = ai_analyst._call_llm(ai_analyst.SYSTEM,
-        "Ты SMM-аналитик. Ниже — статистика комментариев за период (только факты из данных). "
-        "Напиши короткий вывод: 3 главных боли/вопроса аудитории, 2 идеи для контента, "
-        "1 предупреждение (если есть негатив). Не выдумывай числа.\n"
-        + comments_mod.digest_text(dig))
-    set_setting("comments_ai_summary", text or comments_mod.digest_text(dig))
-    db.session.commit()
-    flash("AI-вывод по комментариям обновлён" + (" (LLM)." if text else " (эвристически — LLM недоступна)."))
+
+    def _job():
+        import ai_analyst
+        dig = comments_mod.digest(*d)
+        text = ai_analyst._call_llm(ai_analyst.SYSTEM,
+            "Ты SMM-аналитик. Ниже — статистика комментариев за период (только факты из данных). "
+            "Напиши короткий вывод: 3 главных боли/вопроса аудитории, 2 идеи для контента, "
+            "1 предупреждение (если есть негатив). Не выдумывай числа.\n"
+            + comments_mod.digest_text(dig))
+        set_setting("comments_ai_summary", text or comments_mod.digest_text(dig))
+        db.session.commit()
+    run_in_background("comments_ai", _job,
+                      "AI-вывод по комментариям формируется в фоне — обновите страницу.")
     return redirect(url_for("comments_screen"))
 
 
@@ -458,12 +461,48 @@ def reports_list():
     return render_template("reports.html", reports=reps)
 
 
+_bg_busy = {}
+
+
+def run_in_background(key, fn, done_msg):
+    """Тяжёлая операция (LLM и т.п.) в фоне: воркер не блокируется,
+    вкладки продолжают открываться мгновенно."""
+    if _bg_busy.get(key):
+        flash("Уже выполняется — дождитесь завершения и обновите страницу.")
+        return
+    _bg_busy[key] = True
+
+    def _job():
+        try:
+            with app.app_context():
+                fn()
+        except Exception as e:
+            try:
+                with app.app_context():
+                    db.session.add(Notification(level="error",
+                        message=f"Фоновая операция ({key}): {e}"))
+                    db.session.commit()
+            except Exception:
+                pass
+        finally:
+            _bg_busy[key] = False
+    import threading as _th
+    _th.Thread(target=_job, daemon=True).start()
+    flash(done_msg)
+
+
 @app.route("/reports/generate", methods=["POST"])
 def generate():
     rtype = request.form.get("rtype", "weekly")
     anchor = datetime.strptime(request.form.get("anchor", date.today().isoformat()), "%Y-%m-%d").date()
-    rep = reports.generate_report(rtype, anchor)
-    flash(f"Отчёт за {rep.start}–{rep.end} сформирован.")
+
+    def _job():
+        rep = reports.generate_report(rtype, anchor)
+        db.session.add(Notification(level="info",
+            message=f"Отчёт за {rep.start}–{rep.end} сформирован."))
+        db.session.commit()
+    run_in_background(f"report:{rtype}", _job,
+                      "Отчёт формируется в фоне (~1 минута, с AI) — обновите «Отчёты» через минуту.")
     return redirect(url_for("reports_list"))
 
 
@@ -1192,57 +1231,57 @@ def gc_webhook():
 
 @app.route("/ai/plan", methods=["POST"])
 def ai_plan():
-    """Сгенерировать контент-план следующей недели на основе данных."""
-    import ai_analyst
+    """Сгенерировать контент-план недели (в фоне, вкладки не блокируются)."""
     from datetime import timedelta as _td
     anchor = datetime.strptime(request.form.get("anchor", date.today().isoformat()), "%Y-%m-%d").date()
-    s_, e_ = calc.week_bounds(anchor)
-    ps, pe = s_ - _td(days=7), e_ - _td(days=7)   # база — прошлая полная неделя
-    text = ai_analyst.generate_content_plan(ps, pe)
-    from db import Report
-    r = Report.query.filter_by(rtype="plan", start=s_, end=e_).first() or         Report(rtype="plan", start=s_, end=e_)
-    r.ai_text = text
-    db.session.add(r)
-    db.session.commit()
-    flash("Контент-план на неделю готов — раздел «Планы недели» ниже.")
+
+    def _job():
+        import ai_analyst
+        from db import Report
+        s_, e_ = calc.week_bounds(anchor)
+        ps, pe = s_ - _td(days=7), e_ - _td(days=7)
+        text = ai_analyst.generate_content_plan(ps, pe)
+        r = Report.query.filter_by(rtype="plan", start=s_, end=e_).first() or             Report(rtype="plan", start=s_, end=e_)
+        r.ai_text = text
+        db.session.add(r)
+        db.session.commit()
+    run_in_background("ai_plan", _job,
+                      "Контент-план генерируется в фоне (~1 минута) — обновите страницу.")
     return redirect(url_for("ai_screen"))
 
 
 @app.route("/ai/reclassify", methods=["POST"])
 def ai_reclassify():
-    """Батч-классификация контента через LLM (кнопка на экране AI-аналитики)."""
-    from db import ContentItem as _CI
-    import ai_analyst, re as _re
-    items = _CI.query.order_by(_CI.published_at.desc()).limit(40).all()
-    done, used_llm = 0, False
-    for i in range(0, len(items), 8):
-        batch = items[i:i + 8]
-        lines = [f"{ci.id}: {(ci.title or '')} | {(ci.text or '')[:180]} | формат: {ci.format}"
-                 for ci in batch]
-        llm = ai_analyst._call_llm(ai_analyst.SYSTEM,
-            "Проклассифицируй каждый материал. Верни СТРОГО JSON вида "
-            '{"<id>": {"тема": "...", "рубрика": "...", "боль": "...", "сегмент": "...", '
-            '"эмоциональный_триггер": "...", "есть_оффер": true, '
-            '"есть_регистрационный_CTA": true, '
-            '"продающий_тип": "продающий|экспертный|доверительный|охватный"}}\n'
-            "Материалы:\n" + "\n".join(lines))
-        mapping = {}
-        if llm:
-            try:
-                m = _re.search(r"\{.*\}", llm, _re.S)
-                if m:
-                    mapping = json.loads(m.group())
-                    used_llm = True
-            except Exception:
-                mapping = {}
-        for ci in batch:
-            tags = mapping.get(str(ci.id)) or ai_analyst.classify_content_text(ci.text, ci.format)
-            ci.ai_tags = json.dumps(tags, ensure_ascii=False)
-            done += 1
-    db.session.commit()
-    flash(f"Классифицировано материалов: {done}" +
-          (" (через LLM)" if used_llm else
-           " (эвристически — LLM недоступна, проверьте баланс OpenAI в Настройках)"))
+    """Батч-классификация контента через LLM — в фоне, вкладки не блокируются."""
+    def _job():
+        from db import ContentItem as _CI
+        import ai_analyst, re as _re
+        items = _CI.query.order_by(_CI.published_at.desc()).limit(40).all()
+        for i in range(0, len(items), 8):
+            batch = items[i:i + 8]
+            lines = [f"{ci.id}: {(ci.title or '')} | {(ci.text or '')[:180]} | формат: {ci.format}"
+                     for ci in batch]
+            llm = ai_analyst._call_llm(ai_analyst.SYSTEM,
+                "Проклассифицируй каждый материал. Верни СТРОГО JSON вида "
+                '{"<id>": {"тема": "...", "рубрика": "...", "боль": "...", "сегмент": "...", '
+                '"эмоциональный_триггер": "...", "есть_оффер": true, '
+                '"есть_регистрационный_CTA": true, '
+                '"продающий_тип": "продающий|экспертный|доверительный|охватный"}}\n'
+                "Материалы:\n" + "\n".join(lines))
+            mapping = {}
+            if llm:
+                try:
+                    m = _re.search(r"\{.*\}", llm, _re.S)
+                    if m:
+                        mapping = json.loads(m.group())
+                except Exception:
+                    mapping = {}
+            for ci in batch:
+                tags = mapping.get(str(ci.id)) or ai_analyst.classify_content_text(ci.text, ci.format)
+                ci.ai_tags = json.dumps(tags, ensure_ascii=False)
+            db.session.commit()
+    run_in_background("reclassify", _job,
+                      "Классификация контента идёт в фоне (~1 минута) — обновите страницу.")
     return redirect(url_for("ai_screen"))
 
 
@@ -1585,6 +1624,14 @@ with app.app_context():
         except Exception:
             pass
     db.session.commit()
+    # SQLite: WAL — чтение не блокируется записью (релеи пишут, дашборд читает)
+    try:
+        db.session.execute(_text("PRAGMA journal_mode=WAL"))
+        db.session.execute(_text("PRAGMA busy_timeout=15000"))
+        db.session.execute(_text("PRAGMA synchronous=NORMAL"))
+        db.session.commit()
+    except Exception:
+        pass
     # значения по умолчанию из окружения (Render env vars)
     import os as _os
     if _os.environ.get("GC_API_KEY") and not get_setting("gc_api_key"):

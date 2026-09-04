@@ -1,0 +1,401 @@
+2026-09-04 13:47:29 Fri Sep  4 13:47:29 2026 - SIGPIPE: writing to a closed pipe/socket/fd (probably the client disconnected) on request /reports/generate (ip 10.0.4.129) !!!
+2026-09-04 13:47:29 Fri Sep  4 13:47:29 2026 - uwsgi_response_writev_headers_and_body_do(): Broken pipe [core/writer.c line 306] during POST /reports/generate (10.0.4.129)
+2026-09-04 13:47:29 Fri Sep  4 13:47:29 2026 - SIGPIPE: writing to a closed pipe/socket/fd (probably the client disconnected) on request /reports/view/1 (ip 10.0.4.129) !!!
+2026-09-04 13:47:29 Fri Sep  4 13:47:29 2026 - uwsgi_response_writev_headers_and_body_do(): Broken pipe [core/writer.c line 306] during GET /reports/view/1 (10.0.4.129)
+2026-09-04 13:47:29 Fri Sep  4 13:47:29 2026 - SIGPIPE: writing to a closed pipe/socket/fd (probably the client disconnected) on request /channels (ip 10.0.4.129) !!!
+2026-09-04 13:47:29 Fri Sep  4 13:47:29 2026 - uwsgi_response_writev_headers_and_body_do(): Broken pipe [core/writer.c line 306] during GET /channels (10.0.4.129)
+2026-09-04 13:47:29 Fri Sep  4 13:47:29 2026 - SIGPIPE: writing to a closed pipe/socket/fd (probably the client disconnected) on request /content (ip 10.0.4.129) !!!
+2026-09-04 13:47:29 Fri Sep  4 13:47:29 2026 - uwsgi_response_writev_headers_and_body_do(): Broken pipe [core/writer.c line 306] during GET /content (10.0.4.129)
+2026-09-04 13:47:30 Fri Sep  4 13:47:30 2026 - SIGPIPE: writing to a closed pipe/socket/fd (probably the client disconnected) on request / (ip 10.0.4.129) !!!
+2026-09-04 13:47:30 Fri Sep  4 13:47:30 2026 - uwsgi_response_writev_headers_and_body_do(): Broken pipe [core/writer.c line 306] during GET / (10.0.4.129)
+2026-09-04 13:47:30 Fri Sep  4 13:47:30 2026 - SIGPIPE: writing to a closed pipe/socket/fd (probably the client disconnected) on request / (ip 10.0.4.129) !!!
+2026-09-04 13:47:30 Fri Sep  4 13:47:30 2026 - uwsgi_response_writev_headers_and_body_do(): Broken pipe [core/writer.c line 306] during GET / (10.0.4.129)
+2026-09-04 17:09:00 Fri Sep  4 17:09:00 2026 - received message 0 from emperor
+2026-09-04 17:09:00 SIGINT/SIGTERM received...killing workers...
+2026-09-04 17:09:01 worker 1 buried after 1 seconds
+2026-09-04 17:09:01 goodbye to uWSGI.
+2026-09-04 17:09:01 VACUUM: unix socket /var/sockets/anazanaxus.pythonanywhere.com/socket removed.
+2026-09-04 17:09:15 *** Starting uWSGI 2.0.28 (64bit) on [Fri Sep  4 17:09:08 2026] ***
+2026-09-04 17:09:15 compiled with version: 11.4.0 on 16 January 2025 20:41:13
+2026-09-04 17:09:15 os: Linux-6.8.0-1061-aws #64~22.04.1-Ubuntu SMP Thu Jul 16 14:38:59 UTC 2026
+2026-09-04 17:09:15 nodename: blue-liveweb36
+2026-09-04 17:09:15 machine: x86_64
+2026-09-04 17:09:15 clock source: unix
+2026-09-04 17:09:15 pcre jit disabled
+2026-09-04 17:09:15 detected number of CPU cores: 4
+2026-09-04 17:09:15 current working directory: /home/anazanaxus
+2026-09-04 17:09:15 detected binary path: /usr/local/bin/uwsgi
+2026-09-04 17:09:15 *** dumping internal routing table ***
+2026-09-04 17:09:15 [rule: 0] subject: path_info regexp: \.svgz$ action: addheader:Content-Encoding:gzip
+2026-09-04 17:09:15 *** end of the internal routing table ***
+2026-09-04 17:09:15 chdir() to /home/anazanaxus/
+2026-09-04 17:09:15 your processes number limit is 256
+2026-09-04 17:09:15 your memory page size is 4096 bytes
+2026-09-04 17:09:15 detected max file descriptor number: 123456
+2026-09-04 17:09:15 building mime-types dictionary from file /etc/mime.types...
+2026-09-04 17:09:15 1516 entry found
+2026-09-04 17:09:15 lock engine: pthread robust mutexes
+2026-09-04 17:09:15 thunder lock: disabled (you can enable it with --thunder-lock)
+2026-09-04 17:09:15 uwsgi socket 0 bound to UNIX address /var/sockets/anazanaxus.pythonanywhere.com/socket fd 3
+2026-09-04 17:09:15 Python version: 3.10.12 (main, Nov  6 2024, 20:22:13) [GCC 11.4.0]
+2026-09-04 17:09:15 Python main interpreter initialized at 0x570c621278c0
+2026-09-04 17:09:15 python threads support enabled
+2026-09-04 17:09:15 your server socket listen backlog is limited to 100 connections
+2026-09-04 17:09:15 your mercy for graceful operations on workers is 60 seconds
+2026-09-04 17:09:15 setting request body buffering size to 65536 bytes
+2026-09-04 17:09:15 mapped 334256 bytes (326 KB) for 1 cores
+2026-09-04 17:09:15 *** Operational MODE: single process ***
+2026-09-04 17:09:15 initialized 38 metrics
+2026-09-04 17:09:15 WSGI app 0 (mountpoint='') ready in 7 seconds on interpreter 0x570c621278c0 pid: 1 (default app)
+2026-09-04 17:09:15 *** uWSGI is running in multiple interpreter mode ***
+2026-09-04 17:09:15 gracefully (RE)spawned uWSGI master process (pid: 1)
+2026-09-04 17:09:15 spawned uWSGI worker 1 (pid: 8, cores: 1)
+2026-09-04 17:09:15 metrics collector thread started
+2026-09-04 17:09:15 spawned 2 offload threads for uWSGI worker 1
+2026-09-04 17:09:15 announcing my loyalty to the Emperor...
+2026-09-04 17:21:30 Fri Sep  4 17:21:30 2026 - received message 0 from emperor
+2026-09-04 17:21:30 SIGINT/SIGTERM received...killing workers...
+2026-09-04 17:21:31 worker 1 buried after 1 seconds
+2026-09-04 17:21:31 goodbye to uWSGI.
+2026-09-04 17:21:31 VACUUM: unix socket /var/sockets/anazanaxus.pythonanywhere.com/socket removed.
+2026-09-04 17:21:36 *** Starting uWSGI 2.0.28 (64bit) on [Fri Sep  4 17:21:34 2026] ***
+2026-09-04 17:21:36 compiled with version: 11.4.0 on 16 January 2025 20:41:13
+2026-09-04 17:21:36 os: Linux-6.8.0-1061-aws #64~22.04.1-Ubuntu SMP Thu Jul 16 14:38:59 UTC 2026
+2026-09-04 17:21:36 nodename: blue-liveweb36
+2026-09-04 17:21:36 machine: x86_64
+2026-09-04 17:21:36 clock source: unix
+2026-09-04 17:21:36 pcre jit disabled
+2026-09-04 17:21:36 detected number of CPU cores: 4
+2026-09-04 17:21:36 current working directory: /home/anazanaxus
+2026-09-04 17:21:36 detected binary path: /usr/local/bin/uwsgi
+2026-09-04 17:21:36 *** dumping internal routing table ***
+2026-09-04 17:21:36 [rule: 0] subject: path_info regexp: \.svgz$ action: addheader:Content-Encoding:gzip
+2026-09-04 17:21:36 *** end of the internal routing table ***
+2026-09-04 17:21:36 chdir() to /home/anazanaxus/
+2026-09-04 17:21:36 your processes number limit is 256
+2026-09-04 17:21:36 your memory page size is 4096 bytes
+2026-09-04 17:21:36 detected max file descriptor number: 123456
+2026-09-04 17:21:36 building mime-types dictionary from file /etc/mime.types...
+2026-09-04 17:21:36 1516 entry found
+2026-09-04 17:21:36 lock engine: pthread robust mutexes
+2026-09-04 17:21:36 thunder lock: disabled (you can enable it with --thunder-lock)
+2026-09-04 17:21:36 uwsgi socket 0 bound to UNIX address /var/sockets/anazanaxus.pythonanywhere.com/socket fd 3
+2026-09-04 17:21:36 Python version: 3.10.12 (main, Nov  6 2024, 20:22:13) [GCC 11.4.0]
+2026-09-04 17:21:36 Python main interpreter initialized at 0x630e2d49f8c0
+2026-09-04 17:21:36 python threads support enabled
+2026-09-04 17:21:36 your server socket listen backlog is limited to 100 connections
+2026-09-04 17:21:36 your mercy for graceful operations on workers is 60 seconds
+2026-09-04 17:21:36 setting request body buffering size to 65536 bytes
+2026-09-04 17:21:36 mapped 334256 bytes (326 KB) for 1 cores
+2026-09-04 17:21:36 *** Operational MODE: single process ***
+2026-09-04 17:21:36 initialized 38 metrics
+2026-09-04 17:21:36 WSGI app 0 (mountpoint='') ready in 2 seconds on interpreter 0x630e2d49f8c0 pid: 1 (default app)
+2026-09-04 17:21:36 *** uWSGI is running in multiple interpreter mode ***
+2026-09-04 17:21:36 gracefully (RE)spawned uWSGI master process (pid: 1)
+2026-09-04 17:21:36 spawned uWSGI worker 1 (pid: 4, cores: 1)
+2026-09-04 17:21:36 metrics collector thread started
+2026-09-04 17:21:36 spawned 2 offload threads for uWSGI worker 1
+2026-09-04 17:21:36 announcing my loyalty to the Emperor...
+2026-09-04 17:22:12 Fri Sep  4 17:22:12 2026 - received message 0 from emperor
+2026-09-04 17:22:12 SIGINT/SIGTERM received...killing workers...
+2026-09-04 17:22:13 worker 1 buried after 1 seconds
+2026-09-04 17:22:13 goodbye to uWSGI.
+2026-09-04 17:22:13 VACUUM: unix socket /var/sockets/anazanaxus.pythonanywhere.com/socket removed.
+2026-09-04 17:22:17 *** Starting uWSGI 2.0.28 (64bit) on [Fri Sep  4 17:22:16 2026] ***
+2026-09-04 17:22:17 compiled with version: 11.4.0 on 16 January 2025 20:41:13
+2026-09-04 17:22:17 os: Linux-6.8.0-1061-aws #64~22.04.1-Ubuntu SMP Thu Jul 16 14:38:59 UTC 2026
+2026-09-04 17:22:17 nodename: blue-liveweb36
+2026-09-04 17:22:17 machine: x86_64
+2026-09-04 17:22:17 clock source: unix
+2026-09-04 17:22:17 pcre jit disabled
+2026-09-04 17:22:17 detected number of CPU cores: 4
+2026-09-04 17:22:17 current working directory: /home/anazanaxus
+2026-09-04 17:22:17 detected binary path: /usr/local/bin/uwsgi
+2026-09-04 17:22:17 *** dumping internal routing table ***
+2026-09-04 17:22:17 [rule: 0] subject: path_info regexp: \.svgz$ action: addheader:Content-Encoding:gzip
+2026-09-04 17:22:17 *** end of the internal routing table ***
+2026-09-04 17:22:17 chdir() to /home/anazanaxus/
+2026-09-04 17:22:17 your processes number limit is 256
+2026-09-04 17:22:17 your memory page size is 4096 bytes
+2026-09-04 17:22:17 detected max file descriptor number: 123456
+2026-09-04 17:22:17 building mime-types dictionary from file /etc/mime.types...
+2026-09-04 17:22:17 1516 entry found
+2026-09-04 17:22:17 lock engine: pthread robust mutexes
+2026-09-04 17:22:17 thunder lock: disabled (you can enable it with --thunder-lock)
+2026-09-04 17:22:17 uwsgi socket 0 bound to UNIX address /var/sockets/anazanaxus.pythonanywhere.com/socket fd 3
+2026-09-04 17:22:17 Python version: 3.10.12 (main, Nov  6 2024, 20:22:13) [GCC 11.4.0]
+2026-09-04 17:22:17 Python main interpreter initialized at 0x6360ea1958c0
+2026-09-04 17:22:17 python threads support enabled
+2026-09-04 17:22:17 your server socket listen backlog is limited to 100 connections
+2026-09-04 17:22:17 your mercy for graceful operations on workers is 60 seconds
+2026-09-04 17:22:17 setting request body buffering size to 65536 bytes
+2026-09-04 17:22:17 mapped 334256 bytes (326 KB) for 1 cores
+2026-09-04 17:22:17 *** Operational MODE: single process ***
+2026-09-04 17:22:17 initialized 38 metrics
+2026-09-04 17:22:17 WSGI app 0 (mountpoint='') ready in 1 seconds on interpreter 0x6360ea1958c0 pid: 1 (default app)
+2026-09-04 17:22:17 *** uWSGI is running in multiple interpreter mode ***
+2026-09-04 17:22:17 gracefully (RE)spawned uWSGI master process (pid: 1)
+2026-09-04 17:22:17 spawned uWSGI worker 1 (pid: 4, cores: 1)
+2026-09-04 17:22:17 metrics collector thread started
+2026-09-04 17:22:17 spawned 2 offload threads for uWSGI worker 1
+2026-09-04 17:22:18 announcing my loyalty to the Emperor...
+2026-09-04 17:24:06 Fri Sep  4 17:24:06 2026 - SIGPIPE: writing to a closed pipe/socket/fd (probably the client disconnected) on request / (ip 10.0.4.129) !!!
+2026-09-04 17:24:06 Fri Sep  4 17:24:06 2026 - uwsgi_response_writev_headers_and_body_do(): Broken pipe [core/writer.c line 306] during GET / (10.0.4.129)
+2026-09-04 17:46:40 Fri Sep  4 17:46:40 2026 - received message 0 from emperor
+2026-09-04 17:46:40 SIGINT/SIGTERM received...killing workers...
+2026-09-04 17:46:41 worker 1 buried after 1 seconds
+2026-09-04 17:46:41 goodbye to uWSGI.
+2026-09-04 17:46:41 VACUUM: unix socket /var/sockets/anazanaxus.pythonanywhere.com/socket removed.
+2026-09-04 17:46:46 *** Starting uWSGI 2.0.28 (64bit) on [Fri Sep  4 17:46:44 2026] ***
+2026-09-04 17:46:46 compiled with version: 11.4.0 on 16 January 2025 20:41:13
+2026-09-04 17:46:46 os: Linux-6.8.0-1061-aws #64~22.04.1-Ubuntu SMP Thu Jul 16 14:38:59 UTC 2026
+2026-09-04 17:46:46 nodename: blue-liveweb36
+2026-09-04 17:46:46 machine: x86_64
+2026-09-04 17:46:46 clock source: unix
+2026-09-04 17:46:46 pcre jit disabled
+2026-09-04 17:46:46 detected number of CPU cores: 4
+2026-09-04 17:46:46 current working directory: /home/anazanaxus
+2026-09-04 17:46:46 detected binary path: /usr/local/bin/uwsgi
+2026-09-04 17:46:46 *** dumping internal routing table ***
+2026-09-04 17:46:46 [rule: 0] subject: path_info regexp: \.svgz$ action: addheader:Content-Encoding:gzip
+2026-09-04 17:46:46 *** end of the internal routing table ***
+2026-09-04 17:46:46 chdir() to /home/anazanaxus/
+2026-09-04 17:46:46 your processes number limit is 256
+2026-09-04 17:46:46 your memory page size is 4096 bytes
+2026-09-04 17:46:46 detected max file descriptor number: 123456
+2026-09-04 17:46:46 building mime-types dictionary from file /etc/mime.types...
+2026-09-04 17:46:46 1516 entry found
+2026-09-04 17:46:46 lock engine: pthread robust mutexes
+2026-09-04 17:46:46 thunder lock: disabled (you can enable it with --thunder-lock)
+2026-09-04 17:46:46 uwsgi socket 0 bound to UNIX address /var/sockets/anazanaxus.pythonanywhere.com/socket fd 3
+2026-09-04 17:46:46 Python version: 3.10.12 (main, Nov  6 2024, 20:22:13) [GCC 11.4.0]
+2026-09-04 17:46:46 Python main interpreter initialized at 0x642e2c52c8c0
+2026-09-04 17:46:46 python threads support enabled
+2026-09-04 17:46:46 your server socket listen backlog is limited to 100 connections
+2026-09-04 17:46:46 your mercy for graceful operations on workers is 60 seconds
+2026-09-04 17:46:46 setting request body buffering size to 65536 bytes
+2026-09-04 17:46:46 mapped 334256 bytes (326 KB) for 1 cores
+2026-09-04 17:46:46 *** Operational MODE: single process ***
+2026-09-04 17:46:46 initialized 38 metrics
+2026-09-04 17:46:46 WSGI app 0 (mountpoint='') ready in 2 seconds on interpreter 0x642e2c52c8c0 pid: 1 (default app)
+2026-09-04 17:46:46 *** uWSGI is running in multiple interpreter mode ***
+2026-09-04 17:46:46 gracefully (RE)spawned uWSGI master process (pid: 1)
+2026-09-04 17:46:46 spawned uWSGI worker 1 (pid: 4, cores: 1)
+2026-09-04 17:46:46 metrics collector thread started
+2026-09-04 17:46:46 spawned 2 offload threads for uWSGI worker 1
+2026-09-04 17:46:46 announcing my loyalty to the Emperor...
+2026-09-04 17:52:21 Fri Sep  4 17:52:21 2026 - received message 0 from emperor
+2026-09-04 17:52:21 SIGINT/SIGTERM received...killing workers...
+2026-09-04 17:52:22 worker 1 buried after 1 seconds
+2026-09-04 17:52:22 goodbye to uWSGI.
+2026-09-04 17:52:22 VACUUM: unix socket /var/sockets/anazanaxus.pythonanywhere.com/socket removed.
+2026-09-04 17:52:26 *** Starting uWSGI 2.0.28 (64bit) on [Fri Sep  4 17:52:24 2026] ***
+2026-09-04 17:52:26 compiled with version: 11.4.0 on 16 January 2025 20:41:13
+2026-09-04 17:52:26 os: Linux-6.8.0-1061-aws #64~22.04.1-Ubuntu SMP Thu Jul 16 14:38:59 UTC 2026
+2026-09-04 17:52:26 nodename: blue-liveweb36
+2026-09-04 17:52:26 machine: x86_64
+2026-09-04 17:52:26 clock source: unix
+2026-09-04 17:52:26 pcre jit disabled
+2026-09-04 17:52:26 detected number of CPU cores: 4
+2026-09-04 17:52:26 current working directory: /home/anazanaxus
+2026-09-04 17:52:26 detected binary path: /usr/local/bin/uwsgi
+2026-09-04 17:52:26 *** dumping internal routing table ***
+2026-09-04 17:52:26 [rule: 0] subject: path_info regexp: \.svgz$ action: addheader:Content-Encoding:gzip
+2026-09-04 17:52:26 *** end of the internal routing table ***
+2026-09-04 17:52:26 chdir() to /home/anazanaxus/
+2026-09-04 17:52:26 your processes number limit is 256
+2026-09-04 17:52:26 your memory page size is 4096 bytes
+2026-09-04 17:52:26 detected max file descriptor number: 123456
+2026-09-04 17:52:26 building mime-types dictionary from file /etc/mime.types...
+2026-09-04 17:52:26 1516 entry found
+2026-09-04 17:52:26 lock engine: pthread robust mutexes
+2026-09-04 17:52:26 thunder lock: disabled (you can enable it with --thunder-lock)
+2026-09-04 17:52:26 uwsgi socket 0 bound to UNIX address /var/sockets/anazanaxus.pythonanywhere.com/socket fd 3
+2026-09-04 17:52:26 Python version: 3.10.12 (main, Nov  6 2024, 20:22:13) [GCC 11.4.0]
+2026-09-04 17:52:26 Python main interpreter initialized at 0x63848f0ad8c0
+2026-09-04 17:52:26 python threads support enabled
+2026-09-04 17:52:26 your server socket listen backlog is limited to 100 connections
+2026-09-04 17:52:26 your mercy for graceful operations on workers is 60 seconds
+2026-09-04 17:52:26 setting request body buffering size to 65536 bytes
+2026-09-04 17:52:26 mapped 334256 bytes (326 KB) for 1 cores
+2026-09-04 17:52:26 *** Operational MODE: single process ***
+2026-09-04 17:52:26 initialized 38 metrics
+2026-09-04 17:52:26 WSGI app 0 (mountpoint='') ready in 2 seconds on interpreter 0x63848f0ad8c0 pid: 1 (default app)
+2026-09-04 17:52:26 *** uWSGI is running in multiple interpreter mode ***
+2026-09-04 17:52:26 gracefully (RE)spawned uWSGI master process (pid: 1)
+2026-09-04 17:52:26 spawned uWSGI worker 1 (pid: 4, cores: 1)
+2026-09-04 17:52:26 metrics collector thread started
+2026-09-04 17:52:26 spawned 2 offload threads for uWSGI worker 1
+2026-09-04 17:52:26 announcing my loyalty to the Emperor...
+2026-09-04 18:02:57 Fri Sep  4 18:02:57 2026 - received message 0 from emperor
+2026-09-04 18:02:57 SIGINT/SIGTERM received...killing workers...
+2026-09-04 18:02:58 worker 1 buried after 1 seconds
+2026-09-04 18:02:58 goodbye to uWSGI.
+2026-09-04 18:02:58 VACUUM: unix socket /var/sockets/anazanaxus.pythonanywhere.com/socket removed.
+2026-09-04 18:03:05 *** Starting uWSGI 2.0.28 (64bit) on [Fri Sep  4 18:03:02 2026] ***
+2026-09-04 18:03:05 compiled with version: 11.4.0 on 16 January 2025 20:41:13
+2026-09-04 18:03:05 os: Linux-6.8.0-1061-aws #64~22.04.1-Ubuntu SMP Thu Jul 16 14:38:59 UTC 2026
+2026-09-04 18:03:05 nodename: blue-liveweb36
+2026-09-04 18:03:05 machine: x86_64
+2026-09-04 18:03:05 clock source: unix
+2026-09-04 18:03:05 pcre jit disabled
+2026-09-04 18:03:05 detected number of CPU cores: 4
+2026-09-04 18:03:05 current working directory: /home/anazanaxus
+2026-09-04 18:03:05 detected binary path: /usr/local/bin/uwsgi
+2026-09-04 18:03:05 *** dumping internal routing table ***
+2026-09-04 18:03:05 [rule: 0] subject: path_info regexp: \.svgz$ action: addheader:Content-Encoding:gzip
+2026-09-04 18:03:05 *** end of the internal routing table ***
+2026-09-04 18:03:05 chdir() to /home/anazanaxus/
+2026-09-04 18:03:05 your processes number limit is 256
+2026-09-04 18:03:05 your memory page size is 4096 bytes
+2026-09-04 18:03:05 detected max file descriptor number: 123456
+2026-09-04 18:03:05 building mime-types dictionary from file /etc/mime.types...
+2026-09-04 18:03:05 1516 entry found
+2026-09-04 18:03:05 lock engine: pthread robust mutexes
+2026-09-04 18:03:05 thunder lock: disabled (you can enable it with --thunder-lock)
+2026-09-04 18:03:05 uwsgi socket 0 bound to UNIX address /var/sockets/anazanaxus.pythonanywhere.com/socket fd 3
+2026-09-04 18:03:05 Python version: 3.10.12 (main, Nov  6 2024, 20:22:13) [GCC 11.4.0]
+2026-09-04 18:03:05 Python main interpreter initialized at 0x5a5d80e658c0
+2026-09-04 18:03:05 python threads support enabled
+2026-09-04 18:03:05 your server socket listen backlog is limited to 100 connections
+2026-09-04 18:03:05 your mercy for graceful operations on workers is 60 seconds
+2026-09-04 18:03:05 setting request body buffering size to 65536 bytes
+2026-09-04 18:03:05 mapped 334256 bytes (326 KB) for 1 cores
+2026-09-04 18:03:05 *** Operational MODE: single process ***
+2026-09-04 18:03:05 initialized 38 metrics
+2026-09-04 18:03:05 WSGI app 0 (mountpoint='') ready in 2 seconds on interpreter 0x5a5d80e658c0 pid: 1 (default app)
+2026-09-04 18:03:05 *** uWSGI is running in multiple interpreter mode ***
+2026-09-04 18:03:05 gracefully (RE)spawned uWSGI master process (pid: 1)
+2026-09-04 18:03:05 spawned uWSGI worker 1 (pid: 4, cores: 1)
+2026-09-04 18:03:05 metrics collector thread started
+2026-09-04 18:03:05 spawned 2 offload threads for uWSGI worker 1
+2026-09-04 18:03:05 announcing my loyalty to the Emperor...
+2026-09-04 18:05:30 Fri Sep  4 18:05:30 2026 - received message 0 from emperor
+2026-09-04 18:05:30 SIGINT/SIGTERM received...killing workers...
+2026-09-04 18:05:31 worker 1 buried after 1 seconds
+2026-09-04 18:05:31 goodbye to uWSGI.
+2026-09-04 18:05:31 VACUUM: unix socket /var/sockets/anazanaxus.pythonanywhere.com/socket removed.
+2026-09-04 18:05:37 *** Starting uWSGI 2.0.28 (64bit) on [Fri Sep  4 18:05:35 2026] ***
+2026-09-04 18:05:37 compiled with version: 11.4.0 on 16 January 2025 20:41:13
+2026-09-04 18:05:37 os: Linux-6.8.0-1061-aws #64~22.04.1-Ubuntu SMP Thu Jul 16 14:38:59 UTC 2026
+2026-09-04 18:05:37 nodename: blue-liveweb36
+2026-09-04 18:05:37 machine: x86_64
+2026-09-04 18:05:37 clock source: unix
+2026-09-04 18:05:37 pcre jit disabled
+2026-09-04 18:05:37 detected number of CPU cores: 4
+2026-09-04 18:05:37 current working directory: /home/anazanaxus
+2026-09-04 18:05:37 detected binary path: /usr/local/bin/uwsgi
+2026-09-04 18:05:37 *** dumping internal routing table ***
+2026-09-04 18:05:37 [rule: 0] subject: path_info regexp: \.svgz$ action: addheader:Content-Encoding:gzip
+2026-09-04 18:05:37 *** end of the internal routing table ***
+2026-09-04 18:05:37 chdir() to /home/anazanaxus/
+2026-09-04 18:05:37 your processes number limit is 256
+2026-09-04 18:05:37 your memory page size is 4096 bytes
+2026-09-04 18:05:37 detected max file descriptor number: 123456
+2026-09-04 18:05:37 building mime-types dictionary from file /etc/mime.types...
+2026-09-04 18:05:37 1516 entry found
+2026-09-04 18:05:37 lock engine: pthread robust mutexes
+2026-09-04 18:05:37 thunder lock: disabled (you can enable it with --thunder-lock)
+2026-09-04 18:05:37 uwsgi socket 0 bound to UNIX address /var/sockets/anazanaxus.pythonanywhere.com/socket fd 3
+2026-09-04 18:05:37 Python version: 3.10.12 (main, Nov  6 2024, 20:22:13) [GCC 11.4.0]
+2026-09-04 18:05:37 Python main interpreter initialized at 0x5dae19cba8c0
+2026-09-04 18:05:37 python threads support enabled
+2026-09-04 18:05:37 your server socket listen backlog is limited to 100 connections
+2026-09-04 18:05:37 your mercy for graceful operations on workers is 60 seconds
+2026-09-04 18:05:37 setting request body buffering size to 65536 bytes
+2026-09-04 18:05:37 mapped 334256 bytes (326 KB) for 1 cores
+2026-09-04 18:05:37 *** Operational MODE: single process ***
+2026-09-04 18:05:37 initialized 38 metrics
+2026-09-04 18:05:37 WSGI app 0 (mountpoint='') ready in 2 seconds on interpreter 0x5dae19cba8c0 pid: 1 (default app)
+2026-09-04 18:05:37 *** uWSGI is running in multiple interpreter mode ***
+2026-09-04 18:05:37 gracefully (RE)spawned uWSGI master process (pid: 1)
+2026-09-04 18:05:37 spawned uWSGI worker 1 (pid: 5, cores: 1)
+2026-09-04 18:05:37 metrics collector thread started
+2026-09-04 18:05:37 spawned 2 offload threads for uWSGI worker 1
+2026-09-04 18:05:37 announcing my loyalty to the Emperor...
+2026-09-04 18:08:39 Fri Sep  4 18:08:39 2026 - received message 0 from emperor
+2026-09-04 18:08:39 SIGINT/SIGTERM received...killing workers...
+2026-09-04 18:08:40 worker 1 buried after 1 seconds
+2026-09-04 18:08:40 goodbye to uWSGI.
+2026-09-04 18:08:40 VACUUM: unix socket /var/sockets/anazanaxus.pythonanywhere.com/socket removed.
+2026-09-04 18:08:47 *** Starting uWSGI 2.0.28 (64bit) on [Fri Sep  4 18:08:44 2026] ***
+2026-09-04 18:08:47 compiled with version: 11.4.0 on 16 January 2025 20:41:13
+2026-09-04 18:08:47 os: Linux-6.8.0-1061-aws #64~22.04.1-Ubuntu SMP Thu Jul 16 14:38:59 UTC 2026
+2026-09-04 18:08:47 nodename: blue-liveweb36
+2026-09-04 18:08:47 machine: x86_64
+2026-09-04 18:08:47 clock source: unix
+2026-09-04 18:08:47 pcre jit disabled
+2026-09-04 18:08:47 detected number of CPU cores: 4
+2026-09-04 18:08:47 current working directory: /home/anazanaxus
+2026-09-04 18:08:47 detected binary path: /usr/local/bin/uwsgi
+2026-09-04 18:08:47 *** dumping internal routing table ***
+2026-09-04 18:08:47 [rule: 0] subject: path_info regexp: \.svgz$ action: addheader:Content-Encoding:gzip
+2026-09-04 18:08:47 *** end of the internal routing table ***
+2026-09-04 18:08:47 chdir() to /home/anazanaxus/
+2026-09-04 18:08:47 your processes number limit is 256
+2026-09-04 18:08:47 your memory page size is 4096 bytes
+2026-09-04 18:08:47 detected max file descriptor number: 123456
+2026-09-04 18:08:47 building mime-types dictionary from file /etc/mime.types...
+2026-09-04 18:08:47 1516 entry found
+2026-09-04 18:08:47 lock engine: pthread robust mutexes
+2026-09-04 18:08:47 thunder lock: disabled (you can enable it with --thunder-lock)
+2026-09-04 18:08:47 uwsgi socket 0 bound to UNIX address /var/sockets/anazanaxus.pythonanywhere.com/socket fd 3
+2026-09-04 18:08:47 Python version: 3.10.12 (main, Nov  6 2024, 20:22:13) [GCC 11.4.0]
+2026-09-04 18:08:47 Python main interpreter initialized at 0x5c0c5f6108c0
+2026-09-04 18:08:47 python threads support enabled
+2026-09-04 18:08:47 your server socket listen backlog is limited to 100 connections
+2026-09-04 18:08:47 your mercy for graceful operations on workers is 60 seconds
+2026-09-04 18:08:47 setting request body buffering size to 65536 bytes
+2026-09-04 18:08:47 mapped 334256 bytes (326 KB) for 1 cores
+2026-09-04 18:08:47 *** Operational MODE: single process ***
+2026-09-04 18:08:47 initialized 38 metrics
+2026-09-04 18:08:47 WSGI app 0 (mountpoint='') ready in 3 seconds on interpreter 0x5c0c5f6108c0 pid: 1 (default app)
+2026-09-04 18:08:47 *** uWSGI is running in multiple interpreter mode ***
+2026-09-04 18:08:47 gracefully (RE)spawned uWSGI master process (pid: 1)
+2026-09-04 18:08:47 spawned uWSGI worker 1 (pid: 5, cores: 1)
+2026-09-04 18:08:47 metrics collector thread started
+2026-09-04 18:08:47 spawned 2 offload threads for uWSGI worker 1
+2026-09-04 18:08:47 announcing my loyalty to the Emperor...
+2026-09-04 18:16:10 Fri Sep  4 18:16:10 2026 - received message 0 from emperor
+2026-09-04 18:16:10 SIGINT/SIGTERM received...killing workers...
+2026-09-04 18:16:11 worker 1 buried after 1 seconds
+2026-09-04 18:16:11 goodbye to uWSGI.
+2026-09-04 18:16:11 VACUUM: unix socket /var/sockets/anazanaxus.pythonanywhere.com/socket removed.
+2026-09-04 18:16:16 *** Starting uWSGI 2.0.28 (64bit) on [Fri Sep  4 18:16:14 2026] ***
+2026-09-04 18:16:16 compiled with version: 11.4.0 on 16 January 2025 20:41:13
+2026-09-04 18:16:16 os: Linux-6.8.0-1061-aws #64~22.04.1-Ubuntu SMP Thu Jul 16 14:38:59 UTC 2026
+2026-09-04 18:16:16 nodename: blue-liveweb36
+2026-09-04 18:16:16 machine: x86_64
+2026-09-04 18:16:16 clock source: unix
+2026-09-04 18:16:16 pcre jit disabled
+2026-09-04 18:16:16 detected number of CPU cores: 4
+2026-09-04 18:16:16 current working directory: /home/anazanaxus
+2026-09-04 18:16:16 detected binary path: /usr/local/bin/uwsgi
+2026-09-04 18:16:16 *** dumping internal routing table ***
+2026-09-04 18:16:16 [rule: 0] subject: path_info regexp: \.svgz$ action: addheader:Content-Encoding:gzip
+2026-09-04 18:16:16 *** end of the internal routing table ***
+2026-09-04 18:16:16 chdir() to /home/anazanaxus/
+2026-09-04 18:16:16 your processes number limit is 256
+2026-09-04 18:16:16 your memory page size is 4096 bytes
+2026-09-04 18:16:16 detected max file descriptor number: 123456
+2026-09-04 18:16:16 building mime-types dictionary from file /etc/mime.types...
+2026-09-04 18:16:16 1516 entry found
+2026-09-04 18:16:16 lock engine: pthread robust mutexes
+2026-09-04 18:16:16 thunder lock: disabled (you can enable it with --thunder-lock)
+2026-09-04 18:16:16 uwsgi socket 0 bound to UNIX address /var/sockets/anazanaxus.pythonanywhere.com/socket fd 3
+2026-09-04 18:16:16 Python version: 3.10.12 (main, Nov  6 2024, 20:22:13) [GCC 11.4.0]
+2026-09-04 18:16:16 Python main interpreter initialized at 0x5b05a54818c0
+2026-09-04 18:16:16 python threads support enabled
+2026-09-04 18:16:16 your server socket listen backlog is limited to 100 connections
+2026-09-04 18:16:16 your mercy for graceful operations on workers is 60 seconds
+2026-09-04 18:16:16 setting request body buffering size to 65536 bytes
+2026-09-04 18:16:16 mapped 334256 bytes (326 KB) for 1 cores
+2026-09-04 18:16:16 *** Operational MODE: single process ***
+2026-09-04 18:16:16 initialized 38 metrics
+2026-09-04 18:16:16 WSGI app 0 (mountpoint='') ready in 1 seconds on interpreter 0x5b05a54818c0 pid: 1 (default app)
+2026-09-04 18:16:16 *** uWSGI is running in multiple interpreter mode ***
+2026-09-04 18:16:16 gracefully (RE)spawned uWSGI master process (pid: 1)
+2026-09-04 18:16:16 spawned uWSGI worker 1 (pid: 5, cores: 1)
+2026-09-04 18:16:16 metrics collector thread started
+2026-09-04 18:16:16 spawned 2 offload threads for uWSGI worker 1
+2026-09-04 18:16:17 announcing my loyalty to the Emperor...

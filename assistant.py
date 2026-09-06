@@ -131,40 +131,74 @@ def ask(question):
     answer = ai_analyst._call_llm(_build_system_prompt(), prompt)
     if not answer:
         # фолбэк — простые эвристики без LLM
-        answer = _heuristic_answer(question, ctx)
+        answer = _smart_answer(question, ctx)
 
     return {"answer": answer}
 
 
-def _heuristic_answer(question, ctx):
-    """Простой ответ без LLM — если API недоступен."""
+def _smart_answer(question, ctx):
+    """Умный ответ без LLM — конкретные данные по сути вопроса."""
     q = question.lower()
     chs = ctx.get("channels", [])
+    lines = []
+    fmt = lambda n: f"{n:,.0f}".replace(",", " ")
 
-    if "хуже" in q or "слаб" in q or "плох" in q:
-        if chs:
-            worst = min(chs, key=lambda c: c.get("err") or 0)
-            return (f"Хуже всех работает «{worst['name']}»: ERR {worst.get('err', 0):.2f}%. "
-                    f"Рекомендую пересмотреть контент-стратегию этого канала.")
+    if any(w in q for w in ("хуже", "слаб", "плох", "worst")):
+        by_err = sorted(chs, key=lambda c: c.get("err") or 0)
+        if by_err:
+            w, b = by_err[0], by_err[-1]
+            lines.append(f"Худший: «{w['name']}» (ERR {w.get('err',0):.2f}%).")
+            lines.append(f"Лучший: «{b['name']}» (ERR {b.get('err',0):.2f}%).")
+            lines.append(f"→ Усилить «{b['name']}», пересмотреть «{w['name']}».")
 
-    if "лучш" in q or "топ" in q or "лучший" in q:
+    elif any(w in q for w in ("лучш", "топ", "best")):
+        by_reach = sorted(chs, key=lambda c: c.get("reach") or 0, reverse=True)
+        lines.append("Топ-3 по охвату:")
+        for i, c in enumerate(by_reach[:3], 1):
+            lines.append(f"  {i}. {c['name']} — {fmt(c.get('reach',0))}, ERR {c.get('err',0):.2f}%")
+
+    elif "регистрац" in q or "рег" in q:
+        regs = ctx.get("week", {}).get("registrations", 0)
+        lines.append(f"Регистрации за неделю: {fmt(regs)}")
+        combos = ctx.get("utm_breakdown", {}).get("by_combo", [])
+        for combo, v in combos[:3]:
+            lines.append(f"  • {combo[0]} × {combo[1]}: {fmt(v['regs'])} рег.")
+
+    elif any(w in q for w in ("публиковать", "контент", "завтра", "план")):
+        trends = ctx.get("trends", [])
+        for t in trends[:5]:
+            lines.append(f"  {t['status']} {t['rubric']} — ср. {fmt(t.get('recent_avg',0))}")
+
+    elif "охват" in q or "reach" in q:
+        r7 = ctx.get("week", {}).get("agg", {}).get("reach", 0)
+        lines.append(f"Охват 7 дней: {fmt(r7)}")
         if chs:
             best = max(chs, key=lambda c: c.get("reach") or 0)
-            return (f"Лучший канал — «{best['name']}»: охват {best.get('reach', 0):,.0f}, "
-                    f"ERR {best.get('err', 0):.2f}%. Усилить его — приоритет №1.")
+            lines.append(f"Лидер: «{best['name']}» — {fmt(best.get('reach',0))}")
 
-    if "регистрац" in q or "рег" in q:
-        regs7 = ctx.get("week", {}).get("registrations", 0)
-        return f"За 7 дней: {regs7} регистраций. Подробный разрез — на экране «Регистрации»."
+    elif any(w in q for w in ("деньг", "продаж", "оплат", "заказ")):
+        gc = ctx.get("week", {}).get("gc", {})
+        lines.append(f"Заказы: {fmt(gc.get('orders',0))}, оплаты {fmt(gc.get('payments_sum',0))} ₽")
 
-    if "что публиковать" in q or "завтра" in q or "контент" in q:
-        trends = ctx.get("trends", [])
-        growing = [t for t in trends if "растёт" in t.get("status", "")]
-        if growing:
-            return (f"Растущие рубрики: {', '.join(t['rubric'] for t in growing[:3])}. "
-                    f"Рекомендую сфокусироваться на них. Полный план — на экране AI-аналитики.")
+    elif "конкурент" in q:
+        comps = ctx.get("competitors", [])
+        for c in comps[:3]:
+            lines.append(f"  {c['name']}: {fmt(c.get('reach',0))} охват")
 
-    return ("Не смог обработать запрос без AI. Вот ключевые цифры за неделю: "
-            f"охват {ctx.get('week', {}).get('agg', {}).get('reach', 0):,.0f}, "
-            f"регистрации {ctx.get('week', {}).get('registrations', 0)}. "
-            f"Попробуйте переформулировать вопрос.")
+    elif any(w in q for w in ("коммент", "болев", "аудитор")):
+        cs = ctx.get("comments_summary", {})
+        lines.append(f"Комментариев: {cs.get('total',0)}")
+        for p in cs.get("top_pains", [])[:2]:
+            lines.append(f"  💔 {p}")
+
+    else:
+        r = ctx.get("week", {}).get("agg", {}).get("reach", 0)
+        g = ctx.get("week", {}).get("registrations", 0)
+        e = ctx.get("week", {}).get("ind", {}).get("ERR", 0)
+        lines.append(f"Охват {fmt(r)} | Рег {fmt(g)} | ERR {e:.2f}%")
+        lines.append("Спросите: «какой канал хуже», «что публиковать», «топ контент»...")
+
+    return chr(10).join(lines) if lines else "Задайте вопрос."
+
+
+_heuristic_answer = _smart_answer

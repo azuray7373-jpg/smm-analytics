@@ -1,7 +1,7 @@
-name: Sync relay (GetCourse + LiveDune)
+name: Sync + AI Relay
 on:
   schedule:
-    - cron: "0 1,7,13,19 * * *"   # 4 раза в день (UTC)
+    - cron: "0 1,7,13,19 * * *"
   workflow_dispatch:
 
 jobs:
@@ -26,6 +26,14 @@ jobs:
         env:
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          PA_URL: ${{ secrets.PA_URL }}
+          PA_INGEST_TOKEN: ${{ secrets.PA_INGEST_TOKEN }}
+      - name: AI Reports & Plans
+        run: python tools/ai_relay.py
+        env:
+          AI_API_KEY: ${{ secrets.AI_RELAY_KEY }}
+          AI_BASE_URL: https://generativelanguage.googleapis.com/v1beta/openai
+          AI_MODEL: gemini-2.5-flash
           PA_URL: ${{ secrets.PA_URL }}
           PA_INGEST_TOKEN: ${{ secrets.PA_INGEST_TOKEN }}
       - name: GetCourse export

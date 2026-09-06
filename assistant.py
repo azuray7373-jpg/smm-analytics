@@ -1,204 +1,161 @@
 # -*- coding: utf-8 -*-
-"""AI SMM-специалист: чат-ассистент с доступом ко всем данным приложения.
-Отвечает на вопросы SMMщика на основе реальных цифр — ничего не выдумывает."""
+"""AI SMM-специалист: трёхуровневый ответ — кэш LLM → прямой LLM → умный фолбэк."""
 import json
 from datetime import date, timedelta
-from db import db, get_setting, Channel, MetricSnapshot, Registration, GcOrder, GcPayment
+from db import db, get_setting, set_setting, Channel
 import calc
 import ai_analyst
-import utm as utm_mod
+
+# ─── Кэш LLM-ответов (обновляется AI-релеем 4 раза в сутки) ───
+_LLM_CACHE = {}
+
+
+def get_cached_answer(question):
+    if not _LLM_CACHE:
+        _load_cache()
+    q = question.lower().strip()
+    for key, ans in _LLM_CACHE.items():
+        if key in q or q in key:
+            return ans
+    return None
+
+
+def _load_cache():
+    raw = get_setting("ai_answer_cache", "")
+    if raw:
+        try:
+            for item in json.loads(raw):
+                _LLM_CACHE[item["q"]] = item["a"]
+        except Exception:
+            pass
 
 
 SUGGESTIONS = [
     "Какой канал работает хуже всех?",
     "Что публиковать завтра?",
     "Почему упали регистрации?",
-    "Какая рубрика даёт больше всего регистраций?",
-    "Что усилить на следующей неделе?",
-    "Покажи топ-3 материала за месяц",
-    "Какой формат контента самый эффективный?",
-    "Как обстоят дела у конкурентов?",
+    "Какая рубрика даёт больше регистраций?",
+    "Топ-3 материала за месяц",
+    "Какой формат контента эффективнее?",
     "Что думает аудитория в комментариях?",
     "Какая воронка конвертирует лучше?",
 ]
 
 
+def ask(question):
+    """Кэш LLM → прямой LLM → умный фолбэк из данных."""
+    if not question.strip():
+        return {"answer": "Задайте вопрос."}
+
+    cached = get_cached_answer(question)
+    if cached:
+        return {"answer": cached, "source": "llm_cache"}
+
+    ctx = _build_context()
+    prompt = "Данные: " + json.dumps(ctx, ensure_ascii=False, default=str) + " Вопрос: " + question
+    answer = ai_analyst._call_llm(_system_prompt(), prompt)
+    if answer:
+        return {"answer": answer, "source": "llm_direct"}
+
+    answer = _smart_answer(question, ctx)
+    return {"answer": answer, "source": "smart_fallback"}
+
+
+def _system_prompt():
+    return (
+        "Ты AI SMM-специалист. Используй ТОЛЬКО числа из данных. "
+        "Нет данных — «недостаточно данных». Конкретные рекомендации. "
+        "3-7 предложений. Отвечай по-русски.")
+
+
 def _build_context():
-    """Собирает сжатый контекст данных для ассистента."""
     today = date.today()
-    week_start = today - timedelta(days=today.weekday())
-    last_7 = (today - timedelta(days=7), today)
-    last_30 = (today - timedelta(days=30), today)
-
-    ctx = {}
-
-    # KPI за 7 и 30 дней
-    p7 = calc.period_report(*last_7)
-    p30 = calc.period_report(*last_30)
-    ctx["week"] = {k: v for k, v in p7.items() if not k.startswith("_") and k != "data_statuses"}
-    ctx["month"] = {k: v for k, v in p30.items() if not k.startswith("_") and k != "data_statuses"}
-
-    # По каналам (7 дней)
+    w_s = today - timedelta(days=6)
+    m_s = today - timedelta(days=29)
+    p7 = calc.period_report(w_s, today)
+    p30 = calc.period_report(m_s, today)
     channels = []
     for ch in Channel.query.filter_by(is_active=True, is_competitor=False).all():
-        p = calc.period_report(*last_7, ch.id)
-        channels.append({
-            "name": ch.name, "platform": ch.platform,
-            "reach": p["agg"].get("reach"),
-            "err": p["ind"].get("ERR"),
-            "regs": p["registrations"],
-            "followers": p["agg"].get("followers_end"),
-        })
-    ctx["channels"] = channels
-
-    # Конкуренты
-    competitors = []
-    for ch in Channel.query.filter_by(is_competitor=True, is_active=True).all():
-        p = calc.period_report(*last_7, ch.id)
-        competitors.append({
-            "name": ch.name, "reach": p["agg"].get("reach"), "err": p["ind"].get("ERR"),
-        })
-    if competitors:
-        ctx["competitors"] = competitors
-
-    # Контент — топ и худшие
-    items = calc.content_stats_for_period(*last_30)
-    scored = []
-    for i in items:
-        tags = json.loads(i["item"].ai_tags or "{}")
-        scored.append({
-            "title": (i["item"].title or "")[:60],
-            "format": i["item"].format,
-            "rubric": tags.get("рубрика", ""),
-            "reach": i.get("reach"),
-            "err": round(i.get("ERR") or 0, 2),
-            "regs": i.get("registrations") or 0,
-        })
-    scored.sort(key=lambda x: -(x["reach"] or 0))
-    ctx["top_content"] = scored[:5]
-    ctx["worst_content"] = scored[-3:] if len(scored) >= 5 else []
-
-    # UTM / воронки
-    ctx["utm_breakdown"] = {k: v for k, v in utm_mod.breakdown(*last_7).items() if k != "missing"}
-
-    # Комментарии
+        p = calc.period_report(w_s, today, ch.id)
+        channels.append({"name": ch.name, "platform": ch.platform,
+                         "reach": p["agg"].get("reach"), "err": p["ind"].get("ERR"),
+                         "regs": p["registrations"]})
+    ctx = {
+        "week": {"reach": p7["agg"].get("reach"), "regs": p7["registrations"],
+                 "err": p7["ind"].get("ERR"), "cv": p7["ind"].get("CV_reach")},
+        "month": {"reach": p30["agg"].get("reach"), "regs": p30["registrations"]},
+        "channels": channels,
+    }
     try:
-        import comments as cm
-        dig = cm.digest(*last_7)
-        ctx["comments_summary"] = {
-            "total": dig["total"],
-            "top_pains": [c.text[:80] for c in dig["pains"][:3]],
-            "top_questions": [c.text[:80] for c in dig["questions"][:3]],
-        }
+        import utm as utm_mod
+        br = utm_mod.breakdown(w_s, today)
+        ctx["utm"] = {k: v for k, v in br.items() if k != "missing"}
     except Exception:
         pass
-
-    # Тренды рубрик
+    try:
+        import comments as cm
+        dig = cm.digest(w_s, today)
+        ctx["comments"] = {"total": dig["total"],
+                           "pains": [c.text[:80] for c in dig["pains"][:3]],
+                           "questions": [c.text[:80] for c in dig["questions"][:3]]}
+    except Exception:
+        pass
     try:
         import intel
         ctx["trends"] = intel.trend_radar(8)[:5]
     except Exception:
         pass
-
     return ctx
 
 
-def _build_system_prompt():
-    return (
-        "Ты — опытный AI SMM-специалист. Тебе даны РЕАЛЬНЫЕ данные из аналитической системы. "
-        "Правила:\n"
-        "1. Используй ТОЛЬКО числа из предоставленных данных.\n"
-        "2. Если данных нет — скажи «недостаточно данных».\n"
-        "3. Давай КОНКРЕТНЫЕ рекомендации: что сделать, где, когда.\n"
-        "4. Формат ответа: 2-5 предложений, по делу, без воды.\n"
-        "5. Отвечай по-русски.\n"
-        "6. Если вопрос про «что делать» — дай 3 конкретных действия (усилить/изменить/убрать)."
-    )
-
-
-def ask(question):
-    """Ответ ассистента на вопрос пользователя."""
-    if not question.strip():
-        return {"answer": "Задайте вопрос."}
-
-    ctx = _build_context()
-    prompt = (
-        f"Данные аналитики (за последние 7 и 30 дней):\n"
-        f"{json.dumps(ctx, ensure_ascii=False, default=str)}\n\n"
-        f"Вопрос SMM-специалиста: {question}"
-    )
-
-    answer = ai_analyst._call_llm(_build_system_prompt(), prompt)
-    if not answer:
-        # фолбэк — простые эвристики без LLM
-        answer = _smart_answer(question, ctx)
-
-    return {"answer": answer}
-
-
 def _smart_answer(question, ctx):
-    """Умный ответ без LLM — конкретные данные по сути вопроса."""
+    """Умный ответ без LLM — конкретные данные."""
     q = question.lower()
     chs = ctx.get("channels", [])
-    lines = []
-    fmt = lambda n: f"{n:,.0f}".replace(",", " ")
+    L = []
+    fmt = lambda n: "{:,.0f}".format(n).replace(",", " ")
 
     if any(w in q for w in ("хуже", "слаб", "плох", "worst")):
         by_err = sorted(chs, key=lambda c: c.get("err") or 0)
         if by_err:
             w, b = by_err[0], by_err[-1]
-            lines.append(f"Худший: «{w['name']}» (ERR {w.get('err',0):.2f}%).")
-            lines.append(f"Лучший: «{b['name']}» (ERR {b.get('err',0):.2f}%).")
-            lines.append(f"→ Усилить «{b['name']}», пересмотреть «{w['name']}».")
-
+            L.append("Худший: «{}» (ERR {:.2f}%).".format(w["name"], w.get("err", 0)))
+            L.append("Лучший: «{}» (ERR {:.2f}%).".format(b["name"], b.get("err", 0)))
+            L.append("→ Усилить «{}», пересмотреть «{}».".format(b["name"], w["name"]))
     elif any(w in q for w in ("лучш", "топ", "best")):
-        by_reach = sorted(chs, key=lambda c: c.get("reach") or 0, reverse=True)
-        lines.append("Топ-3 по охвату:")
-        for i, c in enumerate(by_reach[:3], 1):
-            lines.append(f"  {i}. {c['name']} — {fmt(c.get('reach',0))}, ERR {c.get('err',0):.2f}%")
-
+        by_r = sorted(chs, key=lambda c: c.get("reach") or 0, reverse=True)
+        L.append("Топ-3 по охвату:")
+        for i, c in enumerate(by_r[:3], 1):
+            L.append("  {}. {} — {}, ERR {:.2f}%".format(i, c["name"], fmt(c.get("reach", 0)), c.get("err", 0)))
     elif "регистрац" in q or "рег" in q:
-        regs = ctx.get("week", {}).get("registrations", 0)
-        lines.append(f"Регистрации за неделю: {fmt(regs)}")
-        combos = ctx.get("utm_breakdown", {}).get("by_combo", [])
-        for combo, v in combos[:3]:
-            lines.append(f"  • {combo[0]} × {combo[1]}: {fmt(v['regs'])} рег.")
-
+        regs = ctx.get("week", {}).get("regs", 0)
+        L.append("Регистрации за неделю: {}".format(fmt(regs)))
+        for combo, v in (ctx.get("utm", {}).get("by_combo", []) or [])[:3]:
+            L.append("  • {} × {}: {} рег.".format(combo[0], combo[1], fmt(v["regs"])))
     elif any(w in q for w in ("публиковать", "контент", "завтра", "план")):
-        trends = ctx.get("trends", [])
-        for t in trends[:5]:
-            lines.append(f"  {t['status']} {t['rubric']} — ср. {fmt(t.get('recent_avg',0))}")
-
-    elif "охват" in q or "reach" in q:
-        r7 = ctx.get("week", {}).get("agg", {}).get("reach", 0)
-        lines.append(f"Охват 7 дней: {fmt(r7)}")
+        for t in (ctx.get("trends") or [])[:5]:
+            L.append("  {} {} — ср. {}".format(t["status"], t["rubric"], fmt(t.get("recent_avg", 0))))
+    elif "охват" in q:
+        r = ctx.get("week", {}).get("reach", 0)
+        L.append("Охват 7 дней: {}".format(fmt(r)))
         if chs:
             best = max(chs, key=lambda c: c.get("reach") or 0)
-            lines.append(f"Лидер: «{best['name']}» — {fmt(best.get('reach',0))}")
-
+            L.append("Лидер: «{}» — {}".format(best["name"], fmt(best.get("reach", 0))))
     elif any(w in q for w in ("деньг", "продаж", "оплат", "заказ")):
-        gc = ctx.get("week", {}).get("gc", {})
-        lines.append(f"Заказы: {fmt(gc.get('orders',0))}, оплаты {fmt(gc.get('payments_sum',0))} ₽")
-
+        L.append("Воронка и деньги — на экране «Продажи».")
+        L.append("ROI каналов — на экране «Расходы».")
     elif "конкурент" in q:
-        comps = ctx.get("competitors", [])
-        for c in comps[:3]:
-            lines.append(f"  {c['name']}: {fmt(c.get('reach',0))} охват")
-
+        L.append("Конкуренты — на экране «Конкуренты».")
     elif any(w in q for w in ("коммент", "болев", "аудитор")):
-        cs = ctx.get("comments_summary", {})
-        lines.append(f"Комментариев: {cs.get('total',0)}")
-        for p in cs.get("top_pains", [])[:2]:
-            lines.append(f"  💔 {p}")
-
+        cs = ctx.get("comments", {})
+        L.append("Комментариев: {}".format(cs.get("total", 0)))
+        for p in cs.get("pains", [])[:2]:
+            L.append("  💔 {}".format(p))
     else:
-        r = ctx.get("week", {}).get("agg", {}).get("reach", 0)
-        g = ctx.get("week", {}).get("registrations", 0)
-        e = ctx.get("week", {}).get("ind", {}).get("ERR", 0)
-        lines.append(f"Охват {fmt(r)} | Рег {fmt(g)} | ERR {e:.2f}%")
-        lines.append("Спросите: «какой канал хуже», «что публиковать», «топ контент»...")
+        r = ctx.get("week", {}).get("reach", 0)
+        g = ctx.get("week", {}).get("regs", 0)
+        e = ctx.get("week", {}).get("err", 0)
+        L.append("Охват {} | Рег {} | ERR {:.2f}%".format(fmt(r), fmt(g), e or 0))
+        L.append("Спросите: «какой канал хуже», «что публиковать», «топ контент»...")
 
-    return chr(10).join(lines) if lines else "Задайте вопрос."
-
-
-_heuristic_answer = _smart_answer
+    return chr(10).join(L) if L else "Задайте вопрос."

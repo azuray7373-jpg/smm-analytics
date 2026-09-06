@@ -1422,6 +1422,105 @@ def assistant_ask():
     return jsonify(result)
 
 
+@app.route("/api/ai_context")
+def ai_context():
+    """Контекст данных для AI-релея (вызывается с GitHub Actions)."""
+    token = os.environ.get("INGEST_TOKEN") or get_setting("ingest_token")
+    if request.args.get("token") != token:
+        return jsonify({"error": "invalid token"}), 403
+    from datetime import timedelta as _td
+    today = date.today()
+    week_s = today - _td(days=6)
+    month_s = today - _td(days=29)
+    # строим компактный контекст
+    p7 = calc.period_report(week_s, today)
+    p30 = calc.period_report(month_s, today)
+    channels = []
+    for ch in Channel.query.filter_by(is_active=True, is_competitor=False).all():
+        p = cached_period_report(week_s, today, ch.id)
+        channels.append({"name": ch.name, "platform": ch.platform,
+                         "reach": p["agg"].get("reach"), "err": p["ind"].get("ERR"),
+                         "regs": p["registrations"], "followers": p["agg"].get("followers_end")})
+    import utm as utm_mod
+    import comments as cm
+    try:
+        dig = cm.digest(week_s, today)
+        comments_ctx = {"total": dig["total"],
+                        "top_pains": [c.text[:80] for c in dig["pains"][:5]],
+                        "top_questions": [c.text[:80] for c in dig["questions"][:5]]}
+    except Exception:
+        comments_ctx = {}
+    try:
+        import intel
+        trends = intel.trend_radar(8)[:5]
+    except Exception:
+        trends = []
+    return jsonify({
+        "week": {"reach": p7["agg"].get("reach"), "regs": p7["registrations"],
+                 "err": p7["ind"].get("ERR"), "cv": p7["ind"].get("CV_reach"),
+                 "gc": p7.get("gc", {})},
+        "month": {"reach": p30["agg"].get("reach"), "regs": p30["registrations"]},
+        "channels": channels,
+        "comments_summary": comments_ctx,
+        "trends": trends,
+    })
+
+
+@app.route("/api/ai_result", methods=["POST"])
+def ai_result():
+    """Приём AI-результата от релея (отчёт, план, анализ)."""
+    token = os.environ.get("INGEST_TOKEN") or get_setting("ingest_token")
+    if request.headers.get("X-Ingest-Token") != token:
+        return jsonify({"error": "invalid token"}), 403
+    data = request.get_json(silent=True) or {}
+    kind = data.get("kind", "")
+    text = data.get("text", "")
+    meta = data.get("meta", {})
+    if not text:
+        return jsonify({"error": "empty text"}), 400
+    from db import Report, Notification
+    if kind == "weekly_report":
+        s_, e_ = meta.get("start"), meta.get("end")
+        try:
+            s_ = datetime.strptime(s_, "%Y-%m-%d").date()
+            e_ = datetime.strptime(e_, "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            s_, e_ = calc.week_bounds(date.today())
+        r = Report.query.filter_by(rtype="weekly", start=s_, end=e_).first() or             Report(rtype="weekly", start=s_, end=e_)
+        r.ai_text = text
+        db.session.add(r)
+    elif kind == "content_plan":
+        s_, e_ = calc.week_bounds(date.today())
+        r = Report.query.filter_by(rtype="plan", start=s_, end=e_).first() or             Report(rtype="plan", start=s_, end=e_)
+        r.ai_text = text
+        db.session.add(r)
+    elif kind == "comments_summary":
+        set_setting("comments_ai_summary", text)
+    db.session.add(Notification(level="info",
+        message=f"AI-релей: обновлён {kind} ({len(text)} символов)."))
+    db.session.commit()
+    schedule_rewarm(delay=5)
+    return jsonify({"ok": True, "kind": kind})
+
+
+@app.route("/api/ai_ask", methods=["POST"])
+def ai_ask_proxy():
+    """Прокси для AI-ассистента: принимает вопрос, возвращает ответ LLM.
+    Вызывается с GitHub Actions или напрямую если PA может достучаться."""
+    token = os.environ.get("INGEST_TOKEN") or get_setting("ingest_token")
+    if request.headers.get("X-Ingest-Token") != token:
+        return jsonify({"error": "invalid token"}), 403
+    question = (request.get_json(silent=True) or {}).get("question", "")
+    if not question:
+        return jsonify({"error": "empty question"}), 400
+    import assistant as ast
+    ctx = ast._build_context()
+    prompt = ("Данные аналитики:" + chr(10) + json.dumps(ctx, ensure_ascii=False, default=str) + chr(10) + chr(10) + "Вопрос: " + question)
+    import ai_analyst
+    answer = ai_analyst._call_llm(ast._build_system_prompt(), prompt)
+    return jsonify({"answer": answer or ast._smart_answer(question, ctx)})
+
+
 @app.route("/guide")
 def guide():
     return render_template("guide.html")

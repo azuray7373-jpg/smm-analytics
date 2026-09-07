@@ -249,129 +249,202 @@ function toggleKpi(id) {
 
 <script>
 if (window.Chart) {
-  Chart.defaults.color = '#8b95a3';
-  Chart.defaults.font.family = '-apple-system, Segoe UI, system-ui, sans-serif';
-  Chart.defaults.font.size = 11;
-  Chart.defaults.borderColor = 'rgba(255,255,255,.05)';
-  Chart.defaults.plugins.legend.labels.boxWidth = 8;
-  Chart.defaults.plugins.legend.labels.padding = 4;
-  Chart.defaults.plugins.legend.labels.font = { size: 9 };
-  Chart.defaults.plugins.legend.position = 'bottom';
-  Chart.defaults.plugins.tooltip.backgroundColor = '#141a23';
-  Chart.defaults.plugins.tooltip.padding = 10;
-  Chart.defaults.plugins.tooltip.cornerRadius = 6;
+  Chart.defaults.color = '#7a8494';
+  Chart.defaults.font.family = 'Inter, -apple-system, Segoe UI, system-ui, sans-serif';
+  Chart.defaults.font.size = 10;
+  Chart.defaults.borderColor = 'rgba(255,255,255,.04)';
+  Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(15,20,27,.96)';
+  Chart.defaults.plugins.tooltip.padding = 12;
+  Chart.defaults.plugins.tooltip.cornerRadius = 8;
   Chart.defaults.plugins.tooltip.titleFont = {size: 11, weight: '600'};
   Chart.defaults.plugins.tooltip.bodyFont = {size: 11};
+  Chart.defaults.plugins.tooltip.footerFont = {size: 10, weight: '600'};
+  Chart.defaults.plugins.legend.display = false;
+  Chart.defaults.elements.line.borderWidth = 2;
+  Chart.defaults.elements.line.tension = 0.35;
+  Chart.defaults.elements.point.radius = 0;
+  Chart.defaults.elements.point.hoverRadius = 5;
+  Chart.defaults.elements.point.hoverBorderWidth = 2;
+  Chart.defaults.elements.point.hoverBorderColor = '#fff';
+  Chart.defaults.elements.bar.borderRadius = 3;
+  Chart.defaults.maintainAspectRatio = false;
+  Chart.defaults.responsive = true;
 }
-// Stacked area: охват по каналам
-const stackedLabels = {{ stacked_chart.labels|tojson }};
-const stackedSeries = {{ stacked_chart.series|tojson }};
-const palette = ['#4a9eff','#a78bfa','#22d3ee','#f472b6','#fbbf24','#34d399','#f87171','#818cf8','#fb923c','#2dd4bf','#c084fc'];
-const stackedDatasets = Object.entries(stackedSeries).map(([name, data], i) => ({
-  label: name, data: data, fill: true,
-  backgroundColor: palette[i % palette.length] + '25',
-  borderColor: palette[i % palette.length],
-  borderWidth: 1.5, pointRadius: 0, tension: .3
-}));
+var fmt = function(n) { return n ? n.toLocaleString('ru') : '0'; };
+var PAL = ['#4a9eff','#a78bfa','#22d3ee','#f472b6','#fbbf24','#34d399','#f87171','#818cf8','#fb923c','#2dd4bf','#c084fc'];
+
+// 1. STACKED AREA
+var sLabels = {{ stacked_chart.labels|tojson }};
+var sSeries = {{ stacked_chart.series|tojson }};
+var sNames = Object.keys(sSeries);
+var sDatasets = sNames.map(function(name, i) {
+  var color = PAL[i % PAL.length];
+  return { label: name, data: sSeries[name], fill: true,
+    backgroundColor: color + '18', borderColor: color,
+    borderWidth: 1.5, pointRadius: 0, pointHoverRadius: 4,
+    pointHoverBackgroundColor: color, tension: 0.35 };
+});
 new Chart(document.getElementById('stackedChart'), {
   type: 'line',
-  data: { labels: stackedLabels, datasets: stackedDatasets },
+  data: { labels: sLabels.map(function(l){return l.slice(5);}), datasets: sDatasets },
   options: {
-    responsive: true, maintainAspectRatio: false,
     interaction: { intersect: false, mode: 'index' },
     plugins: {
       legend: { display: false },
-      tooltip: {
-        callbacks: {
-          footer: (items) => {
-            const total = items.reduce((s, i) => s + (i.parsed.y || 0), 0);
-            return 'Всего: ' + total.toLocaleString('ru');
-          }
+      tooltip: { callbacks: {
+        title: function(items) { return items[0].label; },
+        label: function(item) {
+          var v = item.parsed.y || 0;
+          return ' ' + item.dataset.label + ': ' + fmt(v);
+        },
+        footer: function(items) {
+          return 'Итого: ' + fmt(items.reduce(function(s, i) { return s + (i.parsed.y || 0); }, 0));
         }
-      }
+      }}
     },
-    scales: { y: { stacked: true, grid: { color: 'rgba(255,255,255,.03)' } } }
+    scales: {
+      y: { stacked: true, grid: { color: 'rgba(255,255,255,.03)', drawTicks: false },
+           ticks: { callback: function(v) { return v >= 1000 ? (v/1000).toFixed(0) + 'k' : v; }, padding: 6 },
+           border: { display: false } },
+      x: { grid: { display: false }, ticks: { maxRotation: 0, padding: 4 } }
+    }
   }
 });
 
-// 2. Stacked bar: регистрации по источникам
-const regLabels = {{ reg_chart.labels|tojson }};
-const regSeries = {{ reg_chart.series|tojson }};
-const regDatasets = Object.entries(regSeries).map(([name, data], i) => ({
-  label: name, data: data,
-  backgroundColor: palette[i % palette.length] + '70',
-  borderWidth: 0
-}));
+// 2. STACKED BAR
+var rLabels = {{ reg_chart.labels|tojson }};
+var rSeries = {{ reg_chart.series|tojson }};
+var rDatasets = Object.entries(rSeries).map(function([name, data], i) {
+  return { label: name, data: data, backgroundColor: PAL[i % PAL.length] + '90',
+    hoverBackgroundColor: PAL[i % PAL.length], borderRadius: 2,
+    barPercentage: 0.7, categoryPercentage: 0.8 };
+});
 new Chart(document.getElementById('regStackedChart'), {
   type: 'bar',
-  data: { labels: regLabels, datasets: regDatasets },
+  data: { labels: rLabels.map(function(l){return l.slice(5);}), datasets: rDatasets },
   options: {
-    responsive: true, maintainAspectRatio: false,
     interaction: { intersect: false, mode: 'index' },
-    plugins: { legend: { display: false } },
-    scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: {
+        footer: function(items) { return 'Итого: ' + fmt(items.reduce(function(s, i) { return s + (i.parsed.y || 0); }, 0)); }
+      }}
+    },
+    scales: {
+      x: { stacked: true, grid: { display: false }, ticks: { maxRotation: 0 } },
+      y: { stacked: true, beginAtZero: true, grid: { color: 'rgba(255,255,255,.03)', drawTicks: false },
+           ticks: { padding: 6 }, border: { display: false } }
+    }
   }
 });
 
-// 3. Doughnut: доля регистраций
-const sourceData = {{ source_chart|tojson }};
+// 3. DOUGHNUT с текстом в центре
+var srcData = {{ source_chart|tojson }};
+var srcTotal = srcData.reduce(function(s, d) { return s + d.value; }, 0);
 new Chart(document.getElementById('sourceDoughnut'), {
   type: 'doughnut',
   data: {
-    labels: sourceData.map(s => s.label),
-    datasets: [{ data: sourceData.map(s => s.value),
-                 backgroundColor: sourceData.map((_, i) => palette[i % palette.length]),
-                 borderWidth: 2, borderColor: '#0a0e14' }]
+    labels: srcData.map(function(d) { return d.label; }),
+    datasets: [{ data: srcData.map(function(d) { return d.value; }),
+      backgroundColor: srcData.map(function(_, i) { return PAL[i % PAL.length]; }),
+      borderWidth: 3, borderColor: '#0f141b', hoverOffset: 6 }]
   },
   options: {
-    responsive: true, maintainAspectRatio: false,
-    cutout: '65%',
+    cutout: '68%',
     plugins: {
-      legend: { position: 'right', labels: { boxWidth: 6, boxHeight: 6, padding: 3, font: { size: 9 } } },
-      tooltip: { callbacks: { label: (c) => {
-        const total = c.dataset.data.reduce((a,b) => a + b, 0);
-        const pct = total ? (c.parsed / total * 100).toFixed(1) : 0;
-        return c.label + ': ' + c.parsed.toLocaleString('ru') + ' (' + pct + '%)';
+      legend: { display: true, position: 'bottom',
+        labels: { boxWidth: 7, boxHeight: 7, padding: 5, font: { size: 9 }, usePointStyle: true, pointStyle: 'circle' } },
+      tooltip: { callbacks: { label: function(c) {
+        var pct = srcTotal ? (c.parsed / srcTotal * 100).toFixed(1) : 0;
+        return ' ' + c.label + ': ' + fmt(c.parsed) + ' (' + pct + '%)';
       }}}
+    }
+  },
+  plugins: [{
+    id: 'centerText',
+    afterDraw: function(chart) {
+      var meta = chart.getDatasetMeta(0);
+      if (!meta.data[0]) return;
+      var x = meta.data[0].x, y = meta.data[0].y;
+      var ctx = chart.ctx;
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#e8ecf1';
+      ctx.font = '700 18px Inter, sans-serif';
+      ctx.fillText(fmt(srcTotal), x, y - 4);
+      ctx.fillStyle = '#5a6572';
+      ctx.font = '500 10px Inter, sans-serif';
+      ctx.fillText('всего', x, y + 12);
+      ctx.restore();
+    }
+  }]
+});
+
+// 4. LINE с градиентной заливкой
+new Chart(document.getElementById('chart'), {
+  type: 'line',
+  data: {
+    labels: {{ chart.labels|tojson }}.map(function(l){return l.slice(5);}),
+    datasets: [
+      { label: 'Охват', data: {{ chart.reach|tojson }},
+        borderColor: '#4a9eff', backgroundColor: 'rgba(74,158,255,.08)',
+        fill: true, borderWidth: 2, pointRadius: 0, pointHoverRadius: 5,
+        pointHoverBackgroundColor: '#4a9eff', tension: 0.35 },
+      { label: 'Взаимодействия', data: {{ chart.inter|tojson }},
+        borderColor: '#a78bfa', borderWidth: 1.5, borderDash: [4, 3],
+        pointRadius: 0, pointHoverRadius: 4, pointHoverBackgroundColor: '#a78bfa', tension: 0.35 },
+      { label: 'Регистрации', data: {{ chart.regs|tojson }}, yAxisID: 'y1',
+        borderColor: '#34d399', backgroundColor: 'rgba(52,211,153,.08)',
+        fill: true, borderWidth: 2, pointRadius: 0, pointHoverRadius: 5,
+        pointHoverBackgroundColor: '#34d399', tension: 0.35 }
+    ]
+  },
+  options: {
+    interaction: { intersect: false, mode: 'index' },
+    plugins: { legend: { display: false } },
+    scales: {
+      y: { position: 'left', grid: { color: 'rgba(255,255,255,.03)', drawTicks: false },
+           ticks: { callback: function(v) { return v >= 1000 ? (v/1000).toFixed(0) + 'k' : v; }, padding: 6 },
+           border: { display: false },
+           title: { display: true, text: 'Охват', color: '#4a9eff', font: { size: 9 } } },
+      y1: { position: 'right', grid: { drawOnChartArea: false },
+            ticks: { padding: 6 }, border: { display: false },
+            title: { display: true, text: 'Рег.', color: '#34d399', font: { size: 9 } } },
+      x: { grid: { display: false }, ticks: { maxRotation: 0, padding: 4 } }
     }
   }
 });
 
-// 4. Общая динамика (line)
-new Chart(document.getElementById('chart'), {
-  type: 'line',
-  data: { labels: {{ chart.labels|tojson }},
-    datasets: [
-      { label: 'Охват', data: {{ chart.reach|tojson }}, tension: .3, borderWidth: 2, pointRadius: 0, borderColor: '#4a9eff' },
-      { label: 'Взаимодействия', data: {{ chart.inter|tojson }}, tension: .3, borderWidth: 2, pointRadius: 0, borderColor: '#a78bfa' },
-      { label: 'Регистрации', data: {{ chart.regs|tojson }}, yAxisID: 'y1', tension: .3, borderWidth: 2, pointRadius: 0, borderColor: '#34d399' }
-    ]},
-  options: {
-    responsive: true, maintainAspectRatio: false,
-    interaction: { intersect: false, mode: 'index' },
-    scales: {
-      y: { position: 'left', grid: { color: 'rgba(255,255,255,.03)' } },
-      y1: { position: 'right', grid: { drawOnChartArea: false } }
-    }
-  }
-});
-// 5. Тренды
+// 5. TRENDS комбо (bar + line)
 new Chart(document.getElementById('trendChart'), {
-  type: 'line',
-  data: { labels: {{ trends|map(attribute='label')|list|tojson }},
+  data: {
+    labels: {{ trends|map(attribute='label')|list|tojson }},
     datasets: [
-      { label: 'ERR %', data: {{ trends|map(attribute='ERR')|list|tojson }}, yAxisID: 'y', tension: .3, borderWidth: 2, pointRadius: 0 },
-      { label: 'CV %', data: {{ trends|map(attribute='CV')|list|tojson }}, yAxisID: 'y', tension: .3, borderWidth: 2, pointRadius: 0 },
-      { label: 'Регистрации', data: {{ trends|map(attribute='regs')|list|tojson }}, yAxisID: 'y1', tension: .3, borderWidth: 2, pointRadius: 0 }
-    ]},
+      { type: 'bar', label: 'Регистрации', data: {{ trends|map(attribute='regs')|list|tojson }},
+        backgroundColor: 'rgba(52,211,153,.15)', hoverBackgroundColor: 'rgba(52,211,153,.35)',
+        borderRadius: 3, yAxisID: 'y1' },
+      { type: 'line', label: 'ERR %', data: {{ trends|map(attribute='ERR')|list|tojson }},
+        borderColor: '#4a9eff', borderWidth: 2.5, pointRadius: 3,
+        pointBackgroundColor: '#4a9eff', pointHoverRadius: 5, yAxisID: 'y', tension: 0.3 },
+      { type: 'line', label: 'CV %', data: {{ trends|map(attribute='CV')|list|tojson }},
+        borderColor: '#fbbf24', borderWidth: 2, borderDash: [5, 3], pointRadius: 2,
+        pointBackgroundColor: '#fbbf24', yAxisID: 'y', tension: 0.3 }
+    ]
+  },
   options: {
-    responsive: true, maintainAspectRatio: false,
     interaction: { intersect: false, mode: 'index' },
+    plugins: { legend: { display: false } },
     scales: {
-      y: { position: 'left', grid: { color: 'rgba(255,255,255,.03)' } },
-      y1: { position: 'right', grid: { drawOnChartArea: false } }
+      y: { position: 'left', grid: { color: 'rgba(255,255,255,.03)', drawTicks: false },
+           ticks: { callback: function(v) { return v.toFixed(1) + '%'; }, padding: 6 },
+           border: { display: false },
+           title: { display: true, text: 'ERR / CV', color: '#4a9eff', font: { size: 9 } } },
+      y1: { position: 'right', grid: { drawOnChartArea: false },
+            ticks: { padding: 6 }, border: { display: false },
+            title: { display: true, text: 'Рег.', color: '#34d399', font: { size: 9 } } },
+      x: { grid: { display: false }, ticks: { padding: 4 } }
     }
   }
 });
-</script>
+
 {% endblock %}

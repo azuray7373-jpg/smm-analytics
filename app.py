@@ -190,29 +190,40 @@ def overview():
     PLAT_ICONS = {"instagram":"📸","youtube":"▶️","telegram":"✈️","vk":"🔵",
                   "tiktok":"🎵","dzen":"◉","max":"💬"}
 
-    def breakdown(key, fmt="{:,.0f}", total=None, prev_key=None):
+    def breakdown(key, fmt="{:,.0f}", total=None, prev_key=None, min_val=None):
+        """Расшифровка по каналам. min_val — отсечка статистически незначимых."""
         total = total or sum(c[key] for c in ch_data) or 1
         rows = sorted(ch_data, key=lambda c: c[key], reverse=True)
         out = []
         for c in rows:
-            if c[key] <= 0:
+            v = c[key] if isinstance(c[key], (int, float)) else 0
+            if v <= 0:
                 continue
-            # динамика к прошлому периоду
-            delta_pct = None
-            if prev_key:
-                cur = c.get(key) or 0
-                prev = c.get(prev_key) or 0
-                if prev > 0:
-                    delta_pct = round((cur - prev) / prev * 100)
+            # для ERR/CV: пропускаем каналы с охватом < 1000 (не показателен)
+            if min_val and (c.get("reach") or 0) < min_val:
+                continue
             out.append({
                 "name": c["ch"].name,
                 "platform": c["ch"].platform,
                 "icon": PLAT_ICONS.get(c["ch"].platform, "📡"),
-                "value": fmt.format(c[key]).replace(",", " "),
-                "pct": c[key] / total * 100 if total else 0,
-                "delta": delta_pct,
+                "value": fmt.format(v).replace(",", " "),
+                "pct": v / total * 100 if total else 0,
+                "delta": None,
             })
         return out
+
+    # CV per channel: регистрации / охват канала * 100
+    cv_rows = []
+    for c in sorted(ch_data, key=lambda x: x["regs"], reverse=True):
+        if c["regs"] > 0 and (c["reach"] or 0) >= 500:
+            cv = c["regs"] / c["reach"] * 100
+            cv_rows.append({
+                "name": c["ch"].name, "platform": c["ch"].platform,
+                "icon": PLAT_ICONS.get(c["ch"].platform, "📡"),
+                "value": "{:.3f}%".format(cv),
+                "pct": c["regs"] / max(sum(x["regs"] for x in ch_data), 1) * 100,
+                "delta": None,
+            })
 
     def delta(key):
         dd = p["deltas"].get(key)
@@ -220,33 +231,32 @@ def overview():
 
     kpi_cards = [
         {"id": "reach", "icon": "👁", "title": "Охват", "value": "{:,.0f}".format(p["agg"].get("reach") or 0).replace(",", " "),
-         "delta": delta("reach"), "sub": "суммарный за период",
-         "breakdown": breakdown("reach"), "formula": "Сумма охватов всех публикаций на всех каналах"},
+         "delta": delta("reach"), "sub": "за период",
+         "breakdown": breakdown("reach"), "formula": "Сумма охватов всех публикаций"},
         {"id": "views", "icon": "▶️", "title": "Просмотры", "value": "{:,.0f}".format(p["agg"].get("views") or 0).replace(",", " "),
          "delta": delta("views"), "sub": "все каналы",
-         "breakdown": breakdown("views"), "formula": "Показы и просмотры контента за период"},
+         "breakdown": breakdown("views"), "formula": "Показы и просмотры контента"},
         {"id": "regs", "icon": "📝", "title": "Регистрации", "value": "{:,.0f}".format(p["registrations"]),
-         "delta": delta("registrations"), "sub": "реальные (демо исключены)",
-         "breakdown": breakdown("regs"), "formula": "Из GetCourse, атрибуция по UTM-меткам"},
+         "delta": delta("registrations"), "sub": "реальные",
+         "breakdown": breakdown("regs"), "formula": "Из GetCourse по UTM"},
         {"id": "err", "icon": "⚡", "title": "ERR", "value": "{:.2f}%".format(p["ind"].get("ERR") or 0),
          "delta": delta("ERR"), "sub": "вовлечённость/охват",
-         "breakdown": breakdown("err", "{:.2f}%"), "formula": "(лайки + комменты + сохранения + репосты + реакции) / охват × 100"},
-        {"id": "cv", "icon": "🎯", "title": "CV из охвата", "value": "{:.3f}%".format(p["ind"].get("CV_reach") or 0),
-         "delta": delta("CV_reach"), "sub": "охват → регистрация",
-         "breakdown": breakdown("regs", "{:,.0f}"), "formula": "Регистрации / Охват × 100 — сколько охват превратился в заявки"},
+         "breakdown": breakdown("err", "{:.2f}%", min_val=1000), "formula": "Взаимодействия / Охват × 100 (только каналы с охватом 1000+)"},
+        {"id": "cv", "icon": "🎯", "title": "CV", "value": "{:.3f}%".format(p["ind"].get("CV_reach") or 0),
+         "delta": delta("CV_reach"), "sub": "охват → рег.",
+         "breakdown": cv_rows, "formula": "Регистрации / Охват канала × 100 (только каналы с охватом 500+)"},
         {"id": "followers", "icon": "👥", "title": "Подписчики", "value": "{:,.0f}".format(p["agg"].get("followers_end") or 0).replace(",", " "),
-         "delta": delta("followers_end"), "sub": "на конец периода",
-         "breakdown": breakdown("followers"), "formula": "Сумма подписчиков всех 11 аккаунтов"},
-        {"id": "growth", "icon": "➕", "title": "Чистый прирост", "value": "{:+,.0f}".format(p["ind"].get("net_growth") or 0).replace(",", " "),
+         "delta": delta("followers_end"), "sub": "на конец",
+         "breakdown": breakdown("followers"), "formula": "Все 11 аккаунтов"},
+        {"id": "growth", "icon": "➕", "title": "Прирост", "value": "{:+,.0f}".format(p["ind"].get("net_growth") or 0).replace(",", " "),
          "delta": delta("net_growth"), "sub": "подписались − отписались",
-         "breakdown": breakdown("subscribed"), "formula": "Новые подписки минус отписки за период"},
+         "breakdown": breakdown("subscribed"), "formula": "Новые подписки минус отписки"},
         {"id": "inter", "icon": "❤️", "title": "Взаимодействия", "value": "{:,.0f}".format(p["ind"].get("interactions") or 0).replace(",", " "),
-         "delta": None, "sub": "лайки+комм+сохр+репосты",
-         "breakdown": breakdown("inter"), "formula": "лайки + комментарии + сохранения + репосты + реакции"},
+         "delta": None, "sub": "лайки+комм+сохр",
+         "breakdown": breakdown("inter"), "formula": "Лайки + комменты + сохранения + репосты"},
     ]
 
-    # Данные для улучшенных графиков
-    # 1. Stacked area: охват по каналам по дням
+    # Chart data
     from sqlalchemy import func as _f
     ch_ids = [ch.id for ch in active_channels]
     ch_names = {ch.id: ch.name for ch in active_channels}
@@ -257,9 +267,7 @@ def overview():
         days_list.append(cur.isoformat())
         cur += _td2(days=1)
     reach_rows = (db.session.query(
-        MetricSnapshot.channel_id,
-        _f.date(MetricSnapshot.date),
-        _f.sum(MetricSnapshot.value))
+        MetricSnapshot.channel_id, _f.date(MetricSnapshot.date), _f.sum(MetricSnapshot.value))
         .filter(MetricSnapshot.date >= d[0], MetricSnapshot.date <= d[1],
                 MetricSnapshot.metric == "reach", MetricSnapshot.value.isnot(None),
                 MetricSnapshot.channel_id.in_(ch_ids))
@@ -270,28 +278,21 @@ def overview():
     stacked_chart = {"labels": days_list,
                      "series": {name: [vals.get(x, 0) for x in days_list]
                                 for name, vals in reach_map.items()}}
-
-    # 2. Doughnut: доля регистраций по источникам
     import utm as utm_mod2
     br = utm_mod2.breakdown(d[0], d[1])
     source_chart = [{"label": s, "value": v["regs"]}
                     for s, v in sorted(br.get("by_source", {}).items(),
                                        key=lambda x: -x[1]["regs"])[:8] if v["regs"] > 0]
-
-    # 3. Bar: регистрации по дням с накоплением
-    reg_rows = (db.session.query(Registration.date, Registration.utm_source,
-                                 _f.sum(Registration.count))
+    reg_rows = (db.session.query(Registration.date, Registration.utm_source, _f.sum(Registration.count))
                 .filter(Registration.date >= d[0], Registration.date <= d[1],
-                        Registration.status == "OK",
-                        ~Registration.utm_source.like("demo_%"))
+                        Registration.status == "OK", ~Registration.utm_source.like("demo_%"))
                 .group_by(Registration.date, Registration.utm_source).all())
     reg_map = {}
     for dt_, src, val in reg_rows:
         src_key = src if src in ("insta-alexey", "telegram", "vkontakte", "youtube", "max", "tiktok") else "прочее"
         reg_map.setdefault(src_key, {})[str(dt_)] = val
     reg_chart = {"labels": days_list,
-                 "series": {s: [vals.get(x, 0) for x in days_list]
-                            for s, vals in reg_map.items()}}
+                 "series": {s: [vals.get(x, 0) for x in days_list] for s, vals in reg_map.items()}}
 
     return render_template("overview.html", p=p, period=d, chart=chart,
                            report=_latest_report("weekly"),

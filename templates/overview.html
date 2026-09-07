@@ -76,8 +76,8 @@
 
 <div class="section-grid">
   <div class="section-item">
-    <h2>Охват по каналам (слоями)</h2>
-    <div class="chart-box"><canvas id="stackedChart"></canvas></div>
+    <h2>Охват по дням (все каналы)</h2>
+    <div class="css-chart" id="cssStacked"></div>
   </div>
   <div class="section-item">
     <h2>Регистрации по источникам</h2>
@@ -259,26 +259,56 @@ if (window.Chart) {
   Chart.defaults.plugins.tooltip.titleFont = {size: 11, weight: '600'};
   Chart.defaults.plugins.tooltip.bodyFont = {size: 11};
 }
-// 1. Stacked area: охват по каналам
-const stackedLabels = {{ stacked_chart.labels|tojson }};
-const stackedSeries = {{ stacked_chart.series|tojson }};
-const palette = ['#4a9eff','#a78bfa','#22d3ee','#f472b6','#fbbf24','#34d399','#f87171','#818cf8','#fb923c','#2dd4bf','#c084fc'];
-const stackedDatasets = Object.entries(stackedSeries).map(([name, data], i) => ({
-  label: name, data: data, fill: true,
-  backgroundColor: palette[i % palette.length] + '30',
-  borderColor: palette[i % palette.length],
-  borderWidth: 1.5, pointRadius: 0, tension: .3
-}));
-new Chart(document.getElementById('stackedChart'), {
-  type: 'line',
-  data: { labels: stackedLabels, datasets: stackedDatasets },
-  options: {
-    responsive: true, maintainAspectRatio: false,
-    interaction: { intersect: false, mode: 'index' },
-    plugins: { legend: { display: false }, tooltip: { callbacks: { footer: (items) => 'Всего: ' + items.reduce((s,i) => s + (i.parsed.y || 0), 0).toLocaleString('ru') } } },
-    scales: { y: { stacked: true, grid: { color: 'rgba(255,255,255,.03)' } } }
-  }
-});
+// CSS-only stacked bar chart (no Chart.js, no legend)
+(function() {
+  const el = document.getElementById('cssStacked');
+  if (!el) return;
+  const labels = {{ stacked_chart.labels|tojson }};
+  const series = {{ stacked_chart.series|tojson }};
+  const palette = ['#4a9eff','#a78bfa','#22d3ee','#f472b6','#fbbf24','#34d399','#f87171','#818cf8','#fb923c','#2dd4bf','#c084fc'];
+  const names = Object.keys(series);
+  // макс суммарный охват за день
+  let maxTotal = 0;
+  labels.forEach((_, i) => {
+    let total = 0;
+    names.forEach(n => total += (series[n][i] || 0));
+    maxTotal = Math.max(maxTotal, total);
+  });
+  if (maxTotal === 0) return;
+  labels.forEach((label, i) => {
+    const group = document.createElement('div');
+    group.className = 'css-bar-group';
+    const total = names.reduce((s, n) => s + (series[n][i] || 0), 0);
+    // tooltip
+    const tip = document.createElement('div');
+    tip.className = 'css-chart-tooltip';
+    let tipHtml = '<b>' + label.slice(5) + '</b> — всего ' + total.toLocaleString('ru');
+    names.forEach((n, j) => {
+      if (series[n][i] > 0) {
+        tipHtml += '<br><span style="color:' + palette[j % palette.length] + '">●</span> ' + n + ': ' + (series[n][i] || 0).toLocaleString('ru');
+      }
+    });
+    tip.innerHTML = tipHtml;
+    group.appendChild(tip);
+    // стек баров (снизу вверх)
+    names.forEach((n, j) => {
+      const val = series[n][i] || 0;
+      if (val > 0) {
+        const bar = document.createElement('div');
+        bar.className = 'css-bar';
+        bar.style.height = (val / maxTotal * 100) + '%';
+        bar.style.background = palette[j % palette.length] + 'CC';
+        group.appendChild(bar);
+      }
+    });
+    // подпись дня
+    const lbl = document.createElement('div');
+    lbl.className = 'css-bar-label';
+    lbl.textContent = label.slice(5);
+    group.appendChild(lbl);
+    el.appendChild(group);
+  });
+})();
 
 // 2. Stacked bar: регистрации по источникам
 const regLabels = {{ reg_chart.labels|tojson }};

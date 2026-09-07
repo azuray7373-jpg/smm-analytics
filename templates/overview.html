@@ -275,7 +275,7 @@ new Chart(document.getElementById('stackedChart'), {
   options: {
     responsive: true, maintainAspectRatio: false,
     interaction: { intersect: false, mode: 'index' },
-    plugins: { legend: { position: 'bottom', labels: { boxWidth: 6, boxHeight: 6, padding: 3, font: { size: 8 } } }, tooltip: { callbacks: { footer: (items) => 'Всего: ' + items.reduce((s,i) => s + (i.parsed.y || 0), 0).toLocaleString('ru') } } },
+    plugins: { legend: { display: false }, tooltip: { callbacks: { footer: (items) => 'Всего: ' + items.reduce((s,i) => s + (i.parsed.y || 0), 0).toLocaleString('ru') } } },
     scales: { y: { stacked: true, grid: { color: 'rgba(255,255,255,.03)' } } }
   }
 });
@@ -294,6 +294,7 @@ new Chart(document.getElementById('regStackedChart'), {
   options: {
     responsive: true, maintainAspectRatio: false,
     interaction: { intersect: false, mode: 'index' },
+    plugins: { legend: { display: false } },
     scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }
   }
 });
@@ -327,9 +328,9 @@ new Chart(document.getElementById('chart'), {
   type: 'line',
   data: { labels: {{ chart.labels|tojson }},
     datasets: [
-      { label: 'Охват', data: {{ chart.reach|tojson }}, tension: .3, borderWidth: 2, pointRadius: 0 },
-      { label: 'Взаимодействия', data: {{ chart.inter|tojson }}, tension: .3, borderWidth: 2, pointRadius: 0 },
-      { label: 'Регистрации', data: {{ chart.regs|tojson }}, yAxisID: 'y1', tension: .3, borderWidth: 2, pointRadius: 0 }
+      { label: 'Охват', data: {{ chart.reach|tojson }}, tension: .3, borderWidth: 2, pointRadius: 0, borderColor: '#4a9eff' },
+      { label: 'Взаимодействия', data: {{ chart.inter|tojson }}, tension: .3, borderWidth: 2, pointRadius: 0, borderColor: '#a78bfa' },
+      { label: 'Регистрации', data: {{ chart.regs|tojson }}, yAxisID: 'y1', tension: .3, borderWidth: 2, pointRadius: 0, borderColor: '#34d399' }
     ]},
   options: {
     responsive: true, maintainAspectRatio: false,

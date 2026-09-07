@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-
 {% block content %}
 <div class="hero">
   <div>
@@ -15,59 +14,39 @@
 
 {% if forecast %}
 <div class="forecast-bar">
-  <span class="forecast-label">Прогноз месяца</span>
-  {% for k, lbl in [('reach','Охват'), ('regs','Рег.'), ('payments','Оплаты ₽')] %}
+  <span class="forecast-label">Прогноз</span>
+  {% for k, lbl in [('reach','Охват'), ('regs','Рег.'), ('payments','₽')] %}
     {% if forecast.get(k) is not none %}
-    <span class="forecast-item">{{ lbl }} <b>{{ forecast[k]|numfmt }}</b> → <b class="accent">{{ forecast[k + '_forecast']|numfmt }}</b></span>
+    <span class="forecast-item">{{ lbl }} <b>{{ forecast[k]|numfmt }}</b> → <b style="color:var(--acc)">{{ forecast[k + '_forecast']|numfmt }}</b></span>
     {% endif %}
   {% endfor %}
-  <span class="forecast-hint">{{ forecast.elapsed_days }}/{{ forecast.total_days }} дней</span>
 </div>
 {% endif %}
 
 <div class="kpi-grid">
   {% for card in kpi_cards %}
   <div class="kpi-card" id="card_{{ card.id }}" onclick="toggleKpi('{{ card.id }}')">
-    <div class="kpi-header">
-      <span class="kpi-icon">{{ card.icon }}</span>
-      <span class="kpi-title">{{ card.title }}</span>
-    </div>
+    <div class="kpi-header"><span class="kpi-icon">{{ card.icon }}</span><span class="kpi-title">{{ card.title }}</span></div>
     <div class="kpi-value">{{ card.value }}</div>
     <div class="kpi-footer">
-      {% if card.delta is not none %}
-      <span class="kpi-delta {{ 'pos' if card.delta >= 0 else 'neg' }}">{{ '%+d'|format(card.delta) }}%</span>
-      {% endif %}
-      {% if card.sub %}
-      <span class="kpi-sub">{{ card.sub }}</span>
-      {% endif %}
+      {% if card.delta is not none %}<span class="kpi-delta {{ 'pos' if card.delta >= 0 else 'neg' }}">{{ '%+d'|format(card.delta) }}%</span>{% endif %}
+      {% if card.sub %}<span class="kpi-sub">{{ card.sub }}</span>{% endif %}
     </div>
     {% if card.breakdown %}
-    <div class="kpi-detail" id="detail_{{ card.id }}">
-      <div class="kpi-detail-header">По каналам — нажмите для деталей</div>
+    <div class="kpi-detail">
+      <div class="kpi-detail-header">По каналам</div>
       <div class="kpi-breakdown">
         {% for row in card.breakdown %}
-        <a class="kpi-breakdown-row" href="{{ url_for('channel_detail', channel_id=1) }}"
-           onclick="event.stopPropagation()">
-          <span class="bd-icon">{{ row.icon }}</span>
-          <span class="bd-name" title="{{ row.platform }}">{{ row.name }}</span>
-          <div class="bd-bar"><i style="width: {{ row.pct }}%"></i></div>
+        <div class="kpi-breakdown-row">
+          <span class="bd-icon">{{ row.icon or '📡' }}</span>
+          <span class="bd-name">{{ row.name }}</span>
+          <div class="bd-bar"><i style="width:{{ row.pct }}%"></i></div>
           <span class="bd-value">{{ row.value }}</span>
-          {% if row.delta is not none %}
-          <span class="bd-delta {{ 'pos' if row.delta >= 0 else 'neg' }}">{{ '%+d'|format(row.delta) }}%</span>
-          {% else %}
-          <span class="bd-pct">{{ '%.0f'|format(row.pct) }}%</span>
-          {% endif %}
-        </a>
+          {% if row.delta is not none %}<span class="bd-delta {{ 'pos' if row.delta >= 0 else 'neg' }}">{{ '%+d'|format(row.delta) }}%</span>{% else %}<span class="bd-delta" style="color:var(--txt3)">{{ '%.0f'|format(row.pct) }}%</span>{% endif %}
+        </div>
         {% endfor %}
       </div>
-      <div class="kpi-hint">
-        <span class="bd-pct">доля от общего</span>
-        <span class="bd-delta pos">↑ рост</span>
-        <span class="bd-delta neg">↓ падение</span>
-      </div>
-      {% if card.formula %}
-      <div class="kpi-formula">📐 {{ card.formula }}</div>
-      {% endif %}
+      {% if card.formula %}<div class="kpi-formula">{{ card.formula }}</div>{% endif %}
     </div>
     {% endif %}
   </div>
@@ -75,13 +54,10 @@
 </div>
 
 <div class="section-grid">
-  <div class="section-item" style="grid-column: 1 / -1;">
-    <h2>Охват по каналам (слоями)</h2>
-    <div class="chart-box" style="height:350px;"><canvas id="stackedChart"></canvas></div>
+  <div class="section-item" style="grid-column:1/-1;">
+    <h2>Охват по каналам</h2>
+    <div class="chart-box" style="height:320px;"><canvas id="stackedChart"></canvas></div>
   </div>
-</div>
-
-<div class="section-grid">
   <div class="section-item">
     <h2>Регистрации по источникам</h2>
     <div class="chart-box"><canvas id="regStackedChart"></canvas></div>
@@ -97,11 +73,10 @@
 </div>
 
 <div class="section-grid">
-  <div class="section-item" style="grid-column: 1 / -1;">
-    <h2>Тренды ERR и CV (8 недель)</h2>
-    <div class="chart-box sm" style="height:250px;"><canvas id="trendChart"></canvas></div>
+  <div class="section-item" style="grid-column:1/-1;">
+    <h2>Тренды (8 недель)</h2>
+    <div class="chart-box sm" style="height:220px;"><canvas id="trendChart"></canvas></div>
   </div>
-</div>
 </div>
 
 {% if growth %}
@@ -109,7 +84,7 @@
 <div class="growth-grid">
   {% for g in growth %}
   <div class="growth-card {{ g.kind }}">
-    <div class="growth-label">{{ {'scale': 'Масштабировать', 'fix': 'Исправить', 'insight': 'Инсайт'}[g.kind] }}</div>
+    <div class="growth-label">{{ {'scale':'Масштабировать','fix':'Исправить','insight':'Инсайт'}[g.kind] }}</div>
     <p>{{ g.text }}</p>
   </div>
   {% endfor %}
@@ -119,130 +94,12 @@
 {% if report %}
 <h2>Вывод недели</h2>
 <div class="aireport">{{ report.ai_text | mdfmt | safe }}</div>
-{% if report.controller_text %}
-<div class="controller"><b>Проверка:</b> {{ report.controller_text }}</div>
+{% if report.controller_text %}<div class="controller"><b>Проверка:</b> {{ report.controller_text }}</div>{% endif %}
 {% endif %}
-{% endif %}
-
-<style>
-/* ═══ KPI Grid ═══ */
-.kpi-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 12px; margin: 20px 0;
-}
-.kpi-card {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 16px 18px;
-  cursor: pointer;
-  transition: border-color .2s;
-  position: relative;
-  overflow: hidden;
-}
-.kpi-card:hover { border-color: var(--border-active); }
-.kpi-card:active { transform: scale(.985); }
-
-.kpi-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-.kpi-icon { font-size: 18px; }
-.kpi-title { font-size: 11px; font-weight: 600; color: var(--txt-tertiary); text-transform: uppercase; letter-spacing: .06em; }
-.kpi-value { font: 700 26px/1.1 var(--font-ui); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
-.kpi-footer { display: flex; align-items: center; gap: 8px; margin-top: 6px; min-height: 20px; }
-.kpi-delta { font-size: 12px; font-weight: 600; }
-.kpi-delta.pos { color: var(--success); }
-.kpi-delta.neg { color: var(--danger); }
-.kpi-sub { font-size: 11px; color: var(--txt-tertiary); }
-
-/* ═══ Expandable Detail ═══ */
-.kpi-detail {
-  max-height: 0; overflow: hidden;
-  transition: max-height .35s ease, margin .35s ease;
-  border-top: 0 solid var(--border);
-}
-.kpi-card.expanded .kpi-detail {
-  max-height: 400px; margin-top: 12px;
-  border-top: 1px solid var(--border);
-  padding-top: 10px;
-}
-.kpi-detail-header {
-  font-size: 10px; color: var(--txt-tertiary);
-  text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px;
-}
-.kpi-breakdown { display: flex; flex-direction: column; gap: 4px; }
-.kpi-breakdown-row {
-  display: grid; grid-template-columns: 18px 70px 1fr 60px 40px;
-  gap: 4px; align-items: center; font-size: 11px;
-  padding: 2px 4px; border-radius: 3px;
-  text-decoration: none; color: inherit;
-  transition: background .12s;
-}
-.kpi-breakdown-row:hover { background: var(--bg-hover); }
-.bd-icon { font-size: 13px; text-align: center; }
-.bd-delta { font-size: 10px; font-weight: 600; text-align: right; }
-.bd-delta.pos { color: var(--success); }
-.bd-delta.neg { color: var(--danger); }
-.kpi-hint {
-  display: flex; gap: 10px; margin-top: 6px; font-size: 9px;
-  color: var(--txt-tertiary); padding: 4px 0;
-}
-.bd-name { color: var(--txt-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bd-bar { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
-.bd-bar > i { display: block; height: 100%; background: var(--accent); border-radius: 2px; }
-.bd-value { text-align: right; font-variant-numeric: tabular-nums; color: var(--txt-primary); }
-.bd-pct { text-align: right; color: var(--txt-tertiary); font-size: 10px; }
-.kpi-formula {
-  font-size: 10px; color: var(--txt-tertiary); margin-top: 8px;
-  padding: 4px 8px; background: var(--bg-surface); border-radius: 4px;
-}
-
-/* ═══ Forecast Bar ═══ */
-.forecast-bar {
-  display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border); border-radius: 10px;
-  padding: 10px 16px; margin: 12px 0;
-  font-size: 12px;
-}
-.forecast-label { font-weight: 700; color: var(--accent); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
-.forecast-item { color: var(--txt-secondary); }
-.forecast-item b { color: var(--txt-primary); }
-.forecast-item .accent { color: var(--accent); }
-.forecast-hint { margin-left: auto; color: var(--txt-tertiary); font-size: 10px; }
-
-/* ═══ Section Grid ═══ */
-.section-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 20px 0; align-items: start; }
-.section-item { min-width: 0; }
-
-/* ═══ Growth ═══ */
-.growth-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin: 12px 0; }
-.growth-card {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 14px 16px;
-}
-.growth-card.scale { border-left: 3px solid var(--success); }
-.growth-card.fix { border-left: 3px solid var(--danger); }
-.growth-card.insight { border-left: 3px solid var(--accent); }
-.growth-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 6px; }
-.growth-card.scale .growth-label { color: var(--success); }
-.growth-card.fix .growth-label { color: var(--danger); }
-.growth-card.insight .growth-label { color: var(--accent); }
-.growth-card p { font-size: 13px; color: var(--txt-secondary); margin: 0; }
-
-@media (max-width: 768px) {
-  .kpi-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
-  .kpi-card { padding: 12px; }
-  .kpi-value { font-size: 20px; }
-  .section-grid { grid-template-columns: 1fr !important; }
-  .forecast-bar { font-size: 10px; padding: 8px 10px; gap: 4px 10px; }
-}
-</style>
 
 <script>
 function toggleKpi(id) {
-  const el = document.getElementById('card_' + id);
+  var el = document.getElementById('card_' + id);
   if (el) el.classList.toggle('expanded');
 }
 </script>
@@ -250,201 +107,74 @@ function toggleKpi(id) {
 <script>
 if (window.Chart) {
   Chart.defaults.color = '#7a8494';
-  Chart.defaults.font.family = 'Inter, -apple-system, Segoe UI, system-ui, sans-serif';
+  Chart.defaults.font.family = 'Inter, system-ui, sans-serif';
   Chart.defaults.font.size = 10;
   Chart.defaults.borderColor = 'rgba(255,255,255,.04)';
-  Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(15,20,27,.96)';
-  Chart.defaults.plugins.tooltip.padding = 12;
-  Chart.defaults.plugins.tooltip.cornerRadius = 8;
-  Chart.defaults.plugins.tooltip.titleFont = {size: 11, weight: '600'};
-  Chart.defaults.plugins.tooltip.bodyFont = {size: 11};
-  Chart.defaults.plugins.tooltip.footerFont = {size: 10, weight: '600'};
   Chart.defaults.plugins.legend.display = false;
-  Chart.defaults.elements.line.borderWidth = 2;
-  Chart.defaults.elements.line.tension = 0.35;
-  Chart.defaults.elements.point.radius = 0;
-  Chart.defaults.elements.point.hoverRadius = 5;
-  Chart.defaults.elements.point.hoverBorderWidth = 2;
-  Chart.defaults.elements.point.hoverBorderColor = '#fff';
-  Chart.defaults.elements.bar.borderRadius = 3;
+  Chart.defaults.plugins.tooltip.backgroundColor = '#141a23';
+  Chart.defaults.plugins.tooltip.padding = 10;
+  Chart.defaults.plugins.tooltip.cornerRadius = 6;
   Chart.defaults.maintainAspectRatio = false;
   Chart.defaults.responsive = true;
 }
-var fmt = function(n) { return n ? n.toLocaleString('ru') : '0'; };
 var PAL = ['#4a9eff','#a78bfa','#22d3ee','#f472b6','#fbbf24','#34d399','#f87171','#818cf8','#fb923c','#2dd4bf','#c084fc'];
 
-// 1. STACKED AREA
-var sLabels = {{ stacked_chart.labels|tojson }};
-var sSeries = {{ stacked_chart.series|tojson }};
-var sNames = Object.keys(sSeries);
-var sDatasets = sNames.map(function(name, i) {
-  var color = PAL[i % PAL.length];
-  return { label: name, data: sSeries[name], fill: true,
-    backgroundColor: color + '18', borderColor: color,
-    borderWidth: 1.5, pointRadius: 0, pointHoverRadius: 4,
-    pointHoverBackgroundColor: color, tension: 0.35 };
-});
+// 1. Stacked Area
+var sL = {{ stacked_chart.labels|tojson }};
+var sS = {{ stacked_chart.series|tojson }};
+var sD = Object.keys(sS).map(function(n,i){return {label:n,data:sS[n],fill:true,backgroundColor:PAL[i%11]+'18',borderColor:PAL[i%11],borderWidth:1.5,pointRadius:0,tension:0.3};});
 new Chart(document.getElementById('stackedChart'), {
-  type: 'line',
-  data: { labels: sLabels.map(function(l){return l.slice(5);}), datasets: sDatasets },
-  options: {
-    interaction: { intersect: false, mode: 'index' },
-    plugins: {
-      legend: { display: false },
-      tooltip: { callbacks: {
-        title: function(items) { return items[0].label; },
-        label: function(item) {
-          var v = item.parsed.y || 0;
-          return ' ' + item.dataset.label + ': ' + fmt(v);
-        },
-        footer: function(items) {
-          return 'Итого: ' + fmt(items.reduce(function(s, i) { return s + (i.parsed.y || 0); }, 0));
-        }
-      }}
-    },
-    scales: {
-      y: { stacked: true, grid: { color: 'rgba(255,255,255,.03)', drawTicks: false },
-           ticks: { callback: function(v) { return v >= 1000 ? (v/1000).toFixed(0) + 'k' : v; }, padding: 6 },
-           border: { display: false } },
-      x: { grid: { display: false }, ticks: { maxRotation: 0, padding: 4 } }
-    }
-  }
+  type:'line', data:{labels:sL,datasets:sD},
+  options:{interaction:{intersect:false,mode:'index'},
+    plugins:{tooltip:{callbacks:{footer:function(items){return 'Итого: '+items.reduce(function(s,i){return s+(i.parsed.y||0);},0).toLocaleString('ru');}}}},
+    scales:{y:{stacked:true,grid:{color:'rgba(255,255,255,.03)'},ticks:{callback:function(v){return v>=1000?(v/1000).toFixed(0)+'k':v;}}},x:{grid:{display:false}}}}
 });
 
-// 2. STACKED BAR
-var rLabels = {{ reg_chart.labels|tojson }};
-var rSeries = {{ reg_chart.series|tojson }};
-var rDatasets = Object.entries(rSeries).map(function([name, data], i) {
-  return { label: name, data: data, backgroundColor: PAL[i % PAL.length] + '90',
-    hoverBackgroundColor: PAL[i % PAL.length], borderRadius: 2,
-    barPercentage: 0.7, categoryPercentage: 0.8 };
-});
+// 2. Stacked Bar
+var rL = {{ reg_chart.labels|tojson }};
+var rS = {{ reg_chart.series|tojson }};
+var rD = Object.keys(rS).map(function(n,i){return {label:n,data:rS[n],backgroundColor:PAL[i%11]+'70',borderRadius:2};});
 new Chart(document.getElementById('regStackedChart'), {
-  type: 'bar',
-  data: { labels: rLabels.map(function(l){return l.slice(5);}), datasets: rDatasets },
-  options: {
-    interaction: { intersect: false, mode: 'index' },
-    plugins: {
-      legend: { display: false },
-      tooltip: { callbacks: {
-        footer: function(items) { return 'Итого: ' + fmt(items.reduce(function(s, i) { return s + (i.parsed.y || 0); }, 0)); }
-      }}
-    },
-    scales: {
-      x: { stacked: true, grid: { display: false }, ticks: { maxRotation: 0 } },
-      y: { stacked: true, beginAtZero: true, grid: { color: 'rgba(255,255,255,.03)', drawTicks: false },
-           ticks: { padding: 6 }, border: { display: false } }
-    }
-  }
+  type:'bar', data:{labels:rL,datasets:rD},
+  options:{interaction:{intersect:false,mode:'index'},
+    scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,beginAtZero:true,grid:{color:'rgba(255,255,255,.03)'}}}}
 });
 
-// 3. DOUGHNUT с текстом в центре
-var srcData = {{ source_chart|tojson }};
-var srcTotal = srcData.reduce(function(s, d) { return s + d.value; }, 0);
+// 3. Doughnut
+var sd = {{ source_chart|tojson }};
+var st = sd.reduce(function(s,d){return s+d.value;},0);
 new Chart(document.getElementById('sourceDoughnut'), {
-  type: 'doughnut',
-  data: {
-    labels: srcData.map(function(d) { return d.label; }),
-    datasets: [{ data: srcData.map(function(d) { return d.value; }),
-      backgroundColor: srcData.map(function(_, i) { return PAL[i % PAL.length]; }),
-      borderWidth: 3, borderColor: '#0f141b', hoverOffset: 6 }]
-  },
-  options: {
-    cutout: '68%',
-    plugins: {
-      legend: { display: true, position: 'bottom',
-        labels: { boxWidth: 7, boxHeight: 7, padding: 5, font: { size: 9 }, usePointStyle: true, pointStyle: 'circle' } },
-      tooltip: { callbacks: { label: function(c) {
-        var pct = srcTotal ? (c.parsed / srcTotal * 100).toFixed(1) : 0;
-        return ' ' + c.label + ': ' + fmt(c.parsed) + ' (' + pct + '%)';
-      }}}
-    }
-  },
-  plugins: [{
-    id: 'centerText',
-    afterDraw: function(chart) {
-      var meta = chart.getDatasetMeta(0);
-      if (!meta.data[0]) return;
-      var x = meta.data[0].x, y = meta.data[0].y;
-      var ctx = chart.ctx;
-      ctx.save();
-      ctx.textAlign = 'center';
-      ctx.fillStyle = '#e8ecf1';
-      ctx.font = '700 18px Inter, sans-serif';
-      ctx.fillText(fmt(srcTotal), x, y - 4);
-      ctx.fillStyle = '#5a6572';
-      ctx.font = '500 10px Inter, sans-serif';
-      ctx.fillText('всего', x, y + 12);
-      ctx.restore();
-    }
-  }]
+  type:'doughnut',
+  data:{labels:sd.map(function(d){return d.label;}),
+    datasets:[{data:sd.map(function(d){return d.value;}),backgroundColor:sd.map(function(_,i){return PAL[i%11];}),borderWidth:2,borderColor:'#0e1218',hoverOffset:6}]},
+  options:{cutout:'68%',plugins:{
+    legend:{display:true,position:'bottom',labels:{boxWidth:7,padding:4,font:{size:9},usePointStyle:true,pointStyle:'circle'}},
+    tooltip:{callbacks:{label:function(c){var p=st?(c.parsed/st*100).toFixed(1):0;return ' '+c.label+': '+c.parsed.toLocaleString('ru')+' ('+p+'%)';}}}
+  },},
+  plugins:[{id:'ct',afterDraw:function(chart){var m=chart.getDatasetMeta(0);if(!m.data[0])return;var x=m.data[0].x,y=m.data[0].y,c=chart.ctx;c.save();c.textAlign='center';c.fillStyle='#ecf0f4';c.font='700 18px Inter';c.fillText(st.toLocaleString('ru'),x,y-4);c.fillStyle='#5a6672';c.font='500 9px Inter';c.fillText('всего',x,y+10);c.restore();}}]
 });
 
-// 4. LINE с градиентной заливкой
+// 4. Line
 new Chart(document.getElementById('chart'), {
-  type: 'line',
-  data: {
-    labels: {{ chart.labels|tojson }}.map(function(l){return l.slice(5);}),
-    datasets: [
-      { label: 'Охват', data: {{ chart.reach|tojson }},
-        borderColor: '#4a9eff', backgroundColor: 'rgba(74,158,255,.08)',
-        fill: true, borderWidth: 2, pointRadius: 0, pointHoverRadius: 5,
-        pointHoverBackgroundColor: '#4a9eff', tension: 0.35 },
-      { label: 'Взаимодействия', data: {{ chart.inter|tojson }},
-        borderColor: '#a78bfa', borderWidth: 1.5, borderDash: [4, 3],
-        pointRadius: 0, pointHoverRadius: 4, pointHoverBackgroundColor: '#a78bfa', tension: 0.35 },
-      { label: 'Регистрации', data: {{ chart.regs|tojson }}, yAxisID: 'y1',
-        borderColor: '#34d399', backgroundColor: 'rgba(52,211,153,.08)',
-        fill: true, borderWidth: 2, pointRadius: 0, pointHoverRadius: 5,
-        pointHoverBackgroundColor: '#34d399', tension: 0.35 }
-    ]
-  },
-  options: {
-    interaction: { intersect: false, mode: 'index' },
-    plugins: { legend: { display: false } },
-    scales: {
-      y: { position: 'left', grid: { color: 'rgba(255,255,255,.03)', drawTicks: false },
-           ticks: { callback: function(v) { return v >= 1000 ? (v/1000).toFixed(0) + 'k' : v; }, padding: 6 },
-           border: { display: false },
-           title: { display: true, text: 'Охват', color: '#4a9eff', font: { size: 9 } } },
-      y1: { position: 'right', grid: { drawOnChartArea: false },
-            ticks: { padding: 6 }, border: { display: false },
-            title: { display: true, text: 'Рег.', color: '#34d399', font: { size: 9 } } },
-      x: { grid: { display: false }, ticks: { maxRotation: 0, padding: 4 } }
-    }
-  }
+  type:'line',
+  data:{labels:{{ chart.labels|tojson }},datasets:[
+    {label:'Охват',data:{{ chart.reach|tojson }},borderColor:'#4a9eff',backgroundColor:'rgba(74,158,255,.08)',fill:true,tension:0.3,pointRadius:0},
+    {label:'Взаим.',data:{{ chart.inter|tojson }},borderColor:'#a78bfa',borderDash:[4,3],tension:0.3,pointRadius:0},
+    {label:'Рег.',data:{{ chart.regs|tojson }},borderColor:'#34d399',backgroundColor:'rgba(52,211,153,.06)',fill:true,yAxisID:'y1',tension:0.3,pointRadius:0}
+  ]},
+  options:{interaction:{intersect:false,mode:'index'},
+    scales:{y:{position:'left',grid:{color:'rgba(255,255,255,.03)'},ticks:{callback:function(v){return v>=1000?(v/1000).toFixed(0)+'k':v;}}},y1:{position:'right',grid:{drawOnChartArea:false}},x:{grid:{display:false}}}}
 });
 
-// 5. TRENDS комбо (bar + line)
+// 5. Trends
 new Chart(document.getElementById('trendChart'), {
-  data: {
-    labels: {{ trends|map(attribute='label')|list|tojson }},
-    datasets: [
-      { type: 'bar', label: 'Регистрации', data: {{ trends|map(attribute='regs')|list|tojson }},
-        backgroundColor: 'rgba(52,211,153,.15)', hoverBackgroundColor: 'rgba(52,211,153,.35)',
-        borderRadius: 3, yAxisID: 'y1' },
-      { type: 'line', label: 'ERR %', data: {{ trends|map(attribute='ERR')|list|tojson }},
-        borderColor: '#4a9eff', borderWidth: 2.5, pointRadius: 3,
-        pointBackgroundColor: '#4a9eff', pointHoverRadius: 5, yAxisID: 'y', tension: 0.3 },
-      { type: 'line', label: 'CV %', data: {{ trends|map(attribute='CV')|list|tojson }},
-        borderColor: '#fbbf24', borderWidth: 2, borderDash: [5, 3], pointRadius: 2,
-        pointBackgroundColor: '#fbbf24', yAxisID: 'y', tension: 0.3 }
-    ]
-  },
-  options: {
-    interaction: { intersect: false, mode: 'index' },
-    plugins: { legend: { display: false } },
-    scales: {
-      y: { position: 'left', grid: { color: 'rgba(255,255,255,.03)', drawTicks: false },
-           ticks: { callback: function(v) { return v.toFixed(1) + '%'; }, padding: 6 },
-           border: { display: false },
-           title: { display: true, text: 'ERR / CV', color: '#4a9eff', font: { size: 9 } } },
-      y1: { position: 'right', grid: { drawOnChartArea: false },
-            ticks: { padding: 6 }, border: { display: false },
-            title: { display: true, text: 'Рег.', color: '#34d399', font: { size: 9 } } },
-      x: { grid: { display: false }, ticks: { padding: 4 } }
-    }
-  }
+  data:{labels:{{ trends|map(attribute='label')|list|tojson }},datasets:[
+    {type:'bar',label:'Рег.',data:{{ trends|map(attribute='regs')|list|tojson }},backgroundColor:'rgba(52,211,153,.15)',borderRadius:3,yAxisID:'y1'},
+    {type:'line',label:'ERR%',data:{{ trends|map(attribute='ERR')|list|tojson }},borderColor:'#4a9eff',borderWidth:2.5,pointRadius:3,pointBackgroundColor:'#4a9eff',yAxisID:'y',tension:0.3},
+    {type:'line',label:'CV%',data:{{ trends|map(attribute='CV')|list|tojson }},borderColor:'#fbbf24',borderWidth:2,borderDash:[5,3],pointRadius:2,pointBackgroundColor:'#fbbf24',yAxisID:'y',tension:0.3}
+  ]},
+  options:{interaction:{intersect:false,mode:'index'},
+    scales:{y:{position:'left',grid:{color:'rgba(255,255,255,.03)'},ticks:{callback:function(v){return v.toFixed(1)+'%';}}},y1:{position:'right',grid:{drawOnChartArea:false}},x:{grid:{display:false}}}}
 });
 </script>
 {% endblock %}

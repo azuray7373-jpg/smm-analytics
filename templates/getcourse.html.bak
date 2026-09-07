@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>GetCourse — заказы, оплаты, лиды <small>({{ period[0] }} — {{ period[1] }})</small></h1>
+
+{% if not configured %}
+<div class="warnbox">API-ключ GetCourse не задан — укажите его на экране «Настройки» (gc_account, gc_api_key).</div>
+{% endif %}
+{% if step_status %}
+<div class="warnbox">Шаг синхронизации: {{ step_status }}</div>
+{% endif %}
+
+<form class="filters" method="post" action="{{ url_for('getcourse_sync') }}">
+  <input type="hidden" name="days" value="7">
+  <button>⟳ Синхронизировать последние 7 дней</button>
+</form>
+<form class="filters" method="post" action="{{ url_for('getcourse_sync') }}">
+  <input type="hidden" name="days" value="7">
+  <input type="hidden" name="months" value="6">
+  <button>Загрузить историю за 6 месяцев (первый запуск)</button>
+</form>
+<p class="muted">Экспорты ГК однопоточные и ограничены (100 запросов / 2 часа). Синхронизация идёт в фоне 1–3 минуты; при занятости слота — автоматические повторные попытки.</p>
+
+<h2>Воронка за период</h2>
+<div class="cards">
+  <div class="card"><h3>Регистрации</h3><div class="big">{{ f.registrations|numfmt }}</div></div>
+  <div class="card"><h3>Заказы</h3><div class="big">{{ f.orders|numfmt }}</div><span class="badge na">CR рег→заказ: {{ '%.1f'|format(f.cr_reg_order or 0) }}%</span></div>
+  <div class="card"><h3>Оплаты</h3><div class="big">{{ f.payments|numfmt }}</div><span class="badge na">CR заказ→оплата: {{ '%.1f'|format(f.cr_order_pay or 0) }}%</span></div>
+  <div class="card"><h3>Сумма оплат (accepted)</h3><div class="big">{{ f.orders_sum|numfmt }} ₽</div></div>
+  <div class="card"><h3>Новички / старички</h3><div class="big">{{ f.by_customer.get('new', 0) }} / {{ f.by_customer.get('returning', 0) }}</div></div>
+  <div class="card"><h3>Входящие / исходящие</h3><div class="big">{{ f.by_direction.get('incoming', 0) }} / {{ f.by_direction.get('outgoing', 0) }}</div></div>
+</div>
+
+<h2>Воронка</h2>
+<div class="funnel">
+  <div class="fstage" style="width:100%"><span>Регистрации</span><b>{{ f.registrations|numfmt }}</b></div>
+  {% if f.registrations %}
+  <div class="fconv">↓ CR рег→заказ: {{ '%.1f'|format(f.cr_reg_order or 0) }}%</div>
+  {% endif %}
+  <div class="fstage" style="width:{{ [((f.orders or 0) / (f.registrations or 1) * 100)|round, 6]|max if f.registrations else 6 }}%"><span>Заказы</span><b>{{ f.orders|numfmt }}</b></div>
+  {% if f.orders %}
+  <div class="fconv">↓ CR заказ→оплата: {{ '%.1f'|format(f.cr_order_pay or 0) }}%</div>
+  {% endif %}
+  <div class="fstage" style="width:{{ [((f.payments or 0) / (f.registrations or 1) * 100)|round, 6]|max if f.registrations else 6 }}%"><span>Оплаты</span><b>{{ f.payments|numfmt }}</b></div>
+</div>
+<p class="muted">Ширина полос = доля от регистраций (визуальная воронка, не суммирование разных сущностей).</p>
+
+<div class="chart-box"><canvas id="gcChart"></canvas></div>
+<script>
+new Chart(document.getElementById('gcChart'), {
+  type: 'bar',
+  data: { labels: {{ chart.labels|tojson }},
+    datasets: [
+      { label: 'Заказы', data: {{ chart.orders|tojson }}, backgroundColor: '#4f8cff88' },
+      { label: 'Оплаты', data: {{ chart.payments|tojson }}, backgroundColor: '#3ddc8488' },
+      { type: 'line', label: 'Сумма оплат, ₽', data: {{ chart.sums|tojson }}, yAxisID: 'y1', tension: .3 }
+    ]},
+  options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true }, y1: { position: 'right', grid: { drawOnChartArea: false } } } }
+});
+</script>
+
+{% if cohorts %}
+<h2>🔄 Удержание новичков (когорты)</h2>
+<div class="tbl-wrap"><table class="tbl">
+<tr><th>Месяц первого заказа</th><th>Новичков</th><th>Повторили в 30 дней</th><th>% удержания</th></tr>
+{% for c in cohorts %}
+<tr><td>{{ c.month }}</td><td>{{ c.new|numfmt }}</td><td>{{ c.repeated|numfmt }}</td>
+<td>{% if c.pct is not none %}<span class="cellbar"><i style="width: {{ [c.pct * 2, 100]|min|int }}%"></i><span>{{ '%.1f'|format(c.pct) }}%</span></span>{% else %}—{% endif %}</td></tr>
+{% endfor %}
+</table></div>
+<p class="muted">Новичок = первый заказ контакта в этом месяце; удержание = оформил ещё заказ в течение 30 дней.</p>
+{% endif %}
+
+<h2>Последние заказы</h2>
+<div class="tbl-wrap">
+<table class="tbl orders-table">
+<colgroup>
+  <col style="width:9%"><col style="width:22%"><col style="width:12%">
+  <col style="width:13%"><col style="width:18%"><col style="width:8%">
+  <col style="width:9%"><col style="width:9%">
+</colgroup>
+<thead>
+<tr>
+  <th>Дата</th><th>Продукт</th><th>Сумма</th><th>Статус</th>
+  <th>Клиент</th><th>Напр.</th><th>Тип</th><th>UTM</th>
+</tr>
+</thead>
+<tbody>
+{% for o in recent_orders %}
+<tr>
+  <td>{{ o.date }}</td>
+  <td class="wrap">{{ o.product or '—' }}</td>
+  <td class="num">{{ o.amount|numfmt }}</td>
+  <td class="wrap">{{ o.status_title or o.status or '—' }}</td>
+  <td class="wrap">{{ o.email or '—' }}</td>
+  <td>{{ {'i':'вх.','o':'исх.'}.get((o.direction or '')[:1], '—') }}</td>
+  <td>{{ {'n':'нов.','r':'стар.'}.get((o.customer_status or '')[:1], '—') }}</td>
+  <td>{{ o.utm_source or '—' }}</td>
+</tr>
+{% else %}<tr><td colspan="8" class="muted" style="text-align:center; padding:24px;">Заказов пока нет</td></tr>{% endfor %}
+</tbody>
+</table>
+</div>
+
+<div style="display:flex; gap:20px; flex-wrap:wrap;">
+<div style="flex:1; min-width:340px;">
+<h2>Статусы заказов</h2>
+<div class="tbl-wrap"><table class="tbl">
+<tr><th>Статус</th><th>Кол-во</th></tr>
+{% for s, n in f.by_status.items() %}<tr><td>{{ s }}</td><td>{{ n }}</td></tr>{% endfor %}
+</table></div>
+</div>
+<div style="flex:1; min-width:340px;">
+<h2>Топ товаров</h2>
+<div class="tbl-wrap"><table class="tbl">
+<tr><th>Продукт</th><th>Заказов</th><th>Сумма</th></tr>
+{% for p, n, s in f.top_products %}<tr><td>{{ p or '—' }}</td><td>{{ n }}</td><td>{{ '{:,.0f}'.format(s) }}</td></tr>{% endfor %}
+</table></div>
+</div>
+</div>
+
+<h2>Заказы по источникам (UTM)</h2>
+<div class="tbl-wrap"><table class="tbl">
+<tr><th>UTM source</th><th>Заказов</th><th>Сумма</th><th>Направление</th></tr>
+{% for s, n, sum_ in f.top_sources %}
+<tr><td>{{ s or '(без utm — исходящие)' }}</td><td>{{ n }}</td><td>{{ '{:,.0f}'.format(sum_) }}</td>
+<td>{{ 'входящая' if s else 'исходящая' }}</td></tr>
+{% endfor %}
+</table></div>
+
+<h2>Последние синхронизации</h2>
+<div class="tbl-wrap"><table class="tbl">
+<tr><th>Когда</th><th>Статус</th><th>Детали</th></tr>
+{% for l in logs %}<tr><td>{{ l.started_at }}</td><td>{{ l.status }}</td><td>{{ l.details or '' }}</td></tr>
+{% else %}<tr><td colspan="3">Синхронизаций ещё не было.</td></tr>{% endfor %}
+</table></div>
+
+<p class="muted">Правила: «входящая» = заказ с заполненным utm_source (пришёл из трафика), «исходящая» = без метки (менеджер/рассылка). «Новичок» = первый заказ контакта в истории ГК, «старичок» = повторный. Вся история изменений хранится в таблице gc_events.</p>
+{% endblock %}

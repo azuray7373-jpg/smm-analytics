@@ -245,12 +245,62 @@ def overview():
          "breakdown": breakdown("inter"), "formula": "лайки + комментарии + сохранения + репосты + реакции"},
     ]
 
+    # Данные для улучшенных графиков
+    # 1. Stacked area: охват по каналам по дням
+    from sqlalchemy import func as _f
+    ch_ids = [ch.id for ch in active_channels]
+    ch_names = {ch.id: ch.name for ch in active_channels}
+    days_list = []
+    cur = d[0]
+    from datetime import timedelta as _td2
+    while cur <= d[1]:
+        days_list.append(cur.isoformat())
+        cur += _td2(days=1)
+    reach_rows = (db.session.query(
+        MetricSnapshot.channel_id,
+        _f.date(MetricSnapshot.date),
+        _f.sum(MetricSnapshot.value))
+        .filter(MetricSnapshot.date >= d[0], MetricSnapshot.date <= d[1],
+                MetricSnapshot.metric == "reach", MetricSnapshot.value.isnot(None),
+                MetricSnapshot.channel_id.in_(ch_ids))
+        .group_by(MetricSnapshot.channel_id, _f.date(MetricSnapshot.date)).all())
+    reach_map = {}
+    for cid, dt_, val in reach_rows:
+        reach_map.setdefault(ch_names.get(cid, "?"), {})[str(dt_)] = val
+    stacked_chart = {"labels": days_list,
+                     "series": {name: [vals.get(x, 0) for x in days_list]
+                                for name, vals in reach_map.items()}}
+
+    # 2. Doughnut: доля регистраций по источникам
+    import utm as utm_mod2
+    br = utm_mod2.breakdown(d[0], d[1])
+    source_chart = [{"label": s, "value": v["regs"]}
+                    for s, v in sorted(br.get("by_source", {}).items(),
+                                       key=lambda x: -x[1]["regs"])[:8] if v["regs"] > 0]
+
+    # 3. Bar: регистрации по дням с накоплением
+    reg_rows = (db.session.query(Registration.date, Registration.utm_source,
+                                 _f.sum(Registration.count))
+                .filter(Registration.date >= d[0], Registration.date <= d[1],
+                        Registration.status == "OK",
+                        ~Registration.utm_source.like("demo_%"))
+                .group_by(Registration.date, Registration.utm_source).all())
+    reg_map = {}
+    for dt_, src, val in reg_rows:
+        src_key = src if src in ("insta-alexey", "telegram", "vkontakte", "youtube", "max", "tiktok") else "прочее"
+        reg_map.setdefault(src_key, {})[str(dt_)] = val
+    reg_chart = {"labels": days_list,
+                 "series": {s: [vals.get(x, 0) for x in days_list]
+                            for s, vals in reg_map.items()}}
+
     return render_template("overview.html", p=p, period=d, chart=chart,
                            report=_latest_report("weekly"),
                            trends=calc.weekly_series(8),
                            growth=calc.growth_points(*d),
                            forecast=calc.month_forecast(),
-                           kpi_cards=kpi_cards, channels=active_channels)
+                           kpi_cards=kpi_cards, channels=active_channels,
+                           stacked_chart=stacked_chart, source_chart=source_chart,
+                           reg_chart=reg_chart)
 
 
 @app.route("/comments")
@@ -1783,8 +1833,11 @@ def logout():
 
 @app.before_request
 def _auth_guard():
-    """Закрываем интерфейс паролем; API защищены собственными токенами."""
-    pw = get_setting("app_password") or os.environ.get("APP_PASSWORD", "")
+    """Закрываем интерфейс паролем; при ошибке БД пропускаем (автовосстановление)."""
+    try:
+        pw = get_setting("app_password") or os.environ.get("APP_PASSWORD", "")
+    except Exception:
+        pw = os.environ.get("APP_PASSWORD", "")
     if not pw or session.get("authed"):
         return None
     if request.path.startswith(("/login", "/api/", "/static/", "/cron")):
@@ -1852,6 +1905,19 @@ with app.app_context():
             pass
     db.session.commit()
     # SQLite: WAL — чтение не блокируется записью (релеи пишут, дашборд читает)
+    # Автоочистка: gc_events хранит полные JSON — самая тяжёлая таблица.
+    # Оставляем только последние 6 часов, остальное удаляем.
+    try:
+        from db import GcEvent
+        from datetime import datetime as _dtm, timedelta as _tdm
+        cutoff = _dtm.utcnow() - _tdm(hours=6)
+        old_events = GcEvent.query.filter(GcEvent.synced_at < cutoff).count()
+        if old_events > 100:
+            GcEvent.query.filter(GcEvent.synced_at < cutoff).delete()
+            db.session.commit()
+            print(f"cleanup: removed {old_events} old gc_events")
+    except Exception:
+        pass
     try:
         db.session.execute(_text("PRAGMA journal_mode=WAL"))
         db.session.execute(_text("PRAGMA busy_timeout=15000"))

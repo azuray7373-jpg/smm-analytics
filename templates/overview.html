@@ -76,11 +76,26 @@
 
 <div class="section-grid">
   <div class="section-item">
-    <h2>Динамика по дням</h2>
+    <h2>Охват по каналам (слоями)</h2>
+    <div class="chart-box"><canvas id="stackedChart"></canvas></div>
+  </div>
+  <div class="section-item">
+    <h2>Регистрации по источникам</h2>
+    <div class="chart-box"><canvas id="regStackedChart"></canvas></div>
+  </div>
+</div>
+
+<div class="section-grid">
+  <div class="section-item" style="max-width:350px;">
+    <h2>Доля регистраций по источникам</h2>
+    <div class="chart-box"><canvas id="sourceDoughnut"></canvas></div>
+  </div>
+  <div class="section-item">
+    <h2>Общая динамика</h2>
     <div class="chart-box"><canvas id="chart"></canvas></div>
   </div>
   <div class="section-item">
-    <h2>Тренды (8 недель)</h2>
+    <h2>Тренды ERR и CV (8 недель)</h2>
     <div class="chart-box sm"><canvas id="trendChart"></canvas></div>
   </div>
 </div>
@@ -192,7 +207,7 @@
 .forecast-hint { margin-left: auto; color: var(--txt-tertiary); font-size: 10px; }
 
 /* ═══ Section Grid ═══ */
-.section-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 20px 0; }
+.section-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 20px 0; align-items: start; }
 .section-item { min-width: 0; }
 
 /* ═══ Growth ═══ */
@@ -216,7 +231,7 @@
   .kpi-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
   .kpi-card { padding: 12px; }
   .kpi-value { font-size: 20px; }
-  .section-grid { grid-template-columns: 1fr; }
+  .section-grid { grid-template-columns: 1fr !important; }
   .forecast-bar { font-size: 10px; padding: 8px 10px; gap: 4px 10px; }
 }
 </style>
@@ -241,6 +256,70 @@ if (window.Chart) {
   Chart.defaults.plugins.tooltip.titleFont = {size: 11, weight: '600'};
   Chart.defaults.plugins.tooltip.bodyFont = {size: 11};
 }
+// 1. Stacked area: охват по каналам
+const stackedLabels = {{ stacked_chart.labels|tojson }};
+const stackedSeries = {{ stacked_chart.series|tojson }};
+const palette = ['#4a9eff','#a78bfa','#22d3ee','#f472b6','#fbbf24','#34d399','#f87171','#818cf8','#fb923c','#2dd4bf','#c084fc'];
+const stackedDatasets = Object.entries(stackedSeries).map(([name, data], i) => ({
+  label: name, data: data, fill: true,
+  backgroundColor: palette[i % palette.length] + '30',
+  borderColor: palette[i % palette.length],
+  borderWidth: 1.5, pointRadius: 0, tension: .3
+}));
+new Chart(document.getElementById('stackedChart'), {
+  type: 'line',
+  data: { labels: stackedLabels, datasets: stackedDatasets },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    interaction: { intersect: false, mode: 'index' },
+    plugins: { tooltip: { callbacks: { footer: (items) => 'Всего: ' + items.reduce((s,i) => s + (i.parsed.y || 0), 0).toLocaleString('ru') } } },
+    scales: { y: { stacked: true, grid: { color: 'rgba(255,255,255,.03)' } } }
+  }
+});
+
+// 2. Stacked bar: регистрации по источникам
+const regLabels = {{ reg_chart.labels|tojson }};
+const regSeries = {{ reg_chart.series|tojson }};
+const regDatasets = Object.entries(regSeries).map(([name, data], i) => ({
+  label: name, data: data,
+  backgroundColor: palette[i % palette.length] + '70',
+  borderWidth: 0
+}));
+new Chart(document.getElementById('regStackedChart'), {
+  type: 'bar',
+  data: { labels: regLabels, datasets: regDatasets },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    interaction: { intersect: false, mode: 'index' },
+    scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }
+  }
+});
+
+// 3. Doughnut: доля регистраций
+const sourceData = {{ source_chart|tojson }};
+new Chart(document.getElementById('sourceDoughnut'), {
+  type: 'doughnut',
+  data: {
+    labels: sourceData.map(s => s.label),
+    datasets: [{ data: sourceData.map(s => s.value),
+                 backgroundColor: sourceData.map((_, i) => palette[i % palette.length]),
+                 borderWidth: 2, borderColor: '#0a0e14' }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    cutout: '65%',
+    plugins: {
+      legend: { position: 'right', labels: { boxWidth: 8, padding: 6, font: { size: 10 } } },
+      tooltip: { callbacks: { label: (c) => {
+        const total = c.dataset.data.reduce((a,b) => a + b, 0);
+        const pct = total ? (c.parsed / total * 100).toFixed(1) : 0;
+        return c.label + ': ' + c.parsed.toLocaleString('ru') + ' (' + pct + '%)';
+      }}}
+    }
+  }
+});
+
+// 4. Общая динамика (line)
 new Chart(document.getElementById('chart'), {
   type: 'line',
   data: { labels: {{ chart.labels|tojson }},
@@ -258,6 +337,7 @@ new Chart(document.getElementById('chart'), {
     }
   }
 });
+// 5. Тренды
 new Chart(document.getElementById('trendChart'), {
   type: 'line',
   data: { labels: {{ trends|map(attribute='label')|list|tojson }},

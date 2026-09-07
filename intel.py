@@ -264,3 +264,112 @@ def team_brief():
     brief["actions"].append("Сгенерировать AI-контент-план на следующую неделю")
 
     return brief
+
+
+# ═════════════════════════════════════════════════
+# 6. POSTING HEATMAP (7 дней × 24 часа)
+# ═════════════════════════════════════════════════
+
+def posting_heatmap(days=30):
+    """Тепловая карта: средний охват по дню недели × часу публикации."""
+    from db import ContentItem, ContentStat
+    from sqlalchemy import func as _f
+    items = (db.session.query(
+        ContentItem, ContentStat.reach)
+        .join(ContentStat, ContentStat.content_id == ContentItem.id)
+        .filter(ContentStat.date >= date.today() - timedelta(days=days),
+                ContentStat.reach.isnot(None),
+                ContentItem.published_at.isnot(None)).all())
+    grid = [[0] * 24 for _ in range(7)]  # 7 дней × 24 часа
+    counts = [[0] * 24 for _ in range(7)]
+    for ci, reach in items:
+        pt = ci.published_at
+        grid[pt.weekday()][pt.hour] += reach or 0
+        counts[pt.weekday()][pt.hour] += 1
+    # средний охват
+    for d in range(7):
+        for h in range(24):
+            grid[d][h] = round(grid[d][h] / counts[d][h]) if counts[d][h] else 0
+    # нормализация 0-100 для цвета
+    mx = max(max(row) for row in grid) or 1
+    heat = [[round(grid[d][h] / mx * 100) if grid[d][h] else 0 for h in range(24)] for d in range(7)]
+    days_ru = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
+    # лучшие слоты
+    slots = []
+    for d in range(7):
+        for h in range(24):
+            if counts[d][h] >= 2:
+                slots.append({"day": days_ru[d], "day_idx": d, "hour": h,
+                              "avg_reach": grid[d][h], "n": counts[d][h]})
+    slots.sort(key=lambda x: -x["avg_reach"])
+    return {"grid": grid, "heat": heat, "days": days_ru,
+            "best_slots": slots[:8], "max": mx}
+
+
+# ═════════════════════════════════════════════════
+# 7. GROWTH RATE (скорость роста аудитории)
+# ═════════════════════════════════════════════════
+
+def growth_rates():
+    """Скорость роста подписчиков по каждому каналу."""
+    from db import MetricSnapshot, Channel
+    from sqlalchemy import func as _f
+    today = date.today()
+    week_ago = today - timedelta(days=7)
+    two_weeks_ago = today - timedelta(days=14)
+    rates = []
+    for ch in Channel.query.filter_by(is_active=True, is_competitor=False).all():
+        def followers_at(dt):
+            snap = (MetricSnapshot.query
+                    .filter_by(channel_id=ch.id, metric="followers")
+                    .filter(MetricSnapshot.date <= dt, MetricSnapshot.value.isnot(None))
+                    .order_by(MetricSnapshot.date.desc())
+                    .first())
+            return snap.value if snap else None
+        cur = followers_at(today)
+        prev = followers_at(week_ago)
+        prev2 = followers_at(two_weeks_ago)
+        if cur is not None and prev:
+            change = cur - prev
+            pct = change / prev * 100
+            prev_change = (prev - prev2) if prev2 else None
+            prev_pct = (prev_change / prev2 * 100) if prev2 and prev_change else None
+            # скорость: подписчиков в день
+            per_day = change / 7
+            rates.append({
+                "name": ch.name, "platform": ch.platform,
+                "followers": cur, "change": change, "pct": round(pct, 2),
+                "per_day": round(per_day, 1),
+                "prev_pct": round(prev_pct, 2) if prev_pct is not None else None,
+                "accelerating": (pct > prev_pct) if prev_pct is not None else None,
+            })
+    rates.sort(key=lambda x: -x["pct"])
+    return rates
+
+
+# ═════════════════════════════════════════════════
+# 8. CONTENT DURATION ANALYSIS
+# ═════════════════════════════════════════════════
+
+def duration_analysis(days=30):
+    """Оптимальная длительность видео: охват и ERR по диапазонам длительности."""
+    items = calc.content_stats_for_period(date.today() - timedelta(days=days), date.today())
+    buckets = {
+        "до 15с": (0, 15), "15-30с": (15, 30), "30-45с": (30, 45),
+        "45-60с": (45, 60), "1-2 мин": (60, 120), "2-5 мин": (120, 300),
+        "5+ мин": (300, 99999),
+    }
+    result = []
+    for label, (lo, hi) in buckets.items():
+        matching = [i for i in items
+                    if i["item"].duration_sec and lo <= i["item"].duration_sec < hi]
+        if not matching:
+            continue
+        reach = sum(i.get("reach") or 0 for i in matching)
+        err_vals = [i["ERR"] for i in matching if i.get("ERR")]
+        result.append({
+            "label": label, "count": len(matching),
+            "avg_reach": round(reach / len(matching)),
+            "avg_err": round(sum(err_vals) / len(err_vals), 2) if err_vals else None,
+        })
+    return result

@@ -116,4 +116,68 @@ async function predict() {
   }
 }
 </script>
+
+<!-- ═══ POSTING HEATMAP ═══ -->
+{% if heatmap and heatmap.max > 0 %}
+<h2>Тепловая карта публикаций</h2>
+<p class="muted">Средний охват по дню недели и часу. Чем ярче — тем выше охват.</p>
+<div class="tbl-wrap" style="padding:12px;">
+<div style="display:grid; grid-template-columns:30px repeat(12,1fr); gap:2px; font-size:9px;">
+<div></div>
+{% for h in [0,2,4,6,8,10,12,14,16,18,20,22] %}
+<div style="text-align:center; color:var(--txt-tertiary);">{{ h }}ч</div>
+{% endfor %}
+{% for d in range(7) %}
+<div style="color:var(--txt-tertiary);">{{ heatmap.days[d] }}</div>
+{% for h in [0,2,4,6,8,10,12,14,16,18,20,22] %}
+<div style="border-radius:2px; aspect-ratio:1.5; background:rgba(74,158,255,{{ (heatmap.heat[d][h] / 100 * 0.8)|round(2) }});"
+     title="{{ heatmap.days[d] }} {{ h }}:00 — ср. охват {{ heatmap.grid[d][h] }}"></div>
+{% endfor %}
+{% endfor %}
+</div>
+</div>
+{% if heatmap.best_slots %}
+<div style="display:flex; flex-wrap:wrap; gap:6px; margin:10px 0;">
+{% for s in heatmap.best_slots[:5] %}
+<span class="chip">{{ s.day }} {{ s.hour }}:00 — {{ s.avg_reach|numfmt }}</span>
+{% endfor %}
+</div>
+{% endif %}
+{% endif %}
+
+{% if growth %}
+<h2>Скорость роста аудитории</h2>
+<div class="tbl-wrap">
+<table class="tbl">
+<thead><tr><th>Канал</th><th>Подписчики</th><th>За неделю</th><th>В день</th><th>Тренд</th></tr></thead>
+<tbody>
+{% for g in growth %}
+<tr>
+<td class="wrap">{{ g.name }}</td>
+<td class="num">{{ g.followers|numfmt }}</td>
+<td class="num">{{ '%+d'|format(g.change) }}</td>
+<td class="num">{{ '%+.1f'|format(g.per_day) }}/д</td>
+<td>{% if g.accelerating is not none %}{{ 'ускоряется' if g.accelerating else 'замедляется' }}{% else %}—{% endif %}</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+{% endif %}
+
+{% if duration %}
+<h2>Длительность контента</h2>
+<div class="tbl-wrap">
+<table class="tbl">
+<thead><tr><th>Длительность</th><th>Материалов</th><th>Ср. охват</th><th>Ср. ERR</th></tr></thead>
+<tbody>
+{% for d in duration %}
+<tr><td>{{ d.label }}</td><td>{{ d.count }}</td>
+<td class="num">{{ d.avg_reach|numfmt }}</td>
+<td class="num">{{ d.avg_err or '—' }}</td></tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+{% endif %}
 {% endblock %}

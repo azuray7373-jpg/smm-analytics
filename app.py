@@ -1417,8 +1417,12 @@ def intel_screen():
     scored = intel.score_all_content(30)
     trends = intel.trend_radar(8)
     brief = intel.team_brief()
+    heatmap = intel.posting_heatmap(30)
+    growth = intel.growth_rates()
+    duration = intel.duration_analysis(30)
     return render_template("intel.html", scored=scored[:20], trends=trends,
-                           brief=brief, period=calc.week_bounds(date.today()))
+                           brief=brief, period=calc.week_bounds(date.today()),
+                           heatmap=heatmap, growth=growth, duration=duration)
 
 
 @app.route("/intel/predict", methods=["POST"])

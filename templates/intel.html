@@ -26,20 +26,20 @@
 
 <!-- ═══ WEEKLY TEAM BRIEF ═══ -->
 <h2>📋 Team Brief (для планёрки)</h2>
-<div class="cards">
-  <div class="card" style="min-width:280px;">
-    <h3>🏆 Победы недели</h3>
-    {% for w in brief.wins %}<p style="font-size:13px; margin:6px 0;">• {{ w }}</p>{% endfor %}
+<div style="display:flex; gap:12px; flex-wrap:wrap; margin:14px 0;">
+  <div style="flex:1; min-width:220px; max-width:400px; background:var(--bg-elevated); border:1px solid var(--border); border-left:3px solid var(--success); border-radius:10px; padding:14px 16px;">
+    <h3 style="color:var(--success); margin-bottom:8px;">🏆 Победы недели</h3>
+    {% for w in brief.wins %}<p style="font-size:13px; margin:4px 0; line-height:1.4;">• {{ w }}</p>{% endfor %}
     {% if not brief.wins %}<p class="muted">Пока пусто</p>{% endif %}
   </div>
-  <div class="card" style="min-width:280px;">
-    <h3>⚠️ Проблемы</h3>
-    {% for p in brief.problems %}<p style="font-size:13px; margin:6px 0; color:var(--red);">• {{ p }}</p>{% endfor %}
+  <div style="flex:1; min-width:220px; max-width:400px; background:var(--bg-elevated); border:1px solid var(--border); border-left:3px solid var(--danger); border-radius:10px; padding:14px 16px;">
+    <h3 style="color:var(--danger); margin-bottom:8px;">⚠️ Проблемы</h3>
+    {% for p in brief.problems %}<p style="font-size:13px; margin:4px 0; line-height:1.4;">• {{ p }}</p>{% endfor %}
     {% if not brief.problems %}<p class="muted">Проблем не обнаружено</p>{% endif %}
   </div>
-  <div class="card" style="min-width:280px;">
-    <h3>🎯 Действия</h3>
-    {% for a in brief.actions %}<p style="font-size:13px; margin:6px 0;">→ {{ a }}</p>{% endfor %}
+  <div style="flex:1; min-width:220px; max-width:400px; background:var(--bg-elevated); border:1px solid var(--border); border-left:3px solid var(--accent); border-radius:10px; padding:14px 16px;">
+    <h3 style="color:var(--accent); margin-bottom:8px;">🎯 Действия</h3>
+    {% for a in brief.actions %}<p style="font-size:13px; margin:4px 0; line-height:1.4;">→ {{ a }}</p>{% endfor %}
   </div>
 </div>
 

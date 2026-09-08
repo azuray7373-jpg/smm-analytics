@@ -6,7 +6,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, jso
 from db import db, Channel, MetricSnapshot, ContentItem, ContentStat, Registration, \
     ManualNote, Report, Notification, Setting, RunLog, get_setting, set_setting, \
     Comment, GcOrder, GcPayment, Spend
-import calc, connectors, reports, seed, getcourse, comments as comments_mod, livedune, intel, assistant
+import calc, connectors, reports, seed, getcourse, comments as comments_mod, livedune, intel, assistant, insights
 
 IS_SERVERLESS = bool(os.environ.get("VERCEL"))
 
@@ -294,6 +294,8 @@ def overview():
     reg_chart = {"labels": days_list,
                  "series": {s: [vals.get(x, 0) for x in days_list] for s, vals in reg_map.items()}}
 
+    smart_insights = insights.generate_insights()
+
     return render_template("overview.html", p=p, period=d, chart=chart,
                            report=_latest_report("weekly"),
                            trends=calc.weekly_series(8),
@@ -301,7 +303,7 @@ def overview():
                            forecast=calc.month_forecast(),
                            kpi_cards=kpi_cards, channels=active_channels,
                            stacked_chart=stacked_chart, source_chart=source_chart,
-                           reg_chart=reg_chart)
+                           reg_chart=reg_chart, smart_insights=smart_insights)
 
 
 @app.route("/comments")

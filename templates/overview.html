@@ -79,6 +79,23 @@
   </div>
 </div>
 
+{% if smart_insights %}
+<h2>Smart Insights</h2>
+<div style="display:flex; flex-wrap:wrap; gap:10px; margin:12px 0;">
+  {% for ins in smart_insights %}
+  <div style="flex:1; min-width:240px; max-width:380px; background:var(--bg-card); border:1px solid var(--border); border-radius:10px; padding:14px 16px;
+       border-left:3px solid {{ 'var(--red)' if ins.priority == 'high' else 'var(--amb)' if ins.priority == 'medium' else 'var(--acc)' }};">
+    <div style="font:700 10px/1 'Inter',sans-serif; text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px;
+         color:{{ 'var(--red)' if ins.priority == 'high' else 'var(--amb)' if ins.priority == 'medium' else 'var(--acc)' }};">
+      {{ {'schedule':'⏰ Расписание','content':'📝 Контент','channel':'📡 Канал','utm':'🔗 UTM','audience':'👥 Аудитория','money':'💰 ROI'}[ins.type] }}
+    </div>
+    <div style="font:600 13px/1.3 'Inter',sans-serif; margin-bottom:4px;">{{ ins.title }}</div>
+    <div style="font-size:12px; color:var(--txt2);">{{ ins.text }}</div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
 {% if growth %}
 <h2>Точки роста</h2>
 <div class="growth-grid">

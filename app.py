@@ -1924,7 +1924,7 @@ with app.app_context():
         pass
     try:
         db.session.execute(_text("PRAGMA journal_mode=WAL"))
-        db.session.execute(_text("PRAGMA busy_timeout=15000"))
+        db.session.execute(_text("PRAGMA busy_timeout=30000"))
         db.session.execute(_text("PRAGMA synchronous=NORMAL"))
         db.session.commit()
     except Exception:
@@ -1933,15 +1933,7 @@ with app.app_context():
     import os as _os
     if _os.environ.get("GC_API_KEY") and not get_setting("gc_api_key"):
         set_setting("gc_api_key", _os.environ["GC_API_KEY"])
-    # одноразовая миграция: демо-регистрации старого сида помечаем demo_
-    if MetricSnapshot.query.filter_by(source="demo").first() and not get_setting("demo_regfix"):
-        from db import Registration as _R
-        _R.query.filter(_R.gc_user_id.is_(None),
-                        ~_R.utm_source.like("demo_%")).update(
-            {_R.utm_source: "demo_" + _R.utm_source}, synchronize_session=False)
-        db.session.commit()
-        set_setting("demo_regfix", "1")
-        db.session.commit()
+    # миграция demo_regfix удалена (БД пересоздаётся с нуля)
     if _os.environ.get("YOUTUBE_API_KEY") and not get_setting("youtube_api_key"):
         set_setting("youtube_api_key", _os.environ["YOUTUBE_API_KEY"])
     if _os.environ.get("APP_PASSWORD") and not get_setting("app_password"):

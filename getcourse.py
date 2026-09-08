@@ -192,8 +192,10 @@ def _direction(utm_source):
 # --------- синхронизация ---------
 
 def _log_event(entity, entity_id, payload):
+    # ВАЖНО: не храним полный JSON — только факт события.
+    # Полные payload-ы раздували БД до сотен МБ и переполняли диск.
     db.session.add(GcEvent(entity=entity, entity_id=str(entity_id),
-                           payload=json.dumps(payload, ensure_ascii=False)))
+                           payload=""))
 
 
 # -*- coding: utf-8 -*-

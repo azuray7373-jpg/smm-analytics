@@ -1308,7 +1308,7 @@ def gc_webhook():
                 reg.utm_campaign = str(_val("utm_campaign") or "")[:128]
                 reg.landing = str(_val("landing", "page_url") or "")[:255]
                 reg.status = "OK"
-                getcourse._log_event("user", uid, dict(args))
+                getcourse._log_event("user", uid, "")
         elif t == "deal":
             did = int(float(_val("deal_id", "gc_id", "id") or 0))
             if did:
@@ -1328,7 +1328,7 @@ def gc_webhook():
                 o.utm_campaign = str(_val("utm_campaign") or "")[:128]
                 o.direction = getcourse._direction(o.utm_source)
                 o.updated_at = datetime.utcnow()
-                getcourse._log_event("deal", did, dict(args))
+                getcourse._log_event("deal", did, "")
                 getcourse._recompute_customer_status()
         elif t == "payment":
             pid = int(float(_val("payment_id", "gc_id", "id") or 0))
@@ -1344,7 +1344,7 @@ def gc_webhook():
                 p.deal_id = getcourse._num(_val("deal_id"))
                 p.product = str(_val("product") or "")[:255]
                 p.updated_at = datetime.utcnow()
-                getcourse._log_event("payment", pid, dict(args))
+                getcourse._log_event("payment", pid, "")
         else:
             return jsonify({"error": "unknown type"}), 400
         db.session.commit()
@@ -1917,10 +1917,9 @@ with app.app_context():
         from datetime import datetime as _dtm, timedelta as _tdm
         cutoff = _dtm.utcnow() - _tdm(hours=6)
         old_events = GcEvent.query.filter(GcEvent.synced_at < cutoff).count()
-        if old_events > 100:
+        if old_events > 0:
             GcEvent.query.filter(GcEvent.synced_at < cutoff).delete()
             db.session.commit()
-            print(f"cleanup: removed {old_events} old gc_events")
     except Exception:
         pass
     try:

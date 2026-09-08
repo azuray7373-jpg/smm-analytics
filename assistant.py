@@ -130,9 +130,26 @@ SUGGESTIONS = [
 ]
 
 
+def _normalize(text):
+    """Нормализация текста: исправление кодировки, lowercase, strip."""
+    if not text:
+        return ""
+    # Если bytes — декодируем как UTF-8 с fallback
+    if isinstance(text, bytes):
+        try:
+            text = text.decode("utf-8")
+        except UnicodeDecodeError:
+            try:
+                text = text.decode("cp1251")
+            except Exception:
+                text = text.decode("utf-8", errors="replace")
+    return text.lower().strip()
+
+
 def ask(question):
     """Умный ответ с конкретными данными по каналу."""
-    if not question.strip():
+    question = _normalize(question)
+    if not question:
         return {"answer": "Задайте вопрос."}
 
     ctx = _get_context()
@@ -318,6 +335,17 @@ def _smart_answer(question, ctx):
             L.append(f"4. Пересмотреть «{by_err[-1]['name']}» — ERR {by_err[-1]['err']:.2f}%.")
 
     # === Общий ===
+    # Транслит для надёжности (если кириллица не распозналась)
+    elif any(x in q for x in ("kanal", "channel", "worst", "best", "top")):
+        if by_err:
+            worst = by_err[-1]
+            L.append(f"Худший: «{worst['name']}» (ERR {worst['err'] or 0:.2f}%).")
+        if by_reach:
+            L.append(f"Лучший: «{by_reach[0]['name']}» ({_fmt(by_reach[0]['reach'])}).")
+
+    elif any(x in q for x in ("reg", "registr", "lead")):
+        L.append(f"Регистрации: {w.get('regs', 0):.0f}.")
+
     else:
         L.append(f"Ключевые цифры за неделю:")
         L.append(f"  Охват: {_fmt(w.get('reach'))}")

@@ -47,18 +47,31 @@ def ask(question):
     if not question.strip():
         return {"answer": "Задайте вопрос."}
 
-    cached = get_cached_answer(question)
-    if cached:
-        return {"answer": cached, "source": "llm_cache"}
+    try:
+        cached = get_cached_answer(question)
+        if cached:
+            return {"answer": cached, "source": "llm_cache"}
+    except Exception:
+        pass
 
-    ctx = _build_context()
-    prompt = "Данные: " + json.dumps(ctx, ensure_ascii=False, default=str) + " Вопрос: " + question
-    answer = ai_analyst._call_llm(_system_prompt(), prompt)
-    if answer:
-        return {"answer": answer, "source": "llm_direct"}
+    try:
+        ctx = _build_context()
+    except Exception as e:
+        return {"answer": "Извините, база данных сейчас занята (идёт синхронизация). Попробуйте через минуту."}
 
-    answer = _smart_answer(question, ctx)
-    return {"answer": answer, "source": "smart_fallback"}
+    try:
+        prompt = "Данные: " + json.dumps(ctx, ensure_ascii=False, default=str) + " Вопрос: " + question
+        answer = ai_analyst._call_llm(_system_prompt(), prompt)
+        if answer:
+            return {"answer": answer, "source": "llm_direct"}
+    except Exception:
+        pass
+
+    try:
+        answer = _smart_answer(question, ctx)
+        return {"answer": answer, "source": "smart_fallback"}
+    except Exception:
+        return {"answer": "Данные загружаются. Попробуйте спросить через минуту."}
 
 
 def _system_prompt():
@@ -72,14 +85,20 @@ def _build_context():
     today = date.today()
     w_s = today - timedelta(days=6)
     m_s = today - timedelta(days=29)
-    p7 = calc.period_report(w_s, today)
-    p30 = calc.period_report(m_s, today)
+    try:
+        p7 = calc.period_report(w_s, today)
+        p30 = calc.period_report(m_s, today)
+    except Exception:
+        return {"week": {}, "month": {}, "channels": []}
     channels = []
-    for ch in Channel.query.filter_by(is_active=True, is_competitor=False).all():
-        p = calc.period_report(w_s, today, ch.id)
-        channels.append({"name": ch.name, "platform": ch.platform,
-                         "reach": p["agg"].get("reach"), "err": p["ind"].get("ERR"),
-                         "regs": p["registrations"]})
+    try:
+        for ch in Channel.query.filter_by(is_active=True, is_competitor=False).all():
+            p = calc.period_report(w_s, today, ch.id)
+            channels.append({"name": ch.name, "platform": ch.platform,
+                             "reach": p["agg"].get("reach"), "err": p["ind"].get("ERR"),
+                             "regs": p["registrations"]})
+    except Exception:
+        pass
     ctx = {
         "week": {"reach": p7["agg"].get("reach"), "regs": p7["registrations"],
                  "err": p7["ind"].get("ERR"), "cv": p7["ind"].get("CV_reach")},

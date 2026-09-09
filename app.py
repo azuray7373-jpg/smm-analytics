@@ -1103,9 +1103,18 @@ def livedune_sync():
 
 @app.route("/collect", methods=["POST"])
 def collect():
-    schedule_rewarm()
-    results = connectors.run_daily_collection()
-    flash("Сбор данных выполнен: " + "; ".join(results))
+    if _bg_busy.get("collect"):
+        flash("Сбор уже выполняется — дождитесь завершения (уведомление придёт в 🔔).")
+        return redirect(request.referrer or url_for("overview"))
+
+    def _job():
+        results = connectors.run_daily_collection()
+        db.session.add(Notification(level="ok",
+            message="Сбор данных выполнен: " + "; ".join(results)[:500]))
+        db.session.commit()
+        schedule_rewarm(delay=5)
+    run_in_background("collect", _job,
+                      "Сбор данных запущен в фоне (~1–2 минуты) — результат придёт в 🔔 уведомления.")
     return redirect(request.referrer or url_for("overview"))
 
 

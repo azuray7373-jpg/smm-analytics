@@ -25,6 +25,7 @@ def check(name, cond, detail=""):
 with app.app_context():
     set_setting("livedune_token", "aa6964995af11b08.12027558")
     set_setting("ingest_token", "test123")
+    set_setting("app_password", "testpass")
     db.session.commit()
     livedune.ingest_packet(livedune.collect_packet(days=7))
     connectors.run_daily_collection()

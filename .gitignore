@@ -8,3 +8,4 @@ server.log
 export_*.json
 gm.json
 models.json
+.pa_token

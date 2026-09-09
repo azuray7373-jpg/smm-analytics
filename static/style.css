@@ -161,7 +161,7 @@ main { padding:12px 20px 40px; max-width:1480px; margin:0 auto; width:100%; over
   transition:border-color .18s, transform .12s;
   position:relative; overflow:hidden;
 }
-.kpi-card::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(99,102,241,.2),transparent); opacity:0; transition:opacity .2s; }
+.kpi-card::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(99,102,241,.2),transparent); opacity:0; transition:opacity .2s; pointer-events:none; }
 .kpi-card:hover { border-color:var(--border-md); }
 .kpi-card:hover::before { opacity:1; }
 .kpi-card:active { transform:scale(.985); }
@@ -297,7 +297,7 @@ label.mini { display:inline-block; width:100px; }
   padding:6px 22px 18px; margin:12px 0;
   position:relative; overflow:hidden;
 }
-.aireport::before { content:''; position:absolute; left:0; top:0; bottom:0; width:2px; background:var(--accent-gradient); opacity:.6; }
+.aireport::before { content:''; position:absolute; left:0; top:0; bottom:0; width:2px; background:var(--accent-gradient); opacity:.6; pointer-events:none; }
 .aireport h3 { color:var(--txt); font:700 14px/1.3 var(--font); margin:16px 0 4px; text-transform:none; letter-spacing:-.02em; }
 .aireport h4 { color:var(--accent); font:700 10px/1.3 var(--font); margin:14px 0 4px; text-transform:uppercase; letter-spacing:.08em; }
 .aireport p { margin:4px 0; color:var(--txt-2); font-size:12.5px; line-height:1.6; }
@@ -357,7 +357,7 @@ li.warn { color:var(--warning); } li.error { color:var(--danger); }
   padding:20px 28px; margin:12px 0;
   position:relative; overflow:hidden;
 }
-.hero::before { content:''; position:absolute; inset:0; background:radial-gradient(ellipse 60% 80% at 80% -10%,rgba(99,102,241,.06),transparent); }
+.hero::before { content:''; position:absolute; inset:0; background:radial-gradient(ellipse 60% 80% at 80% -10%,rgba(99,102,241,.06),transparent); pointer-events:none; }
 .hero h1 { margin:0; }
 .hero .sub { color:var(--txt-3); font:450 11px/1 var(--font); margin-top:4px; }
 

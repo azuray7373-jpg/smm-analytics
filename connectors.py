@@ -190,6 +190,13 @@ def run_daily_collection():
     run_id = start_run("daily_collect")
     results = [collect_youtube(run_id), mark_missing(run_id)]
     try:
+        import youtube_import
+        yt = youtube_import.import_youtube_videos(20)
+        if yt.get('videos'):
+            results.append(f'youtube videos: {yt["videos"]} imported')
+    except Exception as e:
+        results.append(f'youtube videos: ERROR {str(e)[:60]}')
+    try:
         daily_digest()
     except Exception:
         pass

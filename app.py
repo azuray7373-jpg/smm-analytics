@@ -7,6 +7,7 @@ from db import db, Channel, MetricSnapshot, ContentItem, ContentStat, Registrati
     ManualNote, Report, Notification, Setting, RunLog, get_setting, set_setting, \
     Comment, GcOrder, GcPayment, Spend
 import calc, connectors, reports, seed, getcourse, comments as comments_mod, livedune, intel, assistant, insights
+import youtube_import
 
 IS_SERVERLESS = bool(os.environ.get("VERCEL"))
 

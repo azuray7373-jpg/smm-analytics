@@ -6,11 +6,12 @@ from datetime import date, datetime, timedelta
 from db import db, Channel, MetricSnapshot, ContentItem, ContentStat, Registration, RunLog
 
 CHANNELS = [
-    ("instagram", "Алексей старый", "https://www.instagram.com/alexey_syroer"),
+    ("instagram", "Алексей старый", "https://www.instagram.com/alexey_syrover"),
     ("instagram", "Дина", "https://www.instagram.com/syrover_school"),
     ("instagram", "ВЕНЕРА", "https://www.instagram.com/venera_vaxidova"),
-    ("instagram", "Алексей новый", "https://www.instagram.com/alexeysyroer"),
+    ("instagram", "Алексей новый", "https://www.instagram.com/alexeysyrover"),
     ("youtube", "YouTube", "https://www.youtube.com/@AlexeySyrover"),
+    ("youtube", "YouTube 2", "https://www.youtube.com/channel/UCXxcN92PX4rJG1wzTU7GygQ"),
     ("max", "MAX основной", "https://max.ru/syrover"),
     ("max", "MAX 2", "https://max.ru/id505601899850_biz"),
     ("telegram", "Telegram", "https://t.me/alexeysyrover"),

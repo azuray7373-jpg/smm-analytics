@@ -29,8 +29,9 @@
 <script>
 const chatEl = document.getElementById('chat');
 const inputEl = document.getElementById('chat_input');
+chatEl.scrollTop = chatEl.scrollHeight;
 
-function scrollToBottom() { chatEl.scrollIntoView({behavior:'smooth', block:'end'}); }
+function scrollToBottom() { chatEl.scrollTop = chatEl.scrollHeight; }
 
 function addMsg(role, text) {
   const d = document.createElement('div');

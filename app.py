@@ -230,15 +230,15 @@ def overview():
         return dd["d"] if dd and dd.get("d") is not None else None
 
     kpi_cards = [
+        {"id": "regs", "icon": "📝", "title": "Регистрации", "value": "{:,.0f}".format(p["registrations"]),
+         "delta": delta("registrations"), "sub": "ГЛАВНАЯ МЕТРИКА",
+         "breakdown": breakdown("regs"), "formula": "Из GetCourse по UTM — registrations → продажи"},
         {"id": "reach", "icon": "👁", "title": "Охват", "value": "{:,.0f}".format(p["agg"].get("reach") or 0).replace(",", " "),
          "delta": delta("reach"), "sub": "за период",
          "breakdown": breakdown("reach"), "formula": "Сумма охватов всех публикаций"},
         {"id": "views", "icon": "▶️", "title": "Просмотры", "value": "{:,.0f}".format(p["agg"].get("views") or 0).replace(",", " "),
          "delta": delta("views"), "sub": "все каналы",
          "breakdown": breakdown("views"), "formula": "Показы и просмотры контента"},
-        {"id": "regs", "icon": "📝", "title": "Регистрации", "value": "{:,.0f}".format(p["registrations"]),
-         "delta": delta("registrations"), "sub": "реальные",
-         "breakdown": breakdown("regs"), "formula": "Из GetCourse по UTM"},
         {"id": "err", "icon": "⚡", "title": "ERR", "value": "{:.2f}%".format(p["ind"].get("ERR") or 0),
          "delta": delta("ERR"), "sub": "вовлечённость/охват",
          "breakdown": breakdown("err", "{:.2f}%", min_val=1000), "formula": "Взаимодействия / Охват × 100 (только каналы с охватом 1000+)"},
@@ -432,10 +432,12 @@ def content_screen():
     sort = request.args.get("sort", "reach")
     items.sort(key=lambda x: (x.get(sort) if x.get(sort) is not None else -1), reverse=True)
     if preset == "best":
-        items = sorted([i for i in items if i.get("ERR") is not None],
+        items = sorted([i for i in items if i.get("ERR") is not None and i.get("reach", 0) > 500],
                        key=lambda x: x["ERR"], reverse=True)[:10]
     elif preset == "worst":
-        items = sorted([i for i in items if i.get("ERR") is not None],
+        best_ids = {i["item"].id for i in sorted([i for i in items if i.get("ERR") is not None],
+                      key=lambda x: x["ERR"], reverse=True)[:10]}
+        items = sorted([i for i in items if i.get("ERR") is not None and i["item"].id not in best_ids and i.get("reach", 0) > 500],
                        key=lambda x: x["ERR"])[:10]
     compare_text, best, flop = calc.compare_best_worst(items if not preset else
                                                        calc.content_stats_for_period(*d), "ERR", 10)

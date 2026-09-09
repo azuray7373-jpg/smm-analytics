@@ -6,7 +6,7 @@
 <meta name="color-scheme" content="dark light">
 <meta name="theme-color" content="#0a0e14">
 <title>SMM Аналитика</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=12">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=13">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <script>
 (function(){
@@ -32,6 +32,25 @@ function toggleTheme(){
 }
 </script>
 
+<script>
+function savePeriod(){
+  var p = new URLSearchParams(new FormData(event.target));
+  sessionStorage.setItem('smm_period', p.toString());
+}
+(function(){
+  var saved = sessionStorage.getItem('smm_period');
+  if (saved) {
+    var p = new URLSearchParams(saved);
+    var s = p.get('start'), e = p.get('end');
+    if (s && e) {
+      var si = document.querySelector('input[name=start]');
+      var ei = document.querySelector('input[name=end]');
+      if (si) si.value = s;
+      if (ei) ei.value = e;
+    }
+  }
+})();
+</script>
 </head>
 <body>
 <nav class="topnav">
@@ -79,7 +98,7 @@ function toggleTheme(){
 </div>
 {% endif %}
 
-<form class="filters" method="get">
+<form class="filters" method="get" onsubmit="savePeriod()">
   <input type="date" name="start" value="{{ period[0] }}">
   <input type="date" name="end" value="{{ period[1] }}">
   <input type="time" name="t0" value="{{ request.args.get('t0','') }}" style="width:80px" title="время начала">

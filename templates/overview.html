@@ -79,6 +79,22 @@
   </div>
 </div>
 
+{% if source_chart and source_chart|length > 0 %}
+<h2>📊 Источники регистраций (главная метрика)</h2>
+<div style="display:flex; flex-wrap:wrap; gap:8px; margin:10px 0;">
+  {% for s in source_chart %}
+  <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:8px; padding:10px 16px; display:flex; align-items:center; gap:10px;">
+    <div style="font:800 18px/1 'Inter',sans-serif;">{{ s.value|numfmt }}</div>
+    <div>
+      <div style="font:600 11px/1 'Inter',sans-serif; color:var(--txt2);">{{ s.label }}</div>
+      {% set total_regs = source_chart|map(attribute='value')|sum %}
+      <div style="font:500 10px/1 'Inter',sans-serif; color:var(--txt3);">{{ '%.1f'|format(s.value / total_regs * 100) }}% от всех</div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
 {% if smart_insights %}
 <h2>Smart Insights</h2>
 <div style="display:flex; flex-wrap:wrap; gap:10px; margin:12px 0;">

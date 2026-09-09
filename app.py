@@ -193,7 +193,7 @@ def overview():
 
     def breakdown(key, fmt="{:,.0f}", total=None, prev_key=None, min_val=None):
         """Расшифровка по каналам. min_val — отсечка статистически незначимых."""
-        total = total or sum(c[key] for c in ch_data) or 1
+        total = total or sum(c[key] for c in ch_data if c[key] is not None) or 1
         rows = sorted(ch_data, key=lambda c: c[key], reverse=True)
         out = []
         for c in rows:

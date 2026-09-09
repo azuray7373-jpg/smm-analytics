@@ -8,6 +8,7 @@ from db import db, Channel, MetricSnapshot, ContentItem, ContentStat, Registrati
     Comment, GcOrder, GcPayment, Spend
 import calc, connectors, reports, seed, getcourse, comments as comments_mod, livedune, intel, assistant, insights
 import youtube_import
+import competitors_data
 
 IS_SERVERLESS = bool(os.environ.get("VERCEL"))
 
@@ -1579,6 +1580,15 @@ def ai_ask_proxy():
     import ai_analyst
     answer = ai_analyst._call_llm(ast._build_system_prompt(), prompt)
     return jsonify({"answer": answer or ast._smart_answer(question, ctx)})
+
+
+@app.route("/competitive")
+def competitive_screen():
+    """Полный конкурентный анализ рынка школ сыроделия СНГ."""
+    competitors_data.setup_competitors()
+    analysis = competitors_data.competitive_analysis()
+    return render_template("competitive.html", analysis=analysis,
+                           period=calc.week_bounds(date.today()))
 
 
 @app.route("/guide")

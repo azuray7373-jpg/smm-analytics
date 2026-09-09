@@ -12,10 +12,12 @@
 <tr>
   <td>{{ r.rtype }}</td>
   <td><a href="{{ url_for('report_view', id=r.id) }}">{{ r.start }} — {{ r.end }}</a></td>
-  <td>{{ r.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
-  <td>{{ r.ai_text[:120] }}…</td>
-  <td>{{ r.controller_text[:120] }}…</td>
+  <td>{{ r.created_at.strftime('%d.%m.%Y %H:%M') if r.created_at else '—' }}</td>
+  <td class="wrap">{{ (r.ai_text or '—')[:120] }}</td>
+  <td class="wrap">{{ (r.controller_text or '—')[:120] }}</td>
 </tr>
+{% else %}
+<tr><td colspan="5" style="text-align:center; padding:24px; color:var(--txt-3);">Отчётов пока нет — сформируйте первый</td></tr>
 {% endfor %}
 </table></div>
 {% endblock %}

@@ -139,18 +139,32 @@ function toggleKpi(id) {
 
 <script>
 if (window.Chart) {
-  Chart.defaults.color = '#7a8494';
-  Chart.defaults.font.family = 'Inter, system-ui, sans-serif';
+  Chart.defaults.color = '#71717a';
+  Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
   Chart.defaults.font.size = 10;
-  Chart.defaults.borderColor = 'rgba(255,255,255,.04)';
+  Chart.defaults.font.weight = '500';
+  Chart.defaults.borderColor = 'rgba(255,255,255,.03)';
   Chart.defaults.plugins.legend.display = false;
-  Chart.defaults.plugins.tooltip.backgroundColor = '#141a23';
-  Chart.defaults.plugins.tooltip.padding = 10;
-  Chart.defaults.plugins.tooltip.cornerRadius = 6;
+  Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(16,16,20,.95)';
+  Chart.defaults.plugins.tooltip.padding = 12;
+  Chart.defaults.plugins.tooltip.cornerRadius = 8;
+  Chart.defaults.plugins.tooltip.titleFont = {size:11, weight:'700', family:"'Inter'"};
+  Chart.defaults.plugins.tooltip.bodyFont = {size:11, weight:'450', family:"'Inter'"};
+  Chart.defaults.plugins.tooltip.footerFont = {size:10, weight:'700', family:"'Inter'"};
+  Chart.defaults.plugins.tooltip.boxPadding = 4;
+  Chart.defaults.plugins.tooltip.usePointStyle = true;
   Chart.defaults.maintainAspectRatio = false;
   Chart.defaults.responsive = true;
+  Chart.defaults.elements.line.borderWidth = 2;
+  Chart.defaults.elements.line.tension = 0.35;
+  Chart.defaults.elements.point.radius = 0;
+  Chart.defaults.elements.point.hoverRadius = 5;
+  Chart.defaults.elements.point.hoverBorderWidth = 2;
+  Chart.defaults.elements.point.hoverBorderColor = '#fff';
+  Chart.defaults.elements.bar.borderRadius = 3;
+  Chart.defaults.elements.bar.borderSkipped = false;
 }
-var PAL = ['#4a9eff','#a78bfa','#22d3ee','#f472b6','#fbbf24','#34d399','#f87171','#818cf8','#fb923c','#2dd4bf','#c084fc'];
+var PAL = ['#6366f1','#8b5cf6','#a78bfa','#f59e0b','#10b981','#06b6d4','#ec4899','#84cc16','#f97316','#14b8a6','#e879f9'];
 
 // 1. Stacked Area
 var sL = {{ stacked_chart.labels|tojson }};
@@ -191,9 +205,9 @@ new Chart(document.getElementById('sourceDoughnut'), {
 new Chart(document.getElementById('chart'), {
   type:'line',
   data:{labels:{{ chart.labels|tojson }},datasets:[
-    {label:'Охват',data:{{ chart.reach|tojson }},borderColor:'#4a9eff',backgroundColor:'rgba(74,158,255,.08)',fill:true,tension:0.3,pointRadius:0},
+    {label:'Охват',data:{{ chart.reach|tojson }},borderColor:'#6366f1',backgroundColor:'rgba(99,102,241,.08)',fill:true,tension:0.3,pointRadius:0},
     {label:'Взаим.',data:{{ chart.inter|tojson }},borderColor:'#a78bfa',borderDash:[4,3],tension:0.3,pointRadius:0},
-    {label:'Рег.',data:{{ chart.regs|tojson }},borderColor:'#34d399',backgroundColor:'rgba(52,211,153,.06)',fill:true,yAxisID:'y1',tension:0.3,pointRadius:0}
+    {label:'Рег.',data:{{ chart.regs|tojson }},borderColor:'#10b981',backgroundColor:'rgba(16,185,129,.06)',fill:true,yAxisID:'y1',tension:0.3,pointRadius:0}
   ]},
   options:{interaction:{intersect:false,mode:'index'},
     scales:{y:{position:'left',grid:{color:'rgba(255,255,255,.03)'},ticks:{callback:function(v){return v>=1000?(v/1000).toFixed(0)+'k':v;}}},y1:{position:'right',grid:{drawOnChartArea:false}},x:{grid:{display:false}}}}
@@ -202,9 +216,9 @@ new Chart(document.getElementById('chart'), {
 // 5. Trends
 new Chart(document.getElementById('trendChart'), {
   data:{labels:{{ trends|map(attribute='label')|list|tojson }},datasets:[
-    {type:'bar',label:'Рег.',data:{{ trends|map(attribute='regs')|list|tojson }},backgroundColor:'rgba(52,211,153,.15)',borderRadius:3,yAxisID:'y1'},
-    {type:'line',label:'ERR%',data:{{ trends|map(attribute='ERR')|list|tojson }},borderColor:'#4a9eff',borderWidth:2.5,pointRadius:3,pointBackgroundColor:'#4a9eff',yAxisID:'y',tension:0.3},
-    {type:'line',label:'CV%',data:{{ trends|map(attribute='CV')|list|tojson }},borderColor:'#fbbf24',borderWidth:2,borderDash:[5,3],pointRadius:2,pointBackgroundColor:'#fbbf24',yAxisID:'y',tension:0.3}
+    {type:'bar',label:'Рег.',data:{{ trends|map(attribute='regs')|list|tojson }},backgroundColor:'rgba(16,185,129,.15)',borderRadius:3,yAxisID:'y1'},
+    {type:'line',label:'ERR%',data:{{ trends|map(attribute='ERR')|list|tojson }},borderColor:'#6366f1',borderWidth:2.5,pointRadius:3,pointBackgroundColor:'#6366f1',yAxisID:'y',tension:0.3},
+    {type:'line',label:'CV%',data:{{ trends|map(attribute='CV')|list|tojson }},borderColor:'#f59e0b',borderWidth:2,borderDash:[5,3],pointRadius:2,pointBackgroundColor:'#f59e0b',yAxisID:'y',tension:0.3}
   ]},
   options:{interaction:{intersect:false,mode:'index'},
     scales:{y:{position:'left',grid:{color:'rgba(255,255,255,.03)'},ticks:{callback:function(v){return v.toFixed(1)+'%';}}},y1:{position:'right',grid:{drawOnChartArea:false}},x:{grid:{display:false}}}}

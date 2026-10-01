@@ -261,7 +261,7 @@ def _smart_answer(question, ctx):
 
     # === Вопросы про ERR/вовлечённость ===
     elif any(x in q for x in ("err", "вовлеч", "engagement", "лайк")):
-        L.append(f"Общий ERR: {w.get('err', 0):.2f}%.")
+        L.append(f"Общий ERR: {(w.get('err') or 0):.2f}%.")
         if by_err:
             L.append("По каналам:")
             for c in by_err[:5]:
@@ -344,13 +344,13 @@ def _smart_answer(question, ctx):
             L.append(f"Лучший: «{by_reach[0]['name']}» ({_fmt(by_reach[0]['reach'])}).")
 
     elif any(x in q for x in ("reg", "registr", "lead")):
-        L.append(f"Регистрации: {w.get('regs', 0):.0f}.")
+        L.append(f"Регистрации: {(w.get('regs') or 0):.0f}.")
 
     else:
         L.append(f"Ключевые цифры за неделю:")
         L.append(f"  Охват: {_fmt(w.get('reach'))}")
-        L.append(f"  Регистрации: {w.get('regs', 0):.0f}")
-        L.append(f"  ERR: {w.get('err', 0):.2f}%")
+        L.append(f"  Регистрации: {(w.get('regs') or 0):.0f}")
+        L.append(f"  ERR: {(w.get('err') or 0):.2f}%")
         L.append(f"  Подписчики: {_fmt(w.get('followers'))}")
         L.append("")
         L.append("Я отвечаю на вопросы:")

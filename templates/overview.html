@@ -40,7 +40,7 @@
     <div class="kpi-header"><span class="kpi-icon">{{ card.icon }}</span><span class="kpi-title">{{ card.title }}</span></div>
     <div class="kpi-value">{{ card.value }}</div>
     <div class="kpi-footer">
-      {% if card.delta is not none %}<span class="kpi-delta {{ 'pos' if card.delta >= 0 else 'neg' }}">{{ '%+d'|format(card.delta) }}%</span>{% endif %}
+      {% if card.delta is not none %}<span class="kpi-delta {{ 'pos' if card.delta >= 0 else 'neg' }}">{{ '%+d'|format(card.delta) }}{{ card.delta_unit|default('%') }}</span>{% endif %}
       {% if card.sub %}<span class="kpi-sub">{{ card.sub }}</span>{% endif %}
     </div>
     {% if card.breakdown %}

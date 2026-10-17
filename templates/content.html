@@ -90,6 +90,19 @@
 {{ compare }}</div>
 {% endif %}
 
+{% set pages = (total_matched + per_page - 1) // per_page %}
+{% if pages > 1 and preset not in ('best', 'worst') %}
+<div class="filters" style="align-items:center;">
+  <span class="muted">Стр. {{ page }} из {{ pages }} · {{ total_matched }} материалов</span>
+  {% if page > 1 %}<a class="btn" href="{{ page_urls.get(page - 1) }}">← Назад</a>{% endif %}
+  {% for p, u in page_urls.items() | sort %}
+    <a class="chip {{ 'on' if p == page }}" href="{{ u }}">{{ p }}</a>
+  {% endfor %}
+  {% if page < pages %}<a class="btn" href="{{ page_urls.get(page + 1) }}">Вперёд →</a>{% endif %}
+  <a class="btn" href="?start={{ period[0] }}&end={{ period[1] }}&page={{ pages }}">Последняя »</a>
+</div>
+{% endif %}
+
 <div class="tbl-wrap"><table class="tbl">
 <tr><th>Дата</th><th>Канал</th><th>Формат</th><th>Название</th><th>Рубрика (AI)</th><th>Тип (AI)</th><th>CTA</th><th>Длит.</th><th>Охват</th><th>ERR</th><th>Сохран.</th><th>Репосты</th><th>Подписки</th><th>Регистр.</th><th>CV</th></tr>
 {% for i in items %}

@@ -9,3 +9,5 @@ export_*.json
 gm.json
 models.json
 .pa_token
+vtmp/
+ИНСТРУКЦИЯ_метрики.html

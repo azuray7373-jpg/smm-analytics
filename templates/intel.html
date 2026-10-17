@@ -145,6 +145,35 @@ async function predict() {
 {% endif %}
 {% endif %}
 
+<!-- ═══ TIKTOK FOLLOWER ACTIVITY ═══ -->
+{% if tt_hours %}
+<h2>🕐 Когда ваша аудитория TikTok онлайн</h2>
+<p class="muted">Средняя активность подписчиков по часам ({{ tt_hours.days }} дней реальных данных из TikTok Studio). Публикуйте в часы пика — алгоритм показывает ролик активным.</p>
+<div class="tbl-wrap" style="padding:12px;">
+<div style="display:grid; grid-template-columns:34px repeat(24,1fr); gap:2px; font-size:9px; align-items:end;">
+<div></div>
+{% for h in range(24) %}
+<div style="text-align:center; color:var(--txt-tertiary); writing-mode:vertical-rl; transform:rotate(180deg); font-size:8px;">{{ h }}</div>
+{% endfor %}
+<div style="color:var(--txt-tertiary);"></div>
+{% set mx = tt_hours.peak_val %}
+{% for h in range(24) %}
+{% set v = tt_hours.hours.get(h, 0) %}
+<div style="border-radius:2px; height:{{ 6 + (v / mx * 64)|round|int }}px; align-self:end;
+     background:linear-gradient(180deg, rgba(255,75,110,{{ (0.25 + v / mx * 0.7)|round(2) }}), rgba(255,75,110,{{ (0.15 + v / mx * 0.4)|round(2) }}));"
+     title="{{ h }}:00 — в среднем {{ v|numfmt }} активных"></div>
+{% endfor %}
+</div>
+<div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; align-items:center;">
+  <span class="badge ok">Пик: {{ tt_hours.peak_hour }}:00 — в среднем {{ tt_hours.peak_val|numfmt }} активных</span>
+  {% set top3 = (tt_hours.hours | dictsort(by='value', reverse=true))[:3] %}
+  {% for h, v in top3 %}
+  <span class="chip">{{ h }}:00 · {{ v|numfmt }}</span>
+  {% endfor %}
+</div>
+</div>
+{% endif %}
+
 {% if growth %}
 <h2>Скорость роста аудитории</h2>
 <div class="tbl-wrap">

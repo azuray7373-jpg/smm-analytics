@@ -12,6 +12,17 @@
   </div>
 </div>
 
+{% if platform_share %}
+<div class="forecast-bar" style="gap:4px 10px;">
+  <span class="forecast-label">Площадки</span>
+  {% for ps in platform_share %}
+  <span class="forecast-item" title="Охват {{ ps.reach|numfmt }}">
+    {{ ps.icon }} {{ ps.label }} <b>{{ ps.share }}%</b>
+  </span>
+  {% endfor %}
+</div>
+{% endif %}
+
 {% if forecast %}
 <div class="forecast-bar">
   <span class="forecast-label">Прогноз</span>

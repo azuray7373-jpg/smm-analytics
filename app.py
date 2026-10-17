@@ -298,6 +298,19 @@ def overview():
 
     smart_insights = insights.generate_insights()
 
+    # Доли площадок в охвате периода (чипы под шапкой)
+    PLAT_LABELS = {"instagram": "Instagram", "youtube": "YouTube", "telegram": "Telegram",
+                   "vk": "VK", "tiktok": "TikTok", "dzen": "Дзен", "max": "MAX"}
+    plat_reach = {}
+    for c in ch_data:
+        plat_reach[c["ch"].platform] = plat_reach.get(c["ch"].platform, 0) + (c["reach"] or 0)
+    plat_total = sum(plat_reach.values()) or 1
+    platform_share = sorted(
+        [{"platform": p_, "label": PLAT_LABELS.get(p_, p_), "icon": PLAT_ICONS.get(p_, "📌"),
+          "reach": v, "share": round(v / plat_total * 100, 1)}
+         for p_, v in plat_reach.items() if v > 0],
+        key=lambda x: -x["reach"])
+
     return render_template("overview.html", p=p, period=d, chart=chart,
                            report=_latest_report("weekly"),
                            trends=calc.weekly_series(8),
@@ -305,7 +318,8 @@ def overview():
                            forecast=calc.month_forecast(),
                            kpi_cards=kpi_cards, channels=active_channels,
                            stacked_chart=stacked_chart, source_chart=source_chart,
-                           reg_chart=reg_chart, smart_insights=smart_insights)
+                           reg_chart=reg_chart, smart_insights=smart_insights,
+                           platform_share=platform_share)
 
 
 @app.route("/comments")
@@ -443,6 +457,19 @@ def content_screen():
                        key=lambda x: x["ERR"])[:10]
     compare_text, best, flop = calc.compare_best_worst(items if not preset else
                                                        calc.content_stats_for_period(*d), "ERR", 10)
+    # пагинация: 50 материалов на страницу (контент может быть 600+ записей)
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+    except ValueError:
+        page = 1
+    per_page = 50
+    total = len(items)
+    items_page = items[(page - 1) * per_page: page * per_page] if preset not in ("best", "worst") else items
+    # чистые URL страниц: остальные GET-параметры сохраняются
+    args = {k: v for k, v in request.args.items() if k != "page"}
+    from urllib.parse import urlencode
+    page_urls = {p: "?" + urlencode({**args, "page": p})
+                 for p in range(max(1, page - 3), min((total + per_page - 1) // per_page, page + 3) + 1)}
     rubrics = sorted({t.get("рубрика") for t in (json.loads(i["item"].ai_tags or "{}") for i in items) if t.get("рубрика")})
     types = sorted({t.get("продающий_тип") for t in (json.loads(i["item"].ai_tags or "{}") for i in items) if t.get("продающий_тип")})
     if request.args.get("export") == "csv":
@@ -502,13 +529,14 @@ def content_screen():
         for v in agg.values():
             v["avg_reach"] = v["reach"] / v["n"] if v["n"] else 0
             v["avg_err"] = sum(v["err"]) / len(v["err"]) if v["err"] else None
-    return render_template("content.html", items=items[:200], period=d, sort=sort,
+    return render_template("content.html", items=items_page, period=d, sort=sort,
                            platforms=sorted({i["item"].channel.platform for i in items}),
                            formats=sorted({i["item"].format for i in items if i["item"].format}),
                            rubrics=rubrics, types=types, compare=compare_text,
                            preset=preset, by_rubric=by_rubric, by_format=by_format,
                            best_time=best_time, hashtags=hashtags,
-                           total_matched=len(items))
+                           total_matched=total, page=page, per_page=per_page,
+                           page_urls=page_urls)
 
 
 def _regs_with_time(q):
@@ -1125,19 +1153,44 @@ def import_csv():
         if not f or not f.filename:
             flash("Файл не выбран")
             return redirect(url_for("import_csv"))
-        if f.filename.lower().endswith((".xlsx", ".xlsm")):
-            year = request.form.get("year", "").strip()
-            stats = connectors.import_xlsx(f, int(year) if year.isdigit() else None)
-            schedule_rewarm()
-            flash(f"XLSX обработан: охваты {stats['reach']} значений, лиды {stats['leads']} строк, "
-                  f"подписчики {stats['followers']} значений"
-                  + (f", пропущены листы: {'; '.join(stats['skipped'])}" if stats["skipped"] else ""))
-        elif f.filename.lower().endswith((".csv", ".txt", ".tsv")):
-            n = connectors.import_csv_channel(f)
-            schedule_rewarm()
-            flash(f"Импортировано строк: {n}")
-        else:
-            flash("Поддерживаются .xlsx и .csv")
+        lname = f.filename.lower()
+        try:
+            if lname.endswith(".zip") or (lname.startswith("overview") and lname.endswith(".csv")) \
+               or (lname.startswith("follower") and lname.endswith(".csv")):
+                import tiktok_import
+                st = tiktok_import.import_tiktok_zip(f)
+                schedule_rewarm()
+                flash(f"TikTok обработан: дней статистики {st['days']}, дней подписчиков "
+                      f"{st['followers_days']}, часов активности {st['hours']} "
+                      f"(файлы: {', '.join(st['files'])})")
+            elif "dzen" in lname and lname.endswith((".xlsx", ".xlsm")):
+                import dzen_import
+                st = dzen_import.import_dzen_xlsx(f)
+                schedule_rewarm()
+                flash(f"Дзен обработан: публикаций {st['publications']}, дней со статистикой {st['days']}")
+            elif lname.endswith((".xlsx", ".xlsm")):
+                # xlsx Дзена без «dzen» в имени — пробуем сначала Дзен, потом ПЛАН-ОТЧЁТ
+                import dzen_import
+                try:
+                    st = dzen_import.import_dzen_xlsx(f)
+                    schedule_rewarm()
+                    flash(f"Дзен обработан: публикаций {st['publications']}, дней со статистикой {st['days']}")
+                except ValueError:
+                    f.stream.seek(0)
+                    year = request.form.get("year", "").strip()
+                    stats = connectors.import_xlsx(f, int(year) if year.isdigit() else None)
+                    schedule_rewarm()
+                    flash(f"XLSX обработан: охваты {stats['reach']} значений, лиды {stats['leads']} строк, "
+                          f"подписчики {stats['followers']} значений"
+                          + (f", пропущены листы: {'; '.join(stats['skipped'])}" if stats["skipped"] else ""))
+            elif lname.endswith((".csv", ".txt", ".tsv")):
+                n = connectors.import_csv_channel(f)
+                schedule_rewarm()
+                flash(f"Импортировано строк: {n}")
+            else:
+                flash("Поддерживаются .xlsx, .csv и .zip (TikTok)")
+        except Exception as e:
+            flash(f"Ошибка импорта: {str(e)[:200]}")
         return redirect(url_for("import_csv"))
     return render_template("import.html")
 
@@ -1436,9 +1489,30 @@ def intel_screen():
     heatmap = intel.posting_heatmap(30)
     growth = intel.growth_rates()
     duration = intel.duration_analysis(30)
+    # Активность подписчиков TikTok (реальная выгрузка из TikTok Studio)
+    tt_hours = None
+    try:
+        import json as _json
+        raw = get_setting("tiktok_activity_grid", "")
+        if raw:
+            grid = _json.loads(raw)
+            per_hour = {}
+            for hours in grid.values():
+                for h, act in hours.items():
+                    a = per_hour.setdefault(int(h), {"sum": 0, "n": 0})
+                    a["sum"] += act
+                    a["n"] += 1
+            if per_hour:
+                tt_hours = {"hours": {h: round(v["sum"] / v["n"]) for h, v in sorted(per_hour.items())},
+                            "days": len(grid),
+                            "peak_hour": max(per_hour, key=lambda h: per_hour[h]["sum"] / per_hour[h]["n"]),
+                            "peak_val": round(max(v["sum"] / v["n"] for v in per_hour.values()))}
+    except Exception:
+        tt_hours = None
     return render_template("intel.html", scored=scored[:20], trends=trends,
                            brief=brief, period=calc.week_bounds(date.today()),
-                           heatmap=heatmap, growth=growth, duration=duration)
+                           heatmap=heatmap, growth=growth, duration=duration,
+                           tt_hours=tt_hours)
 
 
 @app.route("/intel/predict", methods=["POST"])

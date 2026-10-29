@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 {% block content %}
 <h1>Экран 3 — Контент <small>(найдено: {{ total_matched }})</small></h1>
+{% if total_matched == 0 %}
+<div class="aireport">В выбранном периоде материалов нет. Единицы контента появляются из: YouTube (автоматически), Дзен и TikTok (выгрузки на экране «Импорт»). Другие площадки (Instagram, Telegram, VK, MAX) не отдают посты в выгрузках — их статистика видна на уровне канала. <a class="btn" href="?preset=30d">Показать за 30 дней</a> <a class="btn" href="{{ url_for('import_csv') }}">Импортировать выгрузку</a></div>
+{% endif %}
 
 <form class="filters" method="get">
   <input type="hidden" name="start" value="{{ period[0] }}"><input type="hidden" name="end" value="{{ period[1] }}">

@@ -48,6 +48,14 @@ def known_medium(v):
     return v if v in MEDIUMS else None
 
 
+def is_ours(source, medium, campaign):
+    """Единое правило «наша метка» для всех расчётов приложения:
+    метка наша, если стоит наша campaign ИЛИ наш medium — так же,
+    как в справочнике меток и на экранах «Регистрации»/«Продажи».
+    Рекламные кабинеты (yandex, fb_ads, vkads…) и пустые метки — не наши."""
+    return bool(campaign_type(campaign) or known_medium(medium))
+
+
 def _group_registrations(start, end, sdt=None, edt=None):
     q = db.session.query(Registration.utm_source, Registration.utm_medium,
                          Registration.utm_campaign, func.sum(Registration.count)).filter(

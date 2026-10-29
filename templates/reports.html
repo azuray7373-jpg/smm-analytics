@@ -1,6 +1,16 @@
 {% extends "base.html" %}
 {% block content %}
 <h1>Отчёты</h1>
+<div class="aireport">
+<b>Как формируется отчёт:</b>
+<ol style="margin:8px 0 0 18px; line-height:1.7">
+<li>Берётся <b>период</b> (неделя вс–сб или календарный месяц от выбранной даты) и все данные базы за него: охваты/подписчики/вовлечённость каналов (LiveDune, YouTube API, импорт TikTok/Дзен), <b>регистрации и заказы только по нашим UTM-меткам</b>, оплаты GetCourse.</li>
+<li>Из абсолютов считаются метрики (ERR, ER, CV, прирост) — проценты никогда не усредняются из кусочков.</li>
+<li>Собранные факты передаются AI (Gemini через релей) — <b>AI только формулирует выводы, цифры считает математика приложения</b>.</li>
+<li>AI-контролёр отдельно проверяет отчёт (сходимость сумм, проценты vs абсолюты) — его вердикт в последней колонке.</li>
+</ol>
+<p class="muted" style="margin-top:8px">Отчёты также создаются автоматически: еженедельно (понедельник 06:00) и ежемесячно (1-е число, 07:00).</p>
+</div>
 <form class="filters" method="post" action="{{ url_for('generate') }}">
   <select name="rtype"><option value="weekly">Недельный</option><option value="monthly">Месячный</option></select>
   <input type="date" name="anchor" value="{{ period[1] }}">

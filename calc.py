@@ -149,13 +149,43 @@ def aggregate(start: date, end: date, channel_id=None):
 
 
 def registrations_total(start: date, end: date, platform=None):
-    q = db.session.query(func.sum(Registration.count)).filter(
-        Registration.date >= start, Registration.date <= end, Registration.status == "OK",
-        ~Registration.utm_source.like("demo_%"))
-    if platform:
-        sources = [k for k, v in UTM_TO_PLATFORM.items() if v == platform]
-        q = q.filter(Registration.utm_source.in_(sources))
-    return q.scalar() or 0.0
+    """Регистрации только по НАШИМ меткам (наша campaign или наш medium).
+    Чужие рекламные метки и «без метки» в бизнес-цифрах не участвуют —
+    единое правило utm.is_ours для KPI, отчётов, CV и графиков."""
+    from utm import is_ours
+    rows = (db.session.query(Registration.utm_source, Registration.utm_medium,
+                             Registration.utm_campaign, func.sum(Registration.count))
+            .filter(Registration.date >= start, Registration.date <= end,
+                    Registration.status == "OK",
+                    ~Registration.utm_source.like("demo_%"))
+            .group_by(Registration.utm_source, Registration.utm_medium,
+                      Registration.utm_campaign).all())
+    total = 0.0
+    for s, m, c, n in rows:
+        if platform:
+            sources = [k for k, v in UTM_TO_PLATFORM.items() if v == platform]
+            if (s or "").strip().lower() not in sources:
+                continue
+        if is_ours(s, m, c):
+            total += n or 0
+    return total
+
+
+def payments_sum(start: date, end: date):
+    """Принятые оплаты за период. Если экспорт оплат GetCourse ещё не загружен
+    (таблица пуста), выручка считается из завершённых заказов с суммой —
+    статусы «Завершен»/«Частично оплачен» с amount > 0."""
+    from db import GcPayment
+    total = db.session.query(func.coalesce(func.sum(GcPayment.amount), 0)).filter(
+        GcPayment.date >= start, GcPayment.date <= end,
+        GcPayment.status == "accepted").scalar()
+    if total:
+        return total
+    from db import GcOrder
+    return db.session.query(func.coalesce(func.sum(GcOrder.amount), 0)).filter(
+        GcOrder.date >= start, GcOrder.date <= end,
+        GcOrder.status.in_(("Завершен", "Частично оплачен")),
+        GcOrder.amount > 0).scalar()
 
 
 def indicators(agg: dict, regs: float) -> dict:
@@ -220,8 +250,7 @@ def period_report(start: date, end: date, channel_id=None):
         from db import GcOrder, GcPayment
         gc["orders"] = GcOrder.query.filter(GcOrder.date >= start, GcOrder.date <= end).count()
         gc["payments"] = GcPayment.query.filter(GcPayment.date >= start, GcPayment.date <= end).count()
-        gc["payments_sum"] = db.session.query(func.coalesce(func.sum(GcPayment.amount), 0)).filter(
-            GcPayment.date >= start, GcPayment.date <= end, GcPayment.status == "accepted").scalar()
+        gc["payments_sum"] = payments_sum(start, end)
     except Exception:
         gc = {"orders": 0, "payments": 0, "payments_sum": 0}
     return {"start": start.isoformat(), "end": end.isoformat(),
@@ -391,10 +420,7 @@ def month_forecast():
     total_days = _cal.monthrange(s_.year, s_.month)[1]
     agg, _ = aggregate(s_, date.today())
     regs = registrations_total(s_, date.today())
-    from db import GcPayment
-    pays = db.session.query(func.coalesce(func.sum(GcPayment.amount), 0)).filter(
-        GcPayment.date >= s_, GcPayment.date <= date.today(),
-        GcPayment.status == "accepted").scalar()
+    pays = payments_sum(s_, date.today())
     k = total_days / elapsed
     out = {"month_start": s_.isoformat(), "month_end": e_.isoformat(),
            "elapsed_days": elapsed, "total_days": total_days, "status": "ESTIMATED"}

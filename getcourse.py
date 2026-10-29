@@ -504,19 +504,38 @@ def sync_getcourse(days=5, backfill_months=0, threaded=False):
 @calc_ttl(600)
 def funnel(start: date, end: date):
     """Воронка и разрезы за период: регистрации -> заказы -> оплаты."""
-    regs = Registration.query.filter(Registration.date >= start, Registration.date <= end,
-                                     ~Registration.utm_source.like("demo_%")).count()
+    from utm import is_ours
+    regs = sum(1 for r in Registration.query.filter(
+        Registration.date >= start, Registration.date <= end,
+        ~Registration.utm_source.like("demo_%")).all()
+        if is_ours(r.utm_source, r.utm_medium, r.utm_campaign))
+    ours_rows = db.session.query(GcOrder.user_id, GcOrder.amount, GcOrder.utm_source,
+                                 GcOrder.utm_medium, GcOrder.utm_campaign).filter(
+        GcOrder.date >= start, GcOrder.date <= end).all()
+    ours = [(u, a, s_, m_, c_) for u, a, s_, m_, c_ in ours_rows if is_ours(s_, m_, c_)]
+    # 199 ₽ — номинальная цена пробного занятия: это регистрация на урок, не продажа
+    orders_real = [o for o in ours if (o[1] or 0) > 199]
+    orders_ours = len(orders_real)
+    orders_trials = len(ours) - len(orders_real)
+    regs_gc = len({o[0] for o in ours if o[0] is not None})
+    # Регистрация в GC = создание пользователя. Экспорт users у аккаунта недоступен,
+    # поэтому регистрации GC считаем по уникальным пользователям наших заказов.
+    regs_gc = len({u for u, *_ in ours if u is not None})
     orders = GcOrder.query.filter(GcOrder.date >= start, GcOrder.date <= end)
     pays = GcPayment.query.filter(GcPayment.date >= start, GcPayment.date <= end)
+    import calc as _calc
     out = {
-        "registrations": regs,
-        "orders": orders.count(),
+        "registrations": max(regs, regs_gc),
+        "registrations_leads": regs,
+        "registrations_gc": regs_gc,
+        "orders": orders_ours,
+        "orders_trials": orders_trials,
+        "orders_total": len(ours_rows),
         "payments": pays.count(),
-        "orders_sum": db.session.query(db.func.coalesce(db.func.sum(GcPayment.amount), 0)).filter(
-            GcPayment.date >= start, GcPayment.date <= end, GcPayment.status == "accepted").scalar(),
+        "orders_sum": _calc.payments_sum(start, end),
     }
-    if regs:
-        out["cr_reg_order"] = out["orders"] / regs * 100
+    if out["registrations"]:
+        out["cr_reg_order"] = out["orders"] / out["registrations"] * 100
     if out["orders"]:
         out["cr_order_pay"] = out["payments"] / out["orders"] * 100
     out["by_customer"] = dict(db.session.query(

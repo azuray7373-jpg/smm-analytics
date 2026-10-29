@@ -285,14 +285,19 @@ def overview():
     source_chart = [{"label": s, "value": v["regs"]}
                     for s, v in sorted(br.get("by_source", {}).items(),
                                        key=lambda x: -x[1]["regs"])[:8] if v["regs"] > 0]
-    reg_rows = (db.session.query(Registration.date, Registration.utm_source, _f.sum(Registration.count))
+    reg_rows = (db.session.query(Registration.date, Registration.utm_source,
+                                 Registration.utm_medium, Registration.utm_campaign, _f.sum(Registration.count))
                 .filter(Registration.date >= d[0], Registration.date <= d[1],
                         Registration.status == "OK", ~Registration.utm_source.like("demo_%"))
-                .group_by(Registration.date, Registration.utm_source).all())
+                .group_by(Registration.date, Registration.utm_source,
+                          Registration.utm_medium, Registration.utm_campaign).all())
+    import utm as _utm
     reg_map = {}
-    for dt_, src, val in reg_rows:
+    for dt_, src, med, camp, val in reg_rows:
+        if not _utm.is_ours(src, med, camp):
+            continue  # тот же фильтр «наших меток», что в KPI — цифры совпадают
         src_key = src if src in ("insta-alexey", "telegram", "vkontakte", "youtube", "max", "tiktok") else "прочее"
-        reg_map.setdefault(src_key, {})[str(dt_)] = val
+        reg_map.setdefault(src_key, {})[str(dt_)] = reg_map.get(src_key, {}).get(str(dt_), 0) + (val or 0)
     reg_chart = {"labels": days_list,
                  "series": {s: [vals.get(x, 0) for x in days_list] for s, vals in reg_map.items()}}
 
@@ -803,16 +808,19 @@ def _metric_value(metric, start, end):
     if metric == "cv":
         return p["ind"].get("CV_reach")
     if metric == "payments":
-        from db import GcPayment
-        from sqlalchemy import func as _f
-        return db.session.query(_f.coalesce(_f.sum(GcPayment.amount), 0)).filter(
-            GcPayment.date >= start, GcPayment.date <= end,
-            GcPayment.status == "accepted").scalar()
+        return calc.payments_sum(start, end)
+    if metric == "orders":
+        from db import GcOrder
+        from utm import is_ours as _is_ours
+        rows = (db.session.query(GcOrder.utm_source, GcOrder.utm_medium, GcOrder.utm_campaign)
+                .filter(GcOrder.date >= start, GcOrder.date <= end).all())
+        return sum(1 for s_, m_, c_ in rows if _is_ours(s_, m_, c_))
     return None
 
 
 METRIC_LABELS = {"reach": "Охват", "views": "Просмотры", "regs": "Регистрации",
-                 "err": "ERR, %", "cv": "CV, %", "payments": "Оплаты, ₽"}
+                 "orders": "Заказы (наши метки)", "err": "ERR, %", "cv": "CV, %",
+                 "payments": "Оплаты, ₽"}
 
 
 @app.route("/goals", methods=["GET", "POST"])
@@ -1028,14 +1036,9 @@ def hypotheses_screen():
         prev = pb["agg"].get(key) if key else pb["ind"].get(
             {"err": "ERR", "cv": "CV_reach"}.get(h.metric, ""), None)
         if h.metric == "payments":
-            from db import GcPayment
-            cur = db.session.query(db.func.coalesce(db.func.sum(GcPayment.amount), 0)).filter(
-                GcPayment.date >= h.start, GcPayment.date <= h.end,
-                GcPayment.status == "accepted").scalar()
-            prev = db.session.query(db.func.coalesce(db.func.sum(GcPayment.amount), 0)).filter(
-                GcPayment.date >= h.start - _td(days=(h.end - h.start).days + 1),
-                GcPayment.date <= h.start - _td(days=1),
-                GcPayment.status == "accepted").scalar()
+            cur = calc.payments_sum(h.start, h.end)
+            prev = calc.payments_sum(h.start - _td(days=(h.end - h.start).days + 1),
+                                     h.start - _td(days=1))
         if cur is not None and prev:
             pct = (cur - prev) / prev * 100
             h.result = f"Факт: {pct:+.1f}% ({prev:,.0f} → {cur:,.0f})".replace(",", " ")
@@ -1280,6 +1283,31 @@ def getcourse_sync():
         flash("Синхронизация GetCourse запущена в фоне; результат появится через 1–3 минуты "
               "(экспорты ГК выполняются по одному, при занятости — повторные попытки).")
     return redirect(url_for("getcourse_screen"))
+
+
+@app.route("/api/purge_demo", methods=["POST"])
+def api_purge_demo():
+    """Сервисная чистка демо-данных (защищена INGEST_TOKEN).
+    Удаляет: метрики source=demo, регистрации demo_*, демо-контент (example.com),
+    тестовые цели. Реальные данные (livedune, youtube_api, gc, csv, xlsx) не трогает."""
+    token = os.environ.get("INGEST_TOKEN") or get_setting("ingest_token")
+    if request.headers.get("X-Ingest-Token") != token:
+        return jsonify({"error": "auth"}), 403
+    from db import Goal
+    n1 = MetricSnapshot.query.filter_by(source="demo").delete(synchronize_session=False)
+    n2 = Registration.query.filter(Registration.utm_source.like("demo_%")).delete(synchronize_session=False)
+    demo_items = ContentItem.query.filter(ContentItem.link.like("https://example.com/%")).all()
+    ids = [i.id for i in demo_items]
+    n3s = 0
+    if ids:
+        n3s = ContentStat.query.filter(ContentStat.content_id.in_(ids)).delete(synchronize_session=False)
+        ContentItem.query.filter(ContentItem.id.in_(ids)).delete(synchronize_session=False)
+    n4 = Goal.query.filter(Goal.note.is_(None)).delete(synchronize_session=False)
+    db.session.commit()
+    db.session.execute(db.text("VACUUM"))
+    return jsonify({"deleted": {"demo_metrics": n1, "demo_registrations": n2,
+                                "demo_content": len(ids), "demo_content_stats": n3s,
+                                "test_goals": n4}})
 
 
 @app.route("/api/ingest", methods=["POST"])

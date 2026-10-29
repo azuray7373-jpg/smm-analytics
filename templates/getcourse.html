@@ -22,10 +22,10 @@
 
 <h2>Воронка за период</h2>
 <div class="cards">
-  <div class="card"><h3>Регистрации</h3><div class="big">{{ f.registrations|numfmt }}</div></div>
-  <div class="card"><h3>Заказы</h3><div class="big">{{ f.orders|numfmt }}</div><span class="badge na">CR рег→заказ: {{ '%.1f'|format(f.cr_reg_order or 0) }}%</span></div>
+  <div class="card"><h3>Регистрации</h3><div class="big">{{ f.registrations|numfmt }}</div><span class="muted">пользователи GC по нашим меткам{{ ' · лиды из таблиц: ' ~ f.registrations_leads|numfmt if f.registrations_leads and f.registrations_leads < f.registrations }}</span></div>
+  <div class="card"><h3>Заказы продуктовые (наши)</h3><div class="big">{{ f.orders|numfmt }}</div><span class="badge na">CR рег→заказ: {{ '%.1f'|format(f.cr_reg_order or 0) }}%</span><span class="muted">пробные (199 ₽): {{ f.orders_trials|numfmt }} · все сделки GC: {{ f.orders_total|numfmt }}</span></div>
   <div class="card"><h3>Оплаты</h3><div class="big">{{ f.payments|numfmt }}</div><span class="badge na">CR заказ→оплата: {{ '%.1f'|format(f.cr_order_pay or 0) }}%</span></div>
-  <div class="card"><h3>Сумма оплат (accepted)</h3><div class="big">{{ f.orders_sum|numfmt }} ₽</div></div>
+  <div class="card"><h3>Выручка (оплаты)</h3><div class="big">{{ f.orders_sum|numfmt }} ₽</div><span class="muted">принятые оплаты; при отсутствии выгрузки оплат — завершённые заказы с суммой</span></div>
   <div class="card"><h3>Новички / старички</h3><div class="big">{{ f.by_customer.get('new', 0) }} / {{ f.by_customer.get('returning', 0) }}</div></div>
   <div class="card"><h3>Входящие / исходящие</h3><div class="big">{{ f.by_direction.get('incoming', 0) }} / {{ f.by_direction.get('outgoing', 0) }}</div></div>
 </div>

@@ -2,6 +2,10 @@
 {% block content %}
 <h1>Экран 2 — Каналы (сравнение 11 аккаунтов)</h1>
 <p class="muted">Клик по названию канала — детальная страница с графиками и материалами. Instagram считается и по каждому аккаунту отдельно, и агрегированно. Сумма подписчиков по платформам — не уникальная аудитория. Δ — к предыдущему периоду той же длины.</p>
+<form method="post" action="/collect" style="display:inline" onsubmit="this.querySelector('button').disabled=true; this.querySelector('button').textContent='⏳ Собираю…'; setTimeout(function(){location.reload()}, 4000);">
+  <button title="YouTube — сразу из API; LiveDune/GetCourse подтягиваются релеем 4 раза в сутки (01:07, 07:07, 13:07, 19:07 UTC)">⟳ Собрать данные сейчас</button>
+</form>
+<span class="muted" style="margin-left:8px">Данные обновляются автоматически 4 раза в сутки; «Собрать сейчас» — свежий YouTube мгновенно, LiveDune/ГК — в ближайший цикл релея.</span>
 
 <div class="chart-box"><canvas id="chChart"></canvas></div>
 <script>

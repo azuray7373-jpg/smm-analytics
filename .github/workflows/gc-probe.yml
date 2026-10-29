@@ -1,0 +1,47 @@
+name: GC Probe
+on:
+  workflow_dispatch:
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests
+      - name: Probe users/payments export params
+        env:
+          GC_API_KEY: ${{ secrets.GC_API_KEY }}
+        run: |
+          python - <<'PY'
+          import requests, time, json
+          from datetime import date, timedelta
+          KEY = __import__('os').environ['GC_API_KEY']
+          BASE = "https://syrover.com/pl/api/account"
+          def gc(path, params):
+              r = requests.get(f"{BASE}/{path}", params={"key": KEY, **params}, timeout=120)
+              try: return r.status_code, r.json()
+              except Exception: return r.status_code, r.text[:150]
+          end = date.today(); start = end - timedelta(days=5)
+          tests = [
+              ("users", {"created_at[from]": start.isoformat(), "created_at[to]": end.isoformat()}),
+              ("users", {}),
+              ("payments", {"created_at[from]": start.isoformat(), "created_at[to]": end.isoformat()}),
+              ("payments", {"paid_at[from]": start.isoformat(), "paid_at[to]": end.isoformat()}),
+              ("payments", {}),
+          ]
+          for kind, params in tests:
+              code, js = gc(f"export/{kind}", params)
+              if isinstance(js, dict):
+                  print(f"{kind} {params} → {code} success={js.get('success')} err={js.get('error_code')} info={str(js.get('info'))[:100]}")
+              else:
+                  print(f"{kind} {params} → {code} {js}")
+              time.sleep(20)
+          # опрос последних экспортов
+          time.sleep(60)
+          for kind in ("users", "payments"):
+              code, js = gc(f"exports/{kind if False else ''}", {}) if False else (None, None)
+          code, js = gc("exports", {})
+          print("exports list:", str(js)[:400])
+          PY

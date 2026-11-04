@@ -7,7 +7,12 @@
 <p class="muted">Предскажите охват ДО публикации. Основано на ваших исторических данных по форматам.</p>
 <div class="form-card">
   <div class="fgrid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
-    <div class="field"><label>Формат</label>
+  <div class="field"><label>Канал</label>
+    <select name="channel" onchange="document.getElementById('fmt-note').textContent=this.value?('Особенности выбранного аккаунта'):'По всем каналам'">
+      <option value="">Все каналы</option>
+      {% for ch in channels %}<option value="{{ ch.id }}">{{ ch.name }} ({{ ch.platform }})</option>{% endfor %}
+    </select></div>
+      <div class="field"><label>Формат</label>
       <select id="pr_format">
         {% for f in ['reels','post','story','video','shorts','clip','article'] %}
         <option value="{{ f }}">{{ f }}</option>

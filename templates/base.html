@@ -97,6 +97,7 @@ function syncPeriod(){
   <a href="{{ url_for('utm_builder') }}" class="{{ 'active' if path.startswith('/utm') }}">UTM</a>
   <a href="{{ url_for('reports_list') }}" class="{{ 'active' if path.startswith('/reports') }}">Архив</a>
   <a href="{{ url_for('guide') }}" class="{{ 'active' if path.startswith('/guide') }}">Справка</a>
+  <a href="{{ url_for('data_audit') }}" class="{{ 'active' if path.startswith('/audit') }}">🔍 Аудит</a>
   <a href="{{ url_for('import_csv') }}" class="{{ 'active' if path.startswith('/import') }}">Импорт</a>
   <a href="{{ url_for('manual') }}" class="{{ 'active' if path.startswith('/manual') }}">Ввод</a>
   <a href="{{ url_for('settings') }}" class="{{ 'active' if path.startswith('/settings') }}">⚙</a>

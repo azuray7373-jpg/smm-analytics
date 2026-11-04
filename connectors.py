@@ -255,6 +255,17 @@ def _xlsx_date(v, default_year):
         return None
 
 
+def _registration_exists(date_, src, medium, camp, landing, count):
+    """Защита от дублей при повторном импорте XLSX/CSV: строка с точно такими же
+    полями уже загружена — пропускаем."""
+    return Registration.query.filter(
+        Registration.date == date_, Registration.utm_source == (src or ""),
+        Registration.utm_medium == (medium or ""),
+        Registration.utm_campaign == (camp or ""),
+        Registration.landing == (landing or ""),
+        Registration.count == count, Registration.status == "OK").first() is not None
+
+
 def import_xlsx(fileobj, default_year=None):
     """Импорт книги «ПЛАН-ОТЧЁТ. Статистики СММ»:
     - «Итоги недели*» / «Охваты месяц»: средние охваты каналов -> reach;
@@ -384,6 +395,9 @@ def _xlsx_parse_leads(rows, run_id, default_year):
             medium = (med_row[idx] or "").strip()
             if medium in ("", "nan", "none", "общее"):
                 continue
+            if _registration_exists(cur_date, src, medium, camps.get(idx, ""),
+                                    "xlsx-import", float(v)):
+                continue
             db.session.add(Registration(date=cur_date, utm_source=src, utm_medium=medium,
                                         utm_campaign=camps.get(idx, ""), count=float(v),
                                         status="OK", landing="xlsx-import"))
@@ -469,6 +483,9 @@ def import_csv_channel(fileobj):
         elif row.get("registrations") or row.get("count"):
             from db import Registration
             cnt = float(row.get("count") or row.get("registrations") or 0)
+            if _registration_exists(d, row.get("utm_source", ""), row.get("utm_medium", ""),
+                                    row.get("utm_campaign", ""), row.get("landing", ""), cnt):
+                continue
             db.session.add(Registration(date=d, utm_source=row.get("utm_source", ""),
                                         utm_medium=row.get("utm_medium", ""),
                                         utm_campaign=row.get("utm_campaign", ""),

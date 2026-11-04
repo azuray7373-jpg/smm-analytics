@@ -57,12 +57,15 @@ def score_all_content(days=30):
 # 2. AI PERFORMANCE PREDICTOR
 # ═════════════════════════════════════════════════
 
-def predict_performance(title, text, format_, duration=None):
+def predict_performance(title, text, format_, duration=None, channel_id=None):
     """Предсказание ожидаемого охвата и ERR на основе исторических данных
-    похожих материалов. Возвращает словарь с прогнозом и уверенностью."""
+    похожих материалов. Если задан channel_id — статистика берётся по этому
+    каналу (особенности конкретного аккаунта), иначе по всем."""
     from db import Channel
     # собираем статистику по форматам за 60 дней
     items = calc.content_stats_for_period(date.today() - timedelta(days=60), date.today())
+    if channel_id:
+        items = [i for i in items if i["item"].channel_id == channel_id]
     # группируем по формату
     by_format = defaultdict(lambda: {"reach": [], "err": [], "n": 0})
     for i in items:
@@ -73,7 +76,7 @@ def predict_performance(title, text, format_, duration=None):
 
     fmt_stats = by_format.get(format_, by_format.get("other", {"reach": [0], "err": [0], "n": 0}))
     if fmt_stats["n"] < 3:
-        return {"confidence": "low", "reason": "мало данных по формату",
+        return {"confidence": "low", "reason": "мало данных по формату (выберите канал или другой формат)",
                 "predicted_reach": None, "predicted_err": None}
 
     # медиана и разброс
@@ -100,6 +103,7 @@ def predict_performance(title, text, format_, duration=None):
         "sample_size": fmt_stats["n"],
         "format": format_,
         "reason": f"на основе {fmt_stats['n']} материалов формата «{format_}» за 60 дней"
+        + (f" канала «{Channel.query.get(channel_id).name}»" if channel_id else " (все каналы)")
     }
 
 

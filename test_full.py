@@ -45,7 +45,8 @@ with app.app_context():
     cm.import_csv(type("F", (), {"read": lambda s: csv_data.encode()})())
     db.session.add(Goal(metric="reach", target=100000, start=date(2026,9,1), end=date(2026,9,7)))
     db.session.add(Spend(channel_id=1, date=date(2026,9,2), amount=5000))
-    db.session.add(Task(week_start=date(2026,8,30), text="Тест задача"))
+    import calc as _calc
+    db.session.add(Task(week_start=_calc.week_bounds(date.today())[0], text="Тест задача"))
     db.session.commit()
 
 c = app.test_client()

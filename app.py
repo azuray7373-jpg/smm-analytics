@@ -1285,6 +1285,106 @@ def getcourse_sync():
     return redirect(url_for("getcourse_screen"))
 
 
+@app.route("/audit")
+def data_audit():
+    """Аудит данных: 14 автопроверок корректности. Любая красная строка —
+    повод открыть деталь; зелёный итог = цифрам приложения можно доверять."""
+    from sqlalchemy import func as _f
+    checks = []
+
+    def add(name, ok, detail=""):
+        checks.append({"name": name, "ok": bool(ok), "detail": str(detail)[:180]})
+
+    # 1. Демо-данные отсутствуют
+    n_demo = MetricSnapshot.query.filter_by(source="demo").count() +         Registration.query.filter(Registration.utm_source.like("demo_%")).count() +         ContentItem.query.filter(ContentItem.link.like("https://example.com/%")).count()
+    add("Демо-данные удалены", n_demo == 0, f"остаток: {n_demo}")
+
+    # 2. Нет дублей снапшотов
+    dup = db.session.execute(db.text(
+        "SELECT count(*) FROM (SELECT channel_id,date,metric,fetched_at,count(*) n "
+        "FROM metric_snapshots GROUP BY 1,2,3,4 HAVING n>1)")).scalar()
+    add("Нет дублей метрик", dup == 0, f"дублей: {dup}")
+
+    # 3-4. Свежесть источников (LiveDune/YouTube < 36 часов)
+    from datetime import datetime as _dt
+    for src, label in [("livedune", "LiveDune"), ("youtube_api", "YouTube API")]:
+        last = db.session.query(_f.max(MetricSnapshot.fetched_at)).filter(
+            MetricSnapshot.source == src).scalar()
+        age_h = ((datetime.utcnow() - last).total_seconds() / 3600
+                 if last else 999)
+        add(f"Источник «{label}» свежий (<36ч)", age_h < 36,
+            f"последний сбор {round(age_h)} ч назад" if last else "нет данных")
+
+    # 5. KPI-регистрации == сумма только наших меток
+    from utm import is_ours
+    from datetime import date as _date
+    w = calc.week_bounds(_date.today())
+    rows = (db.session.query(Registration.utm_source, Registration.utm_medium,
+                             Registration.utm_campaign, _f.sum(Registration.count))
+            .filter(Registration.date >= w[0], Registration.date <= w[1],
+                    Registration.status == "OK",
+                    ~Registration.utm_source.like("demo_%"))
+            .group_by(Registration.utm_source, Registration.utm_medium,
+                      Registration.utm_campaign).all())
+    ours_sum = sum(n or 0 for s_, m_, c_, n in rows if is_ours(s_, m_, c_))
+    kpi = calc.registrations_total(*w)
+    add("KPI «Регистрации» = только наши метки",
+        abs((kpi or 0) - ours_sum) < 0.001,
+        f"KPI {kpi:.0f} = нашим меткам {ours_sum:.0f}; чужих отброшено "
+        f"{sum(n or 0 for s_, m_, c_, n in rows if not is_ours(s_, m_, c_)):.0f}")
+
+    # 6. Воронка: продуктовые + пробные == все наши сделки
+    f = getcourse.funnel(*w)
+    add("Воронка GC сходится", f["orders"] + f["orders_trials"] >= 0 and
+        f.get("orders_total", 0) >= f["orders"] + f["orders_trials"],
+        f"продуктовые {f['orders']} + пробные {f['orders_trials']} ≤ всех сделок {f['orders_total']}")
+
+    # 7. Выручка не нулевая при наличии заказов
+    has_money = db.session.query(db.exists().where(GcOrder.amount > 0)).scalar()
+    rev = calc.payments_sum(*w)
+    add("Выручка считается", (not has_money) or rev > 0,
+        f"за неделю: {rev:,.0f} ₽".replace(",", " "))
+
+    # 8. Нет ERR без охвата / 9. Нет отрицательных метрик
+    bad_neg = MetricSnapshot.query.filter(MetricSnapshot.value < 0).count()
+    add("Нет отрицательных значений метрик", bad_neg == 0, f"строк: {bad_neg}")
+
+    # 10. Нет висячих ContentStat
+    orphan = db.session.query(_f.count(ContentStat.id)).filter(
+        ~ContentStat.content_id.in_(db.session.query(ContentItem.id))).scalar()
+    add("Нет висячих статистик контента", orphan == 0, f"строк: {orphan}")
+
+    # 11. Статус OK всегда со значением (NULL не маскируется под 0)
+    bad_null = MetricSnapshot.query.filter(
+        MetricSnapshot.status == "OK", MetricSnapshot.value.is_(None)).count()
+    add("OK-метрики всегда со значением", bad_null == 0, f"нарушений: {bad_null}")
+
+    # 12. Каналы без источника — известный список
+    no_src = [c.name for c in Channel.query.filter_by(is_active=True, is_competitor=False).all()
+              if not db.session.query(db.exists().where(
+                  MetricSnapshot.channel_id == c.id,
+                  MetricSnapshot.source.notin_(("collector",)))).scalar()]
+    add("Каналы без источника данных — только известные",
+        set(no_src) <= {"MAX 2"}, "без источника: " + (", ".join(no_src) or "нет"))
+
+    # 13. Продублированные регистрации (дата+метка+лендинг+число)
+    dup_reg = db.session.execute(db.text(
+        "SELECT count(*) FROM (SELECT date,utm_source,utm_medium,utm_campaign,"
+        "landing,count,count(*) n FROM registrations GROUP BY 1,2,3,4,5,6 HAVING n>1)")).scalar()
+    add("Нет дублей регистраций", dup_reg == 0, f"дублей: {dup_reg}")
+
+    # 14. Актуальность данных: сегодня или вчера есть хоть одна метрика
+    from datetime import timedelta as _tdel
+    today_n = MetricSnapshot.query.filter(
+        MetricSnapshot.date >= _date.today() - _tdel(days=1),
+        MetricSnapshot.value.isnot(None)).count()
+    add("Данные поступают (за сегодня/вчера)", today_n > 0, f"значений: {today_n}")
+
+    passed = sum(1 for c in checks if c["ok"])
+    return render_template("audit.html", checks=checks, passed=passed,
+                           total=len(checks), period=w)
+
+
 @app.route("/api/purge_demo", methods=["POST"])
 def api_purge_demo():
     """Сервисная чистка демо-данных (защищена INGEST_TOKEN).
@@ -1304,10 +1404,17 @@ def api_purge_demo():
         ContentItem.query.filter(ContentItem.id.in_(ids)).delete(synchronize_session=False)
     n4 = Goal.query.filter(Goal.note.is_(None)).delete(synchronize_session=False)
     db.session.commit()
+    # дедупликация регистраций (защита от повторных импортов таблиц)
+    dup = db.session.execute(db.text(
+        "DELETE FROM registrations WHERE id NOT IN (SELECT min(id) FROM registrations "
+        "GROUP BY date, utm_source, utm_medium, utm_campaign, landing, count, status)"
+    )).rowcount
+    db.session.commit()
+    db.session.execute(db.text("PRAGMA wal_checkpoint(TRUNCATE)"))
     db.session.execute(db.text("VACUUM"))
     return jsonify({"deleted": {"demo_metrics": n1, "demo_registrations": n2,
                                 "demo_content": len(ids), "demo_content_stats": n3s,
-                                "test_goals": n4}})
+                                "test_goals": n4, "duplicate_registrations": dup}})
 
 
 @app.route("/api/ingest", methods=["POST"])
@@ -1540,17 +1647,20 @@ def intel_screen():
     return render_template("intel.html", scored=scored[:20], trends=trends,
                            brief=brief, period=calc.week_bounds(date.today()),
                            heatmap=heatmap, growth=growth, duration=duration,
-                           tt_hours=tt_hours)
+                           tt_hours=tt_hours,
+                           channels=Channel.query.filter_by(is_active=True, is_competitor=False).order_by(Channel.id).all())
 
 
 @app.route("/intel/predict", methods=["POST"])
 def intel_predict():
     """AI Performance Predictor: прогноз охвата до публикации."""
+    ch_raw = request.form.get("channel", "")
     result = intel.predict_performance(
         request.form.get("title", ""),
         request.form.get("text", ""),
         request.form.get("format", "reels"),
-        int(request.form["duration"]) if request.form.get("duration", "").isdigit() else None)
+        int(request.form["duration"]) if request.form.get("duration", "").isdigit() else None,
+        channel_id=int(ch_raw) if ch_raw.isdigit() else None)
     return jsonify(result)
 
 

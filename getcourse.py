@@ -522,7 +522,11 @@ def funnel(start: date, end: date):
     # поэтому регистрации GC считаем по уникальным пользователям наших заказов.
     regs_gc = len({u for u, *_ in ours if u is not None})
     orders = GcOrder.query.filter(GcOrder.date >= start, GcOrder.date <= end)
-    pays = GcPayment.query.filter(GcPayment.date >= start, GcPayment.date <= end)
+    pays = GcPayment.query.filter(GcPayment.date >= start, GcPayment.date <= end).count()
+    if not pays:
+        # выгрузка оплат недоступна: считаем завершённые заказы с суммой (наши метки),
+        # чтобы счётчик оплат не противоречил выручке (фолбэк из тех же заказов)
+        pays = sum(1 for o in ours if (o[1] or 0) > 0)
     import calc as _calc
     out = {
         "registrations": max(regs, regs_gc),
@@ -531,7 +535,7 @@ def funnel(start: date, end: date):
         "orders": orders_ours,
         "orders_trials": orders_trials,
         "orders_total": len(ours_rows),
-        "payments": pays.count(),
+        "payments": pays,
         "orders_sum": _calc.payments_sum(start, end),
     }
     if out["registrations"]:

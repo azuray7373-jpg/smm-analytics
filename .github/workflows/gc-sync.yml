@@ -34,8 +34,6 @@ jobs:
           AI_API_KEY: ${{ secrets.AI_RELAY_KEY }}
           AI_BASE_URL: https://api.z.ai/api/paas/v4
           AI_MODEL: glm-5.3
-          AI_BASE_URL: https://generativelanguage.googleapis.com/v1beta/openai
-          AI_MODEL: gemini-2.5-flash
           PA_URL: ${{ secrets.PA_URL }}
           PA_INGEST_TOKEN: ${{ secrets.PA_INGEST_TOKEN }}
       - name: GetCourse export

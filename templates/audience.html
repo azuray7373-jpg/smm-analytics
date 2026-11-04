@@ -33,6 +33,49 @@
 {% endfor %}
 </table></div>
 
+{% if tt_gender or tt_geo %}
+<h2>🌍 Демография аудитории TikTok <span class="muted">(реальная выгрузка из TikTok Studio)</span></h2>
+<div style="display:flex; gap:20px; flex-wrap:wrap; margin:10px 0">
+  {% if tt_gender %}
+  <div style="flex:1; min-width:260px">
+    <h3 style="font-size:12px; margin-bottom:8px">Пол подписчиков</h3>
+    {% set total_g = tt_gender | map(attribute='Distribution') | map('float') | sum %}
+    {% for g in tt_gender %}
+    {% set pct = (g.Distribution | float / (total_g or 1) * 100) | round(0) %}
+    {% if pct > 0 %}
+    <div style="margin-bottom:8px">
+      <div style="display:flex; justify-content:space-between; font-size:11.5px">
+        <span>{{ {'Female':'Женщины','Male':'Мужчины','Other':'Другое'}.get(g.Gender, g.Gender) }}</span><b>{{ pct }}%</b>
+      </div>
+      <div style="height:6px; background:var(--bg-inset); border-radius:3px; margin-top:3px">
+        <div style="height:6px; width:{{ pct }}%; background:var(--accent); border-radius:3px"></div>
+      </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+    {% endif %}
+  </div>
+  {% if tt_geo %}
+  <div style="flex:1.4; min-width:300px">
+    <h3 style="font-size:12px; margin-bottom:8px">География (топ-страны)</h3>
+    {% for c in tt_geo %}
+    {% set pct2 = (c.Distribution | float * 100) | round(1) %}
+    {% if pct2 > 0.5 %}
+    <div style="margin-bottom:7px">
+      <div style="display:flex; justify-content:space-between; font-size:11.5px">
+        <span>{{ c['Top territories'] }}</span><b>{{ pct2 }}%</b>
+      </div>
+      <div style="height:6px; background:var(--bg-inset); border-radius:3px; margin-top:3px">
+        <div style="height:6px; width:{{ [pct2 * 1.4, 100] | min }}%; background:linear-gradient(90deg,#22c55e,#6366f1); border-radius:3px"></div>
+      </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
 <h2>Флаги, требующие внимания</h2>
 {% set ns = namespace(any=false) %}
 <div class="tbl-wrap"><table class="tbl">

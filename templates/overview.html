@@ -20,6 +20,20 @@
 </div>
 <script>if(!localStorage.getItem('onb_off'))document.getElementById('onb').style.display='flex';</script>
 
+{% if daily_brief and daily_brief.ai_text %}
+<div class="aireport" style="margin-top:12px; border-left:3px solid var(--accent)">
+  <b>☀️ Утренний бриф от GLM-5.3</b> <span class="muted">{{ daily_brief.start }}</span>
+  <div style="margin-top:6px; white-space:normal; line-height:1.6">{{ daily_brief.ai_text | mdfmt | safe }}</div>
+</div>
+{% endif %}
+
+<div class="filters" style="margin-top:10px">
+  <span class="muted">🔍 Спросить GLM-5.3 с рассуждениями:</span>
+  <a class="chip" href="/assistant?q={{ 'Почему Instagram-гиганты не приводят регистрации?' | urlencode }}">Почему Instagram не конвертит?</a>
+  <a class="chip" href="/assistant?q={{ 'Какой канал даст рост регистраций за неделю и что в нём усилить?' | urlencode }}">Где рост регистраций?</a>
+  <a class="chip" href="/assistant?q={{ 'Проверь наши каналы на признаки накрутки и скажи, куда переносить бюджет' | urlencode }}">Проверка на накрутку</a>
+</div>
+
 {% if platform_share %}
 <div class="forecast-bar" style="gap:4px 10px;">
   <span class="forecast-label">Площадки</span>

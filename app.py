@@ -318,6 +318,7 @@ def overview():
 
     return render_template("overview.html", p=p, period=d, chart=chart,
                            report=_latest_report("weekly"),
+                           daily_brief=_latest_report("daily"),
                            trends=calc.weekly_series(8),
                            growth=calc.growth_points(*d),
                            forecast=calc.month_forecast(),
@@ -1362,8 +1363,23 @@ def audience_quality_screen():
     """Качество аудитории: скор 0-100 и признаки накрутки по каждому каналу
     (по мотивам HypeAuditor AQS, на наших реальных данных)."""
     import audience_quality as aq
+    import json as _json
     report = aq.audit_all(60)
+    tt_gender, tt_geo = [], []
+    try:
+        raw = get_setting("tiktok_gender", "")
+        if raw:
+            tt_gender = _json.loads(raw)
+    except Exception:
+        pass
+    try:
+        raw = get_setting("tiktok_geo", "")
+        if raw:
+            tt_geo = _json.loads(raw)[:8]
+    except Exception:
+        pass
     return render_template("audience.html", report=report,
+                           tt_gender=tt_gender, tt_geo=tt_geo,
                            period=(date.today() - timedelta(days=59), date.today()))
 
 
@@ -1856,6 +1872,15 @@ def ai_result():
     elif kind == "content_plan":
         s_, e_ = calc.week_bounds(date.today())
         r = Report.query.filter_by(rtype="plan", start=s_, end=e_).first() or             Report(rtype="plan", start=s_, end=e_)
+        r.ai_text = text
+        db.session.add(r)
+    elif kind == "daily_brief":
+        from datetime import datetime as _dt2
+        try:
+            bd = _dt2.strptime(meta.get("date") or str(date.today()), "%Y-%m-%d").date()
+        except ValueError:
+            bd = date.today()
+        r = Report.query.filter_by(rtype="daily", start=bd, end=bd).first() or             Report(rtype="daily", start=bd, end=bd)
         r.ai_text = text
         db.session.add(r)
     elif kind == "comments_summary":

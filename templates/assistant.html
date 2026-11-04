@@ -37,6 +37,10 @@
 const chatEl = document.getElementById('chat');
 const inputEl = document.getElementById('chat_input');
 chatEl.scrollTop = chatEl.scrollHeight;
+(function(){
+  var q = new URLSearchParams(location.search).get('q');
+  if (q) { inputEl.value = q; send(); }
+})();
 
 function scrollToBottom() { chatEl.scrollTop = chatEl.scrollHeight; }
 

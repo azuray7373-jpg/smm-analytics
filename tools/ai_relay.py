@@ -71,6 +71,23 @@ def main():
     ctx = get_context()
     print(f"context получен: {len(json.dumps(ctx))} байт")
 
+    # 0. Утренний бриф (ежедневно, свежий к началу дня)
+    brief_prompt = (
+        f"Утренний бриф SMM-команды школы сыроделия на {today}.
+"
+        f"Данные за 7 дней: {json.dumps(ctx.get('week', {}), ensure_ascii=False, default=str)}
+"
+        f"Каналы: {json.dumps(ctx.get('channels', []), ensure_ascii=False, default=str)}
+"
+        "Структура ответа: 1) Главное число дня (с чем сравниваешь); "
+        "2) Самое большое изменение к прошлому периоду (с цифрами и каналом); "
+        "3) Один тревожный сигнал (если есть); "
+        "4) ОДНО главное действие на сегодня — конкретное. Кратко, по-русски, без воды.")
+    text = call_llm(brief_prompt)
+    if text:
+        push_result("daily_brief", text, {"date": str(today)})
+        print(f"  daily_brief: {len(text)} символов")
+
     # 1. Еженедельный отчёт (если понедельник или нет свежего)
     today = date.today()
     week_start = today - timedelta(days=today.weekday())

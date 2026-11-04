@@ -14,10 +14,11 @@
   <button>📨 Проверить связь</button>
 </form>
 <div class="aireport" style="margin-top:10px">
-<b>🟢 GLM — основной AI (рекомендовано):</b> впишите в <code>ai_api_key</code> ключ GLM (бесплатный — на open.bigmodel.cn → API Keys, модель <code>glm-4-flash</code> бесплатная; или платный Z.ai). Поля <code>ai_base_url</code>/<code>ai_model</code> подставятся сами:
+<b>🟢 GLM — основной AI (бесплатно):</b> зарегистрируйтесь на <b>z.ai</b> (международный, только email — китайский bigmodel.cn не нужен) → раздел <b>API Keys</b> → создайте ключ → вставьте в <code>ai_api_key</code> ниже и сохраните. Адрес подставится сам:
 <ul style="margin:6px 0 0 18px; line-height:1.6">
-<li>Z.ai: <code>https://api.z.ai/api/paas/v4</code> + модель <code>glm-4.6</code></li>
-<li>BigModel (RU-доступен): <code>https://open.bigmodel.cn/api/paas/v4</code> + <code>glm-4-flash</code> (бесплатно) или <code>glm-4.6</code></li>
+<li>Бесплатные модели: <code>glm-4.5-flash</code> (по умолчанию), <code>glm-4.7-flash</code></li>
+<li>Адрес: <code>https://api.z.ai/api/paas/v4</code> (подставится автоматически)</li>
+<li>Платные (не нужно): glm-4.6 / GLM-5</li>
 </ul>
 <code>gemini_api_key</code> — запасной AI: используется, только пока не задан GLM-ключ.
 </div>

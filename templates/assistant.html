@@ -42,8 +42,7 @@ function scrollToBottom() { chatEl.scrollTop = chatEl.scrollHeight; }
 
 function esc(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML}
 function md(t){
-  const lines = esc(t).split('
-');
+  const lines = esc(t).split('\n');
   let out = [], i = 0;
   const inline = s => s
     .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')

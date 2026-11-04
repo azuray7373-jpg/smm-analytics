@@ -5,9 +5,10 @@
 
 <div class="chat-container" id="chat">
   <div class="chat-msg assistant">
-    Привет! Я ваш AI SMM-специалист. Я вижу все ваши данные: охваты по 11 каналам,
-    регистрации из GetCourse, контент, комментарии, расходы. Спросите что угодно —
-    я отвечу на основе ваших реальных цифр.
+    Привет! Я ваш AI SMM-аналитик на GLM-5.3 с режимом глубоких рассуждений.
+    Вижу все данные: 12 каналов (LiveDune, YouTube, TikTok, Дзен), дневные динамики,
+    контент, UTM-воронки GetCourse, комментарии, цели, конкурентов.
+    Задайте любой вопрос — сложный анализ займёт до минуты.
   </div>
   {% for msg in history %}
   <div class="chat-msg {{ msg.role }}">{{ msg.text | mdfmt | safe if msg.role == 'assistant' else msg.text }}</div>
@@ -39,10 +40,43 @@ chatEl.scrollTop = chatEl.scrollHeight;
 
 function scrollToBottom() { chatEl.scrollTop = chatEl.scrollHeight; }
 
+function esc(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML}
+function md(t){
+  const lines = esc(t).split('
+');
+  let out = [], i = 0;
+  const inline = s => s
+    .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>');
+  while (i < lines.length) {
+    const L = lines[i];
+    if (/^\|/.test(L) && i+1 < lines.length && /^\|[\s:|-]+\|?$/.test(lines[i+1])) {
+      const head = L.split('|').slice(1,-1).map(x=>x.trim());
+      out.push('<table class="tbl" style="font-size:11.5px;margin:6px 0"><tr>' +
+        head.map(h=>'<th>'+inline(h)+'</th>').join('') + '</tr>');
+      i += 2;
+      while (i < lines.length && /^\|/.test(lines[i])) {
+        const cells = lines[i].split('|').slice(1,-1).map(x=>x.trim());
+        out.push('<tr>' + cells.map(x=>'<td>'+inline(x)+'</td>').join('') + '</tr>');
+        i++;
+      }
+      out.push('</table>');
+      continue;
+    }
+    if (/^#{1,3}\s/.test(L)) { out.push('<b style="display:block;margin:8px 0 3px;font-size:12.5px">' + inline(L.replace(/^#+\s/,'')) + '</b>'); i++; continue; }
+    if (/^[-•*]\s+/.test(L)) { out.push('<li style="margin-left:16px">' + inline(L.replace(/^[-•*]\s+/,'')) + '</li>'); i++; continue; }
+    if (/^\d+\.\s+/.test(L)) { out.push('<li style="margin-left:16px">' + inline(L) + '</li>'); i++; continue; }
+    if (L.trim()==='') { out.push('<div style="height:6px"></div>'); i++; continue; }
+    out.push('<div>' + inline(L) + '</div>');
+    i++;
+  }
+  return out.join('');
+}
 function addMsg(role, text) {
   const d = document.createElement('div');
   d.className = 'chat-msg ' + role;
-  d.textContent = text;
+  if (role === 'assistant') { d.innerHTML = md(text); d.style.whiteSpace = 'normal'; }
+  else d.textContent = text;
   chatEl.appendChild(d);
   scrollToBottom();
 }
@@ -54,7 +88,7 @@ async function send() {
   addMsg('user', q);
   const typing = document.createElement('div');
   typing.className = 'chat-msg assistant typing';
-  typing.textContent = '⏳ Анализирую ваши данные...';
+  typing.textContent = '🧠 GLM-5.3 глубоко анализирует данные (до минуты — с рассуждениями)...';
   chatEl.appendChild(typing);
   scrollToBottom();
   try {

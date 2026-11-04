@@ -106,13 +106,51 @@ def build_context(start=None, end=None):
                 "id": ch.id, "name": ch.name, "platform": ch.platform,
                 "reach": reach, "prev_reach": prev_reach,
                 "change": ((reach - prev_reach) / prev_reach * 100) if prev_reach else None,
-                "err": cp["ind"].get("ERR"),
-                "regs": cp["registrations"],
+                "err": cp["ind"].get("ERR"), "err_prev": pp["ind"].get("ERR"),
+                "er": cp["ind"].get("ER"),
+                "regs": cp["registrations"], "regs_prev": pp["registrations"],
+                "cv": cp["ind"].get("CV_reach"),
                 "followers": cp["agg"].get("followers_end"),
+                "followers_start": cp["agg"].get("followers_start"),
                 "subscribed": cp["agg"].get("subscribed"),
                 "unsubscribed": cp["agg"].get("unsubscribed"),
-                "views": cp["agg"].get("views"),
+                "views": cp["agg"].get("views"), "views_prev": pp["agg"].get("views"),
+                "likes": cp["agg"].get("likes"), "comments_m": cp["agg"].get("comments"),
+                "saves": cp["agg"].get("saves"), "shares": cp["agg"].get("shares"),
+                "interactions": cp["ind"].get("interactions"),
             })
+    except Exception:
+        pass
+
+    # Дневные ряды: LLM видит тренды внутри периода, а не только суммы
+    daily = {"dates": [], "reach": [], "views": [], "regs": []}
+    try:
+        snap = calc.latest_snapshots(start, end)
+        regs_day = {}
+        from db import Registration
+        from sqlalchemy import func as _f2
+        from utm import is_ours as _io
+        for d_, s_, m_, c_, n_ in (db.session.query(Registration.date, Registration.utm_source,
+                                        Registration.utm_medium, Registration.utm_campaign,
+                                        _f2.sum(Registration.count))
+                       .filter(Registration.date >= start, Registration.date <= end,
+                               Registration.status == "OK",
+                               ~Registration.utm_source.like("demo_%"))
+                       .group_by(1, 2, 3, 4).all()):
+            if _io(s_, m_, c_):
+                regs_day[d_] = regs_day.get(d_, 0) + (n_ or 0)
+        cur = start
+        ch_ids = {c["id"] for c in channels}
+        while cur <= end:
+            r_day = sum(v for (cid, dd, met), (v, st) in snap.items()
+                        if dd == cur and met == "reach" and cid in ch_ids and v)
+            v_day = sum(v for (cid, dd, met), (v, st) in snap.items()
+                        if dd == cur and met == "views" and cid in ch_ids and v)
+            daily["dates"].append(str(cur))
+            daily["reach"].append(round(r_day))
+            daily["views"].append(round(v_day))
+            daily["regs"].append(round(regs_day.get(cur, 0)))
+            cur += timedelta(days=1)
     except Exception:
         pass
 
@@ -137,13 +175,45 @@ def build_context(start=None, end=None):
         best_slots = hm.get("best_slots", [])[:4] if hm else []
     except Exception:
         pass
+    worst_content, format_stats = [], {}
     try:
         items = calc.content_stats_for_period(start, end)
         items.sort(key=lambda i: (i.get("reach") or 0), reverse=True)
-        for i in items[:5]:
+        for i in items[:10]:
             top_content.append({"title": (i["item"].title or "(без названия)")[:48],
                                 "channel": i["item"].channel.name,
-                                "reach": i.get("reach"), "err": i.get("ERR")})
+                                "format": i["item"].format,
+                                "reach": i.get("reach"), "err": i.get("ERR"),
+                                "regs": i.get("registrations")})
+        withreach = [i for i in items if (i.get("reach") or 0) > 300]
+        for i in sorted(withreach, key=lambda i: i.get("ERR") or 0)[:5]:
+            worst_content.append({"title": (i["item"].title or "(без названия)")[:48],
+                                  "channel": i["item"].channel.name,
+                                  "format": i["item"].format,
+                                  "reach": i.get("reach"), "err": i.get("ERR")})
+        agg = {}
+        for i in items:
+            f = i["item"].format or "other"
+            a = agg.setdefault(f, {"n": 0, "reach": 0, "err": []})
+            a["n"] += 1
+            a["reach"] += i.get("reach") or 0
+            if i.get("ERR") is not None:
+                a["err"].append(i["ERR"])
+        for f, a in agg.items():
+            format_stats[f] = {"n": a["n"],
+                               "avg_reach": round(a["reach"] / a["n"]) if a["n"] else 0,
+                               "avg_err": round(sum(a["err"]) / len(a["err"]), 2) if a["err"] else None}
+    except Exception:
+        pass
+
+    growth, forecast = [], None
+    try:
+        for g in (calc.growth_points(start, end) or [])[:6]:
+            growth.append(g if isinstance(g, str) else str(g)[:120])
+    except Exception:
+        pass
+    try:
+        forecast = calc.month_forecast()
     except Exception:
         pass
     try:
@@ -229,6 +299,11 @@ def build_context(start=None, end=None):
         "trends": trends,
         "comments": comments_data,
         "top_content": top_content,
+        "worst_content": worst_content,
+        "format_stats": format_stats,
+        "daily": daily,
+        "growth_points": growth,
+        "month_forecast": forecast,
         "best_slots": best_slots,
         "gc": gc,
         "goals": goals,
@@ -281,14 +356,19 @@ def _fmt_money(n):
 # ═══════════════ LLM (быстрый поток, не блокирует чат) ═══════════════
 
 _ASSISTANT_SYSTEM = (
-    "Ты — встроенный AI SMM-аналитик приложения. Тебе даны ТОЛЬКО реальные "
-    "рассчитанные данные в JSON и вопрос пользователя. Правила: "
-    "1) отвечай СТРОГО на заданный вопрос — приветствие приветствием, без "
-    "саморекламы и перечисления возможностей, если об этом не спросили; "
-    "2) используй ТОЛЬКО числа из данных, ничего не выдумывай; "
-    "3) если данных для ответа нет — так и скажи; "
-    "4) кратко и по делу (до 6 предложений), по-русски; "
-    "5) если уместно — заверши конкретным действием."
+    "Ты — старший SMM-аналитик сыродельной школы, работающий внутри её системы "
+    "аналитики. Тебе переданы ТОЛЬКО реальные рассчитанные данные в JSON: "
+    "каналы (LiveDune/YouTube/TikTok/Дзен), дневные динамики, контент, UTM, "
+    "воронка GetCourse, комментарии, цели, конкуренты. Правила: "
+    "1) ПЕРЕД ответом глубоко проанализируй данные: сопоставь метрики между "
+    "каналами и периодами, найди причины и связи; "
+    "2) отвечай СТРОГО на заданный вопрос — приветствие приветствием; "
+    "3) каждое утверждение опирай на конкретные числа из данных; ничего не "
+    "выдумывай, NULL не превращай в ноль; "
+    "4) если данных недостаточно — честно скажи, чего не хватает; "
+    "5) структура: вывод → цифры-доказательства → причина → конкретное "
+    "действие; по-русски, профессионально, без воды; "
+    "6) где уместно — оцени масштаб («это много/мало для нашего охвата»)."
 )
 
 
@@ -304,19 +384,19 @@ def _llm_answer(question, ctx):
         model = get_setting("ai_model") or "glm-4.6"
         payload_ctx = json.dumps(ctx, ensure_ascii=False, default=str)
         user = f"Данные:\n{payload_ctx}\n\nВопрос: {question}"
-        # у думающих моделей отключаем «размышления» — чат должен отвечать быстро
+        # максимальное качество: режим рассуждений включён, длинный таймаут
         body = {"model": model, "temperature": 0.2,
-                "thinking": {"type": "disabled"},
+                "thinking": {"type": "enabled"},
                 "messages": [{"role": "system", "content": _ASSISTANT_SYSTEM},
                              {"role": "user", "content": user}]}
         r = requests.post(f"{base}/chat/completions",
                           headers={"Authorization": f"Bearer {key}"},
-                          json=body, timeout=(5, 45))
+                          json=body, timeout=(5, 110))
         if r.status_code == 400:  # модель не знает параметр thinking — без него
             body.pop("thinking", None)
             r = requests.post(f"{base}/chat/completions",
                               headers={"Authorization": f"Bearer {key}"},
-                              json=body, timeout=(5, 45))
+                              json=body, timeout=(5, 110))
         d = r.json()
         if r.status_code == 200 and d.get("choices"):
             text = (d["choices"][0]["message"].get("content") or "").strip()

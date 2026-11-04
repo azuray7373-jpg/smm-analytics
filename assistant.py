@@ -304,12 +304,19 @@ def _llm_answer(question, ctx):
         model = get_setting("ai_model") or "glm-4.6"
         payload_ctx = json.dumps(ctx, ensure_ascii=False, default=str)
         user = f"Данные:\n{payload_ctx}\n\nВопрос: {question}"
+        # у думающих моделей отключаем «размышления» — чат должен отвечать быстро
+        body = {"model": model, "temperature": 0.2,
+                "thinking": {"type": "disabled"},
+                "messages": [{"role": "system", "content": _ASSISTANT_SYSTEM},
+                             {"role": "user", "content": user}]}
         r = requests.post(f"{base}/chat/completions",
                           headers={"Authorization": f"Bearer {key}"},
-                          json={"model": model, "temperature": 0.2,
-                                "messages": [{"role": "system", "content": _ASSISTANT_SYSTEM},
-                                             {"role": "user", "content": user}]},
-                          timeout=(4, 14))
+                          json=body, timeout=(5, 45))
+        if r.status_code == 400:  # модель не знает параметр thinking — без него
+            body.pop("thinking", None)
+            r = requests.post(f"{base}/chat/completions",
+                              headers={"Authorization": f"Bearer {key}"},
+                              json=body, timeout=(5, 45))
         d = r.json()
         if r.status_code == 200 and d.get("choices"):
             text = (d["choices"][0]["message"].get("content") or "").strip()

@@ -1244,7 +1244,7 @@ def settings():
                 or "generativelanguage" in (get_setting("ai_base_url") or "")):
             set_setting("ai_base_url", "https://api.z.ai/api/paas/v4")
             if not get_setting("ai_model") or "gemini" in (get_setting("ai_model") or ""):
-                set_setting("ai_model", "glm-4.5-flash")
+                set_setting("ai_model", "glm-5.3")
         db.session.commit()
         flash("Настройки сохранены")
         return redirect(url_for("settings"))

@@ -256,6 +256,18 @@ class Spend(db.Model):
     source = db.Column(db.String(16), default="manual")
 
 
+class PlannedPost(db.Model):
+    """Запланированные публикации (планер на календаре, как SMMplanner/Metricool)."""
+    __tablename__ = "planned_posts"
+    id = db.Column(db.Integer, primary_key=True)
+    date = db.Column(db.Date, nullable=False, index=True)
+    channel_id = db.Column(db.Integer, db.ForeignKey("channels.id"), nullable=False)
+    format = db.Column(db.String(32), default="post")
+    title = db.Column(db.String(512))
+    status = db.Column(db.String(24), default="план")   # план / опубликовано
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 class Task(db.Model):
     """Задачи недели (план/отчёт) — из листов «Еженедельные статистики»/«Задачи»."""
     __tablename__ = "tasks"

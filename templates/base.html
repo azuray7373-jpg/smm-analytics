@@ -83,6 +83,7 @@ function syncPeriod(){
   <a href="{{ url_for('assistant_screen') }}" class="{{ 'active' if path.startswith('/assistant') }}">AI SMM</a>
   <a href="{{ url_for('overview') }}" class="{{ 'active' if path == '/' }}">Обзор</a>
   <a href="{{ url_for('intel_screen') }}" class="{{ 'active' if path.startswith('/intel') }}">Интеллект</a>
+  <a href="{{ url_for('audience_quality_screen') }}" class="{{ 'active' if path.startswith('/audience') }}">🛡 Качество</a>
   <a href="{{ url_for('ai_screen') }}" class="{{ 'active' if path.startswith('/ai') }}">Отчёты AI</a>
   <a href="{{ url_for('channels_screen') }}" class="{{ 'active' if path.startswith('/channel') }}">Каналы</a>
   <a href="{{ url_for('content_screen') }}" class="{{ 'active' if path.startswith('/content') }}">Контент</a>

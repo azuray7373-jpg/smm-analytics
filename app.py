@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import io, json, os, threading
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, Response, g, session
 
 from db import db, Channel, MetricSnapshot, ContentItem, ContentStat, Registration, \
@@ -400,9 +400,26 @@ def channels_screen():
     d = _period_from_args()
     rows = []
     days_n = max((d[1] - d[0]).days + 1, 1)
+    from audience_quality import PLATFORM_ERR_NORMS
+    all_reach = sum((cached_period_report(*d, ch.id)["agg"].get("reach") or 0)
+                    for ch in Channel.query.filter_by(is_active=True, is_competitor=False).all()) or 1
     for ch in Channel.query.filter_by(is_active=True).all():
         p = cached_period_report(*d, ch.id)
-        rows.append({"ch": ch, "p": p, "avg_reach": (p["agg"].get("reach") or 0) / days_n})
+        reach = p["agg"].get("reach") or 0
+        # Сводный балл канала 0-100 (как рейтинг LiveDune): масштаб, рост, вовлечённость, конверсия
+        score = None
+        if not ch.is_competitor:
+            dl = p.get("deltas", {}).get("reach", {}) or {}
+            growth = dl.get("d")
+            growth_s = 50 + max(-40, min(40, (growth or 0) / 2))          # ±80% → 10..90
+            share_s = min(100, reach / all_reach * 400)                     # 25% рынка охвата → 100
+            err = p["ind"].get("ERR")
+            norm = PLATFORM_ERR_NORMS.get(ch.platform, 2.0)
+            eng_s = min(100, (err or 0) / norm * 60) if err is not None else 40
+            regs = p.get("registrations") or 0
+            conv_s = min(100, regs * 10)                                    # 10+ рег/период → 100
+            score = round(0.30 * share_s + 0.30 * growth_s + 0.25 * eng_s + 0.15 * conv_s)
+        rows.append({"ch": ch, "p": p, "avg_reach": reach / days_n, "score": score})
     if request.args.get("export") == "csv":
         import csv as _csv
         out = io.StringIO()
@@ -939,6 +956,48 @@ def tasks_screen():
                            week=ws_)
 
 
+@app.route("/planner/add", methods=["POST"])
+def planner_add():
+    """Добавить запланированную публикацию (планер)."""
+    from db import PlannedPost
+    from datetime import datetime as _dt
+    try:
+        d = _dt.strptime(request.form.get("date", ""), "%Y-%m-%d").date()
+    except ValueError:
+        flash("Неверная дата")
+        return redirect(url_for("calendar_screen"))
+    ch_id = request.form.get("channel_id")
+    if not ch_id or not Channel.query.get(int(ch_id)):
+        flash("Выберите канал")
+        return redirect(url_for("calendar_screen"))
+    db.session.add(PlannedPost(date=d, channel_id=int(ch_id),
+                               format=request.form.get("format", "post"),
+                               title=(request.form.get("title") or "")[:500] or None))
+    db.session.commit()
+    flash("Публикация запланирована")
+    return redirect(url_for("calendar_screen", month=d.strftime("%Y-%m")))
+
+
+@app.route("/planner/delete", methods=["POST"])
+def planner_delete():
+    from db import PlannedPost
+    pp = PlannedPost.query.get(int(request.form.get("id") or 0))
+    if pp:
+        db.session.delete(pp)
+        db.session.commit()
+    return redirect(url_for("calendar_screen"))
+
+
+@app.route("/planner/toggle", methods=["POST"])
+def planner_toggle():
+    from db import PlannedPost
+    pp = PlannedPost.query.get(int(request.form.get("id") or 0))
+    if pp:
+        pp.status = "опубликовано" if pp.status != "опубликовано" else "план"
+        db.session.commit()
+    return redirect(url_for("calendar_screen", month=pp.date.strftime("%Y-%m") if pp else None))
+
+
 @app.route("/calendar")
 def calendar_screen():
     """Контент-календарь: месяц публикаций с эффективностью (фича Metricool)."""
@@ -972,7 +1031,12 @@ def calendar_screen():
     next_m = (last + _td(days=1)).strftime("%Y-%m")
     RU_MONTHS = ["январь", "февраль", "март", "апрель", "май", "июнь", "июль",
                  "август", "сентябрь", "октябрь", "ноябрь", "декабрь"]
+    from db import PlannedPost
+    planned = PlannedPost.query.filter(PlannedPost.date >= first,
+                                       PlannedPost.date <= last).all()
     return render_template("calendar.html", grid=grid, by_day=by_day,
+                           planned=planned,
+                           channels=Channel.query.filter_by(is_active=True, is_competitor=False).all(),
                            month_title=f"{RU_MONTHS[m - 1]} {y}".capitalize(),
                            prev_m=prev_m, next_m=next_m, today=date.today())
 
@@ -1291,6 +1355,16 @@ def getcourse_sync():
         flash("Синхронизация GetCourse запущена в фоне; результат появится через 1–3 минуты "
               "(экспорты ГК выполняются по одному, при занятости — повторные попытки).")
     return redirect(url_for("getcourse_screen"))
+
+
+@app.route("/audience")
+def audience_quality_screen():
+    """Качество аудитории: скор 0-100 и признаки накрутки по каждому каналу
+    (по мотивам HypeAuditor AQS, на наших реальных данных)."""
+    import audience_quality as aq
+    report = aq.audit_all(60)
+    return render_template("audience.html", report=report,
+                           period=(date.today() - timedelta(days=59), date.today()))
 
 
 @app.route("/audit")

@@ -8,6 +8,22 @@
   <a class="btn" href="?month={{ next_m }}">Следующий →</a>
   <span class="muted">Интенсивность ячейки = охват публикаций дня. Клик по материалу — переход к посту.</span>
 </div>
+<div class="aireport" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:10px 0;">
+  <b style="margin-right:4px">📝 Запланировать публикацию:</b>
+  <form method="post" action="{{ url_for('planner_add') }}" style="display:flex; gap:6px; flex-wrap:wrap; flex:1">
+    <input type="date" name="date" value="{{ today }}" required style="width:140px">
+    <select name="channel_id" required style="max-width:180px">
+      {% for c in channels %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
+    </select>
+    <select name="format" style="max-width:110px">
+      <option value="post">пост</option><option value="reels">reels</option>
+      <option value="story">story</option><option value="video">видео</option>
+      <option value="shorts">shorts</option><option value="article">статья</option>
+    </select>
+    <input name="title" placeholder="Тема публикации" style="flex:1; min-width:160px">
+    <button>＋</button>
+  </form>
+</div>
 <div class="cal-grid">
   {% for wd in ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'] %}
   <div class="cal-hdr">{{ wd }}</div>
@@ -21,6 +37,20 @@
       {% if day_reach %}
       <div class="cal-heat" style="opacity: {{ [0.15 + day_reach / 60000, 0.85] | min }}"></div>
       {% endif %}
+      {% set day_plan = (planned or []) | selectattr('date', 'equalto', day) | list %}
+      {% for pp in day_plan %}
+      <div class="cal-item" style="border-style:dashed; {{ 'opacity:.55;' if pp.status == 'опубликовано' }}" title="{{ pp.status }}">
+        <form method="post" action="{{ url_for('planner_toggle') }}" style="display:inline">
+          <input type="hidden" name="id" value="{{ pp.id }}">
+          <button style="padding:0 4px; font-size:9px; background:none; border:none; color:var(--txt-3); cursor:pointer" title="Отметить">{{ '✅' if pp.status == 'опубликовано' else '⬜' }}</button>
+        </form>
+        📌 {{ pp.format }}: {{ (pp.title or '(без темы)')[:26] }}
+        <form method="post" action="{{ url_for('planner_delete') }}" style="display:inline">
+          <input type="hidden" name="id" value="{{ pp.id }}">
+          <button style="padding:0 3px; font-size:9px; background:none; border:none; color:var(--txt-4); cursor:pointer" title="Удалить">✕</button>
+        </form>
+      </div>
+      {% endfor %}
       {% for it in by_day.get(day) or [] %}
         <a class="cal-item" href="{{ it.item.link }}" target="_blank"
            title="{{ it.item.title or '' }} · охват {{ it.reach|numfmt }} · ERR {{ it.ERR|pctfmt }}">

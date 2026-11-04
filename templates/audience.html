@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Качество аудитории{% endblock %}
+{% block content %}
+<h1>🛡 Качество аудитории <small>скор 0–100 · детектор признаков накрутки</small></h1>
+<p class="muted">По мотивам HypeAuditor AQS, но на ваших реальных данных. Скор складывается из 4 категорий: вовлечённость против нормы платформы (30), естественность прироста подписчиков (25), разброс вовлечённости (20), реальность охвата относительно базы (25). Мы не называем «процент ботов» — вместо этого прозрачные флаги с цифрами, которые можно проверить руками на экранах «Каналы» и «Контент».</p>
+
+{% set graded = report | selectattr('score') | list %}
+{% if graded %}
+<div class="cards" style="margin:14px 0">
+  <div class="card"><h3>Средний скор сети</h3><div class="big">{{ (graded | map(attribute='score') | sum / graded | length) | round(0) }}</div></div>
+  <div class="card"><h3>Здоровых каналов (75+)</h3><div class="big">{{ graded | selectattr('score') | rejectattr('score', 'lt', 75) | list | length }} / {{ graded|length }}</div></div>
+  <div class="card"><h3>С подозрением (30–74)</h3><div class="big">{{ graded | selectattr('score') | rejectattr('score', 'lt', 30) | selectattr('score', 'lt', 75) | list | length }}</div></div>
+  <div class="card"><h3>Сильные признаки (&lt;30)</h3><div class="big">{{ graded | selectattr('score', 'lt', 30) | list | length }}</div></div>
+</div>
+{% endif %}
+
+<div class="tbl-wrap"><table class="tbl">
+<tr><th>Канал</th><th>Скор</th><th>Вердикт</th><th>ERR vs норма</th><th>Прирост</th><th>Разброс ERR</th><th>Охват/база</th></tr>
+{% for r in report %}
+<tr>
+  <td><a href="{{ url_for('channel_detail', channel_id=r.channel.id) }}">{{ r.channel.name }}</a><br><span class="muted" style="font-size:10px">{{ r.channel.platform }} · {{ (r.followers or 0)|numfmt }} подписчиков</span></td>
+  <td>
+    {% if r.score is not none %}
+    <span class="badge {{ 'ok' if r.score >= 75 else ('na' if r.score >= 50 else 'down') }}" style="font-size:13px; padding:3px 9px">{{ r.score }}</span>
+    {% else %}<span class="muted">—</span>{% endif %}
+  </td>
+  <td class="wrap" style="white-space:normal; max-width:230px">{{ r.verdict }}</td>
+  {% for k in ['engagement', 'growth', 'consistency', 'reachability'] %}
+  <td><span class="muted" style="font-size:10.5px">{{ (r.cats.get(k) or {}).get('label', '—') }}</span><br>
+      <b style="font-size:11px">{{ (r.cats.get(k) or {}).get('score', '—') }}</b></td>
+  {% endfor %}
+</tr>
+{% endfor %}
+</table></div>
+
+<h2>Флаги, требующие внимания</h2>
+{% set ns = namespace(any=false) %}
+<div class="tbl-wrap"><table class="tbl">
+<tr><th>Канал</th><th>Признак</th></tr>
+{% for r in report %}
+{% for f in r.flags %}
+{% set ns.any = true %}
+<tr><td>{{ r.channel.name }}</td><td class="wrap" style="white-space:normal">⚠ {{ f }}</td></tr>
+{% endfor %}
+{% endfor %}
+{% if not ns.any %}<tr><td colspan="2" style="text-align:center;padding:18px;color:var(--txt-3)">Флагов нет — по доступным данным аудитория ведёт себя естественно</td></tr>{% endif %}
+</table></div>
+
+<div class="aireport" style="margin-top:16px">
+<b>Как читать скор:</b>
+<ul style="margin:6px 0 0 18px; line-height:1.65">
+<li><b>75–100</b> — аудитория активна и реагирует естественно, накрутки не видно.</li>
+<li><b>50–74</b> — есть неактивная часть базы (типично после долгих рекламных заливок).</li>
+<li><b>30–49</b> — существенные признаки: ERR ниже нормы, подписки без охвата или подозрительно ровные лайки.</li>
+<li><b>0–29</b> — база преимущественно неактивна/накручена: реклама на неё тратится впустую, смотрите «доля в общем охвате» на Обзоре и переносите бюджет в здоровые каналы.</li>
+</ul>
+<p class="muted" style="margin-top:8px">Расчёт за последние 60 дней. Точные проценты ботов не даёт никто (это оценка по паттернам) — но наши флаги проверяемы: каждый опирается на дневные данные, которые видны в истории метрик канала.</p>
+</div>
+{% endblock %}

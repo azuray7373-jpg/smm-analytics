@@ -1706,9 +1706,9 @@ def assistant_screen():
 
 @app.route("/assistant/ask", methods=["POST"])
 def assistant_ask():
-    """Ответ ассистента на вопрос."""
+    """Ответ ассистента на вопрос (период: селектор чата или слова вопроса)."""
     q = request.form.get("question", "")
-    result = assistant.ask(q)
+    result = assistant.ask(q, period_hint=request.form.get("period") or None)
     return jsonify(result)
 
 

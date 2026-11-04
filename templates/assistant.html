@@ -15,6 +15,11 @@
 </div>
 
 <div class="chat-input">
+  <select id="chat_period" title="Период данных" style="max-width:120px">
+    <option value="week">7 дней</option>
+    <option value="30d">30 дней</option>
+    <option value="month">Месяц</option>
+  </select>
   <input id="chat_input" placeholder="Например: какой канал работает хуже всех и что делать?"
          onkeydown="if(event.key==='Enter')send()" autocomplete="off">
   <button onclick="send()">Отправить</button>
@@ -55,11 +60,18 @@ async function send() {
   try {
     const fd = new FormData();
     fd.append('question', q);
+    fd.append('period', document.getElementById('chat_period').value);
     const r = await fetch('{{ url_for("assistant_ask") }}', {method:'POST', body:fd});
     const d = await r.json();
     typing.remove();
     if (d.answer) {
       addMsg('assistant', d.answer);
+      const meta = document.createElement('div');
+      meta.style.cssText = 'font-size:10px;color:var(--txt-4);margin:-6px 0 8px;align-self:flex-start;padding-left:4px';
+      meta.textContent = (d.source === 'llm' ? '🟢 GLM' : '⚙️ быстрый аналитик на ваших данных')
+        + (d.period ? ' · период: ' + d.period : '');
+      chatEl.appendChild(meta);
+      scrollToBottom();
     } else {
       addMsg('assistant', 'Извините, не смог обработать запрос.');
     }

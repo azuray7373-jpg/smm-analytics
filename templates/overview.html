@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% block title %}Обзор{% endblock %}
 {% block content %}
 <div class="hero">
   <div>
@@ -11,6 +12,13 @@
     <a class="btn" href="{{ url_for('guide') }}">📖</a>
   </div>
 </div>
+
+<div id="onb" class="aireport" style="display:none; margin-top:12px; align-items:center; gap:14px; flex-wrap:wrap;">
+  <b>Как пользоваться:</b>
+  <span class="muted">① фильтр периода сверху — все цифры пересчитаются · ② клик по карточке — расшифровка по каналам · ③ 🔍 <a href="{{ url_for('data_audit') }}">Аудит</a> — проверка достоверности данных · ④ 🤖 <a href="{{ url_for('assistant_screen') }}">AI SMM</a> — спросите что угодно о цифрах</span>
+  <button class="btn-ghost" style="padding:4px 10px; font-size:10px;" onclick="localStorage.setItem('onb_off','1');document.getElementById('onb').style.display='none'">Понятно ✕</button>
+</div>
+<script>if(!localStorage.getItem('onb_off'))document.getElementById('onb').style.display='flex';</script>
 
 {% if platform_share %}
 <div class="forecast-bar" style="gap:4px 10px;">

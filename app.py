@@ -1233,10 +1233,18 @@ def settings():
             "youtube_api_key", "youtube_channel_id",
             "instagram_token", "vk_token", "telegram_bot_token", "max_bot_tokens",
             "gc_account", "gc_api_key",
-            "ai_api_key", "ai_base_url", "ai_model"]
+            "ai_api_key", "ai_base_url", "ai_model",
+            "gemini_api_key", "gemini_base_url", "gemini_model"]
     if request.method == "POST":
         for k in keys:
             set_setting(k, request.form.get(k, ""))
+        # GLM по умолчанию: если ai_base_url пуст/старый, а ключ есть — z.ai
+        if get_setting("ai_api_key") and (
+                not get_setting("ai_base_url")
+                or "generativelanguage" in (get_setting("ai_base_url") or "")):
+            set_setting("ai_base_url", "https://api.z.ai/api/paas/v4")
+            if not get_setting("ai_model") or "gemini" in (get_setting("ai_model") or ""):
+                set_setting("ai_model", "glm-4.6")
         db.session.commit()
         flash("Настройки сохранены")
         return redirect(url_for("settings"))

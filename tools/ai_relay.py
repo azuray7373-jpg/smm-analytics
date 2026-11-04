@@ -7,8 +7,8 @@ from datetime import date, timedelta
 PA_URL = os.environ.get("PA_URL", "").rstrip("/")
 INGEST = os.environ.get("PA_INGEST_TOKEN")
 AI_KEY = os.environ.get("AI_API_KEY", "")
-AI_BASE = os.environ.get("AI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai")
-AI_MODEL = os.environ.get("AI_MODEL", "gemini-2.5-flash")
+AI_BASE = (os.environ.get("AI_BASE_URL") or "https://api.z.ai/api/paas/v4").rstrip("/")
+AI_MODEL = os.environ.get("AI_MODEL", "glm-4.6")
 
 SYSTEM = (
     "Ты — AI SMM-специалист школы сыроделия. Тебе даны РЕАЛЬНЫЕ данные из аналитики. "
@@ -18,11 +18,21 @@ SYSTEM = (
 
 
 def call_llm(user_prompt):
-    for model in (AI_MODEL, "gemini-2.5-flash"):
+    # GLM-first (z.ai / bigmodel.cn, OpenAI-схема), фолбэк на Gemini-эндпоинт
+    plans = [(AI_BASE, AI_MODEL), (AI_BASE, "glm-4.5-air"), (AI_BASE, "glm-4-flash")]
+    gem_key = os.environ.get("GEMINI_API_KEY", "")
+    if gem_key and "bigmodel" not in AI_BASE and "z.ai" not in AI_BASE:
+        pass  # база уже переопределена пользователем — Gemini не подмешиваем
+    elif gem_key:
+        plans.append(("https://generativelanguage.googleapis.com/v1beta/openai", "gemini-2.5-flash"))
+    for base, model in plans:
+        key = AI_KEY if "generativelanguage" not in base else gem_key
+        if not key:
+            continue
         try:
             r = requests.post(
-                f"{AI_BASE}/chat/completions",
-                headers={"Authorization": f"Bearer {AI_KEY}"},
+                f"{base}/chat/completions",
+                headers={"Authorization": f"Bearer {key}"},
                 json={"model": model, "temperature": 0.2,
                       "messages": [{"role": "system", "content": SYSTEM},
                                    {"role": "user", "content": user_prompt}]},

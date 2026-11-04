@@ -9,36 +9,60 @@ from db import get_setting
 
 
 def _call_llm(system, user):
-    """Вызов внешней LLM через OpenAI-совместимый API (OpenAI, Gemini и др.).
-    Основная модель из настроек + автоматический фолбэк (например, при 503
-    перегруженной gemini-3.8-flash пробуем старшие flash-модели)."""
-    key = get_setting("ai_api_key")
-    if not key:
-        return None
-    try:
-        import requests
-        base = get_setting("ai_base_url", "https://api.openai.com/v1").rstrip("/")
-        models = [get_setting("ai_model", "gpt-4o-mini")]
-        for fb in ("gemini-3.7-flash", "gemini-2.5-flash"):
-            if fb not in models:
-                models.append(fb)
-        for model in models:
-            try:
+    """Вызов LLM. Основной провайдер — GLM (Z.ai / BigModel, обе схемы API),
+    выбранный моделью из настроек; автоматический фолбэк по цепочке моделей,
+    затем — Gemini, если он настроен. Ключи читаются из настроек приложения."""
+    import requests
+    attempts = []  # (kind, base, model, key)
+
+    glm_key = get_setting("glm_api_key") or get_setting("ai_api_key")
+    glm_base = (get_setting("ai_base_url") or "https://api.z.ai/api/paas/v4").rstrip("/")
+    glm_models = [get_setting("ai_model") or "glm-4.6"]
+    for fb in ("glm-4.5-air", "glm-4-flash"):
+        if fb not in glm_models:
+            glm_models.append(fb)
+    anthropic = "/anthropic" in glm_base
+    if glm_key:
+        for m in glm_models:
+            attempts.append(("anthropic" if anthropic else "openai", glm_base, m, glm_key))
+
+    gem_key = get_setting("gemini_api_key")
+    gem_base = (get_setting("gemini_base_url")
+                or "https://generativelanguage.googleapis.com/v1beta/openai").rstrip("/")
+    if gem_key and not glm_key:
+        attempts.append(("openai", gem_base, get_setting("gemini_model") or "gemini-2.5-flash", gem_key))
+
+    for kind, base, model, key in attempts:
+        try:
+            if kind == "anthropic":
+                r = requests.post(
+                    f"{base.rstrip('/anthropic')}/anthropic/v1/messages",
+                    headers={"x-api-key": key, "anthropic-version": "2023-06-01"},
+                    json={"model": model, "max_tokens": 4096, "temperature": 0.2,
+                          "system": system,
+                          "messages": [{"role": "user", "content": user}]},
+                    timeout=120)
+                if r.status_code == 200:
+                    d = r.json()
+                    blocks = d.get("content") or []
+                    text = "".join(b.get("text", "") for b in blocks
+                                   if isinstance(b, dict)).strip()
+                    if text:
+                        return text
+            else:
                 r = requests.post(f"{base}/chat/completions",
                                   headers={"Authorization": f"Bearer {key}"},
                                   json={"model": model, "temperature": 0.2, "messages": [
                                       {"role": "system", "content": system},
                                       {"role": "user", "content": user}]}, timeout=120)
-                d = r.json()
+                d = r.json() if r.status_code != 429 else {}
                 if r.status_code == 200 and d.get("choices"):
                     content = d["choices"][0]["message"].get("content")
                     if content and str(content).strip():
                         return content
-            except Exception:
-                continue
-        return None
-    except Exception:
-        return None
+        except Exception:
+            continue
+    return None
 
 
 SYSTEM = (

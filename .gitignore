@@ -12,3 +12,4 @@ models.json
 vtmp/
 ИНСТРУКЦИЯ_метрики.html
 prod_db/
+intel_srv.py

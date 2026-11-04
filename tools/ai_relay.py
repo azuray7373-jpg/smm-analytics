@@ -72,6 +72,7 @@ def main():
     print(f"context получен: {len(json.dumps(ctx))} байт")
 
     # 0. Утренний бриф (ежедневно, свежий к началу дня)
+    today = date.today()
     NL = chr(10)
     NL = chr(10)
     brief_prompt = (

@@ -222,6 +222,14 @@ def period_report(start: date, end: date, channel_id=None):
     pregs = registrations_total(p_start, p_end, ch.platform if ch else None)
     pind = indicators(pagg, pregs)
 
+    # Guard качества данных (уровень канала): просмотры в 20+ раз больше охвата
+    # физически невозможны — источник отдал сломанный reach (пример: «Алексей
+    # новый», reach 457 при 86 тыс. просмотров). ERR/CV по нему — мусор.
+    if ch and agg.get("reach") and (agg.get("views") or 0) > agg["reach"] * 20:
+        ind["reach_suspect"] = True
+        ind["ERR"] = None
+        ind["CV_reach"] = None
+
     def delta(key, unit="pct"):
         """Абсолютная и относительная динамика. unit: pct | pp | abs."""
         cur, prev = agg.get(key), pagg.get(key)

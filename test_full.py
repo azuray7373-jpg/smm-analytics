@@ -109,13 +109,16 @@ check("AI ассистент", r.status_code == 200 and r.get_json().get('answer
 # === 8. РАСЧЁТЫ ===
 print("\n─── Математика ───")
 with app.app_context():
-    p = calc.period_report(date(2026,9,1), date(2026,9,7))
+    from datetime import timedelta as _td2
+    _e = date.today() - _td2(days=7)   # относительные даты: всегда внутри демо-окна
+    _s = _e - _td2(days=6)
+    p = calc.period_report(_s, _e)
     check("period_report", p["agg"].get("reach") is not None)
     check("ERR", p["ind"].get("ERR") is not None)
     check("CV", p["ind"].get("CV_reach") is not None)
     check("weekly_series", len(calc.weekly_series(4)) == 4)
     check("month_forecast", calc.month_forecast() is not None)
-    check("growth_points", isinstance(calc.growth_points(date(2026,9,1), date(2026,9,7)), list))
+    check("growth_points", isinstance(calc.growth_points(_s, _e), list))
 
 # === 9. СТАТУСЫ ===
 print("\n─── Статусы данных ───")

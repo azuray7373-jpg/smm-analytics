@@ -84,6 +84,31 @@ def _get_context(start, end):
         return _cache["data"] if _cache["key"] == key else {"channels": [], "week": {}}
 
 
+# Источник → конкретный канал (наш справочник); платформенные источники
+# идут первому каналу платформы, поэтому дублей MAX основной/MAX 2 нет.
+_SRC_CHANNEL = {
+    "insta-alexey": "Алексей старый", "insta-alexeynew": "Алексей новый",
+    "insta-dina": "Дина", "insta-venera": "ВЕНЕРА",
+    "max-venera": "ВЕНЕРА", "telegram_maya": "Telegram", "vk_maya": "VK",
+}
+_GENERIC_SOURCES = {"instagram": "insta-alexey", "max": "max", "telegram": "telegram",
+                    "vk": "vkontakte", "vkontakte": "vkontakte", "youtube": "youtube",
+                    "tiktok": "tiktok", "dzen": "dzen"}
+
+
+def _utm_src_to_channel():
+    out = {}
+    for src, name in _SRC_CHANNEL.items():
+        ch = Channel.query.filter_by(name=name).first()
+        if ch:
+            out[src] = ch.id
+    return out
+
+
+def _src_mapped(key):
+    return key in _SRC_CHANNEL
+
+
 def build_context(start=None, end=None):
     """Строит полный контекст: каналы + воронка + контент + цели + конкуренты."""
     today = date.today()
@@ -96,19 +121,60 @@ def build_context(start=None, end=None):
     prev = calc.period_report(prev_start, prev_end)
 
     channels = []
+    # ── атрибуция регистраций: источник UTM → конкретный канал ──
+    # платформенные источники (max/telegram/vk...) уходят первому каналу
+    # платформы — дублей «MAX основной = MAX 2» больше нет.
+    from utm import is_ours as _io2
+    from sqlalchemy import func as _f3
+
+    def _reg_map(s_, e_):
+        chs = Channel.query.filter_by(is_active=True, is_competitor=False)             .order_by(Channel.id).all()
+        src2ch = {}
+        for src, name in _SRC_CHANNEL.items():
+            for c_ in chs:
+                if c_.name == name:
+                    src2ch[src] = c_.id
+                    break
+        for c_ in chs:  # generic источник платформы → первому её каналу
+            g = _GENERIC_SOURCES.get(c_.platform)
+            if g and g not in src2ch:
+                src2ch[g] = c_.id
+        out = {}
+        try:
+            from db import Registration
+            rr = (db.session.query(Registration.utm_source, Registration.utm_medium,
+                                   Registration.utm_campaign, _f3.sum(Registration.count))
+                  .filter(Registration.date >= s_, Registration.date <= e_,
+                          Registration.status == "OK",
+                          ~Registration.utm_source.like("demo_%"))
+                  .group_by(Registration.utm_source, Registration.utm_medium,
+                            Registration.utm_campaign).all())
+            for s_, m_, c_, n_ in rr:
+                if not _io2(s_, m_, c_):
+                    continue
+                cid = src2ch.get((s_ or "").strip().lower())
+                if cid:
+                    out[cid] = out.get(cid, 0) + (n_ or 0)
+        except Exception:
+            pass
+        return out
+
+    _regs_by_channel = _reg_map(start, end)
+    _regs_prev_by_channel = _reg_map(prev_start, prev_end)
     try:
         for ch in Channel.query.filter_by(is_active=True, is_competitor=False).all():
             cp = calc.period_report(start, end, ch.id)
             pp = calc.period_report(prev_start, prev_end, ch.id)
             reach = cp["agg"].get("reach") or 0
             prev_reach = pp["agg"].get("reach") or 0
+            regs_ch = _regs_by_channel.get(ch.id, 0.0)
             channels.append({
                 "id": ch.id, "name": ch.name, "platform": ch.platform,
                 "reach": reach, "prev_reach": prev_reach,
                 "change": ((reach - prev_reach) / prev_reach * 100) if prev_reach else None,
                 "err": cp["ind"].get("ERR"), "err_prev": pp["ind"].get("ERR"),
                 "er": cp["ind"].get("ER"),
-                "regs": cp["registrations"], "regs_prev": pp["registrations"],
+                "regs": regs_ch, "regs_prev": _regs_prev_by_channel.get(ch.id, 0.0),
                 "cv": cp["ind"].get("CV_reach"),
                 "followers": cp["agg"].get("followers_end"),
                 "followers_start": cp["agg"].get("followers_start"),
@@ -136,7 +202,8 @@ def build_context(start=None, end=None):
                        .filter(Registration.date >= start, Registration.date <= end,
                                Registration.status == "OK",
                                ~Registration.utm_source.like("demo_%"))
-                       .group_by(1, 2, 3, 4).all()):
+                       .group_by(Registration.date, Registration.utm_source,
+                       Registration.utm_medium, Registration.utm_campaign).all()):
             if _io(s_, m_, c_):
                 regs_day[d_] = regs_day.get(d_, 0) + (n_ or 0)
         cur = start
@@ -172,7 +239,7 @@ def build_context(start=None, end=None):
         for t in intel.trend_radar(8)[:5]:
             trends.append({"rubric": t["rubric"], "status": t["status"], "avg": t["recent_avg"]})
         hm = intel.posting_heatmap(30)
-        best_slots = hm.get("best_slots", [])[:4] if hm else []
+        best_slots = hm.get("best_slots", [])[:4] if hm else []  # n уже внутри
     except Exception:
         pass
     worst_content, format_stats = [], {}
@@ -221,6 +288,9 @@ def build_context(start=None, end=None):
         dig = cm.digest(start, end)
         comments_data = {
             "total": dig["total"],
+            "_hint": ("total — только РАЗОБРАННЫЕ комментарии (импорт CSV, экран "
+                      "«Комментарии»); метрика «комментарии на постах» по каналам — "
+                      "отдельно в channels[].comments_m"),
             "pains": [c.text[:60] for c in dig["pains"][:3]],
             "questions": [c.text[:60] for c in dig["questions"][:3]],
             "ideas": [c.text[:60] for c in dig["ideas"][:3]],
@@ -234,7 +304,10 @@ def build_context(start=None, end=None):
         f = getcourse.funnel(start, end)
         gc = {"regs_gc": f.get("registrations"), "orders": f.get("orders"),
               "trials": f.get("orders_trials"), "revenue": f.get("orders_sum"),
-              "all_deals": f.get("orders_total")}
+              "all_deals": f.get("orders_total"),
+              "cr_gc_trial_pct": f.get("cr_gc_trial_pct"),
+              "cr_trial_order_pct": f.get("cr_trial_order_pct"),
+              "avg_check": f.get("avg_check")}
     except Exception:
         pass
 
@@ -281,6 +354,48 @@ def build_context(start=None, end=None):
     except Exception:
         pass
 
+    # История ERR/охвата за 8 недель (отделяем сезонность/алгоритмы от контента)
+    err_history = []
+    try:
+        wk_end = end
+        for i in range(8):
+            wk_start = wk_end - timedelta(days=6)
+            ph = calc.period_report(wk_start, wk_end)
+            err_history.append({"week": str(wk_start), "reach": ph["agg"].get("reach"),
+                                "regs": ph["registrations"],
+                                "err": round(ph["ind"]["ERR"], 3) if ph["ind"].get("ERR") else None})
+            wk_end = wk_start - timedelta(days=1)
+    except Exception:
+        pass
+    err_history.reverse()
+
+    # Сводимость: week = сумма по этим же каналам (исключает расхождения с channels)
+    week_consistent = {
+        "reach": sum(c["reach"] or 0 for c in channels),
+        "views": sum(c["views"] or 0 for c in channels),
+        "interactions": sum(c["interactions"] or 0 for c in channels),
+        "followers": sum(c["followers"] or 0 for c in channels),
+        "net_growth": sum(((c["subscribed"] or 0) - (c["unsubscribed"] or 0)) for c in channels),
+        "regs_by_channels": sum(c["regs"] or 0 for c in channels),
+    }
+    inter_sum = week_consistent["interactions"]
+    if week_consistent["reach"]:
+        week_consistent["err"] = round(inter_sum / week_consistent["reach"] * 100, 3)
+
+    # Комментарии: метрика по каналам vs разобранные (таблица)
+    comments_metric = sum((c.get("comments_m") or 0) for c in channels)
+
+    # KPI-бенчмарк из фактического run-rate (если цели не заданы)
+    kpi_note = None
+    if not goals:
+        try:
+            runs = [h["regs"] for h in err_history if h["regs"]]
+            if runs:
+                kpi_note = {"suggested_regs_per_week": round(sum(runs) / len(runs), 1),
+                            "basis": "среднее фактических регистраций за 8 недель"}
+        except Exception:
+            pass
+
     return {
         "period": {"start": str(start), "end": str(end)},
         "week": {
@@ -298,10 +413,14 @@ def build_context(start=None, end=None):
         "utm": utm_data,
         "trends": trends,
         "comments": comments_data,
+        "comments_metric_total": comments_metric,
         "top_content": top_content,
         "worst_content": worst_content,
         "format_stats": format_stats,
         "daily": daily,
+        "err_history": err_history,
+        "week_consistent": week_consistent,
+        "kpi_note": kpi_note,
         "growth_points": growth,
         "month_forecast": forecast,
         "best_slots": best_slots,

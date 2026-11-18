@@ -614,7 +614,8 @@ def _rule_answer(q, ctx, label):
     pw = ctx.get("prev_week", {})
     L = []
     by_reach = sorted([c for c in chs if c["reach"] > 0], key=lambda c: c["reach"], reverse=True)
-    by_err = sorted([c for c in chs if (c["reach"] or 0) >= 1000], key=lambda c: c["err"] or 0, reverse=True)
+    by_err = sorted([c for c in chs if c.get("err") is not None and (c["reach"] or 0) >= 1000],
+                    key=lambda c: c["err"], reverse=True)
     by_regs = sorted([c for c in chs if c["regs"] > 0], key=lambda c: c["regs"], reverse=True)
 
     # ── конкретный канал упомянут ──

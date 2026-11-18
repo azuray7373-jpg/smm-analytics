@@ -104,7 +104,8 @@ print("\n─── AI ───")
 r = c.post('/intel/predict', data={'format':'reels','title':'т','text':'т','duration':'30'})
 check("Predictor", r.status_code == 200 and r.get_json().get('predicted_reach') is not None)
 r = c.post('/assistant/ask', data={'question':'Какой канал хуже?'})
-check("AI ассистент", r.status_code == 200 and r.get_json().get('answer'))
+_aj = r.get_json() or {}
+check("AI ассистент", r.status_code == 200 and _aj.get('answer'), f"status={r.status_code} body={r.get_data(as_text=True)[:200]}")
 
 # === 8. РАСЧЁТЫ ===
 print("\n─── Математика ───")

@@ -1314,7 +1314,10 @@ def settings():
         flash("Настройки сохранены")
         return redirect(url_for("settings"))
     return render_template("settings.html", values={k: get_setting(k) for k in keys},
-                           webhook_token=os.environ.get("INGEST_TOKEN") or get_setting("ingest_token"))
+                           webhook_token=os.environ.get("INGEST_TOKEN") or get_setting("ingest_token"),
+                           gc_events=GcEvent.query.order_by(GcEvent.synced_at.desc()).limit(10).all(),
+                           gc_users_n=Registration.query.filter(Registration.gc_user_id.isnot(None)).count(),
+                           gc_payments_n=GcPayment.query.count())
 
 
 @app.route("/getcourse")
@@ -1646,6 +1649,11 @@ def gc_webhook():
                 p.product = str(_val("product") or "")[:255]
                 p.updated_at = datetime.utcnow()
                 getcourse._log_event("payment", pid, "")
+        elif t == "test":
+            # проверка настройки: ничего не пишет, только отмечает приём
+            getcourse._log_event("test", 0, "")
+            db.session.commit()
+            return jsonify({"ok": True, "type": "test"})
         else:
             return jsonify({"error": "unknown type"}), 400
         db.session.commit()

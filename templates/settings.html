@@ -24,6 +24,7 @@
 </div>
 <p class="muted" style="margin-top:8px">youtube_api_key + youtube_channel_id включают живой сбор YouTube. gc_account/gc_api_key — GetCourse.</p>
 
+<script>function webhookTest(){fetch('/api/gc-webhook?type=test&token=' + '{{ webhook_token }}').then(function(){location.reload()})}</script>
 {% if webhook_token %}
 <h2>Мгновенные события из GetCourse (процессы «Вызвать URL»)</h2>
 <p>Создайте в Геткурсе три процесса (Обучение → Процессы → Создать) с блоками:
@@ -38,5 +39,21 @@ https://anazanaxus.pythonanywhere.com/api/gc-webhook?type=deal&token={{ webhook_
 3) Оплата (Оплата получена):
 https://anazanaxus.pythonanywhere.com/api/gc-webhook?type=payment&token={{ webhook_token }}&payment_id={payment_id}&created={created_at}&user_id={user_id}&amount={Сумма}&deal_id={deal_id}&product={Название предложения}&status=accepted</pre>
 <p class="muted">Эндпоинт также принимает POST JSON и заголовок X-Ingest-Token. После настройки события появляются в приложении мгновенно, без очередей Export API.</p>
+
+<div class="aireport" style="margin-top:10px">
+<b>🔎 Проверка доставки:</b> настройте первый процесс, затем нажмите кнопку — если в таблице ниже появится строка «test», данные из Геткурса доходят до приложения.
+<div style="margin:8px 0">
+  <button onclick="webhookTest()">📨 Отправить тестовое событие</button>
+</div>
+<div class="tbl-wrap"><table class="tbl">
+<tr><th>Событие</th><th>ID</th><th>Когда получено</th></tr>
+{% for e in gc_events %}
+<tr><td>{{ {'user':'пользователь','deal':'заказ','payment':'оплата','test':'тест (настройка работает)'}.get(e.entity, e.entity) }}</td><td>{{ e.entity_id }}</td><td>{{ e.synced_at.strftime('%d.%m %H:%M:%S') if e.synced_at }}</td></tr>
+{% else %}
+<tr><td colspan="3" style="text-align:center;padding:14px;color:var(--txt-3)">Событий пока нет — создайте процессы по инструкции выше и нажмите «тест»</td></tr>
+{% endfor %}
+</table></div>
+<p class="muted">Уже доставлено вебхуками: пользователей {{ gc_users_n }}, оплат {{ gc_payments_n }}.</p>
+</div>
 {% endif %}
 {% endblock %}

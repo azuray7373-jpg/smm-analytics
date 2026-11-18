@@ -144,15 +144,19 @@ function syncPeriod(){
 <footer>источники → база → расчёты → проверки → AI → выводы · AI не считает цифры</footer>
 <script>
 if (window.Chart) {
-  Chart.defaults.color = '#8b95a3';
-  Chart.defaults.font.family = '-apple-system, Segoe UI, system-ui, sans-serif';
+  Chart.defaults.color = '#8a7e62';
+  Chart.defaults.font.family = "'Source Sans 3', system-ui, sans-serif";
   Chart.defaults.font.size = 11;
-  Chart.defaults.borderColor = 'rgba(255,255,255,.04)';
-  Chart.defaults.plugins.legend.labels.boxWidth = 10;
-  Chart.defaults.plugins.tooltip.backgroundColor = '#141a23';
+  Chart.defaults.borderColor = 'rgba(226,214,186,.06)';
+  Chart.defaults.plugins.legend.display = false;
+  Chart.defaults.plugins.tooltip.backgroundColor = '#1f1a12';
+  Chart.defaults.plugins.tooltip.titleColor = '#f2ead8';
+  Chart.defaults.plugins.tooltip.bodyColor = '#c4b896';
   Chart.defaults.plugins.tooltip.padding = 10;
-  Chart.defaults.plugins.tooltip.cornerRadius = 6;
+  Chart.defaults.plugins.tooltip.cornerRadius = 3;
 }
+// тёплая палитра чартов: медь, шалфей, крем, ржавчина, олива
+window.CHART_PALETTE = ['#d4842a','#8faf6e','#c4b896','#c4544a','#6a9e8e','#e8963e','#8a7e62','#d4a02a'];
 </script>
 </body>
 </html>

@@ -97,6 +97,9 @@ def digest(start: date, end: date, channel_id=None, limit=5):
         q = q.filter(Comment.channel_id == channel_id)
     comments = q.order_by(Comment.likes.desc()).all()
     counts = Counter(c.main_type for c in comments)
+    from comments_ai import GOOD as _G, BAD as _B
+    good = sum(n for t, n in counts.items() if t in _G)
+    bad = sum(n for t, n in counts.items() if t in _B)
     def top(t, n=limit):
         items = [c for c in comments if t in (json.loads(c.tags or "[]"))]
         seen, out = set(), []
@@ -111,6 +114,7 @@ def digest(start: date, end: date, channel_id=None, limit=5):
         return out
     return {
         "total": len(comments),
+        "good": good, "bad": bad,
         "counts": dict(counts),
         "questions": top("вопрос"),
         "pains": top("боль"),

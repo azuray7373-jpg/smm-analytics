@@ -361,6 +361,51 @@ def comments_screen():
                            trend=trend)
 
 
+@app.route("/comments/collect", methods=["POST"])
+def comments_collect():
+    """Собрать комментарии YouTube по API и классифицировать GLM (в фоне)."""
+    if _bg_busy.get("comments_collect"):
+        flash("Сбор комментариев уже выполняется — увидите результат в 🔔.")
+        return redirect(url_for("comments_screen"))
+
+    def _job():
+        import comments_ai
+        try:
+            st = comments_ai.collect_youtube()
+            msg = (f"Комментарии YouTube: новых {st.get('new', 0)} по {st.get('videos', 0)} видео "
+                   f"(👍 {st.get('good', 0)} · 👎 {st.get('bad', 0)} · ❓ {st.get('questions', 0)}); "
+                   f"дублей пропущено {st.get('skipped', 0)}")                 if not st.get("error") else f"Сбор комментариев: {st['error']}"
+        except Exception as e:
+            msg = f"Сбор комментариев: ошибка {str(e)[:120]}"
+        db.session.add(Notification(level="ok", message=msg))
+        db.session.commit()
+    run_in_background("comments_collect", _job,
+                      "Собираю комментарии YouTube и классифицирую GLM — результат придёт в 🔔.")
+    return redirect(url_for("comments_screen"))
+
+
+@app.route("/comments/reclassify", methods=["POST"])
+def comments_reclassify():
+    """Переклассифицировать комментарии GLM (после импорта CSV или обновления правил)."""
+    if _bg_busy.get("comments_reclassify"):
+        flash("Классификация уже выполняется.")
+        return redirect(url_for("comments_screen"))
+
+    def _job():
+        import comments_ai
+        try:
+            st = comments_ai.reclassify_recent(days=60)
+            msg = (f"GLM-классификация: {st['new']} комментариев "
+                   f"(👍 {st['good']} · 👎 {st['bad']} · ❓ {st['questions']})")
+        except Exception as e:
+            msg = f"GLM-классификация: ошибка {str(e)[:120]}"
+        db.session.add(Notification(level="ok", message=msg))
+        db.session.commit()
+    run_in_background("comments_reclassify", _job,
+                      "GLM переклассифицирует комментарии — результат придёт в 🔔.")
+    return redirect(url_for("comments_screen"))
+
+
 @app.route("/comments/ai_summary", methods=["POST"])
 def comments_ai_summary():
     """AI-вывод по комментариям за период — в фоне."""

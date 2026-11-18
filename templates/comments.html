@@ -3,6 +3,21 @@
 {% block content %}
 <h1>Экран 6 — Комментарии: вопросы, боли, возражения, идеи</h1>
 
+<div class="filters" style="align-items:center">
+  {% if d.total %}
+  <span class="badge ok">👍 хорошие: {{ d.good }}</span>
+  <span class="badge down">👎 плохие: {{ d.bad }}</span>
+  <span class="badge na">❓ вопросы: {{ d.counts.get('вопрос', 0) }}</span>
+  <span class="badge na">итого: {{ d.total }}</span>
+  {% endif %}
+  <form method="post" action="{{ url_for('comments_collect') }}" style="display:inline">
+    <button title="Собрать комментарии YouTube по API и классифицировать GLM (в фоне, результат в 🔔)">📥 Собрать YouTube</button>
+  </form>
+  <form method="post" action="{{ url_for('comments_reclassify') }}" style="display:inline">
+    <button title="Прогнать существующие комментарии через GLM-классификацию заново">🧠 Переклассифицировать GLM</button>
+  </form>
+</div>
+
 <div class="aireport">
 <b>Смысл блока:</b> собирать идеи для контента из запросов вашей аудитории. Площадки не отдают комментарии по API для сторонних сервисов — поэтому раз в неделю собирайте их вручную (5–10 минут) и грузите одним CSV:
 <ul style="margin:6px 0 0 18px; line-height:1.65">

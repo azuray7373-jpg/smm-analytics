@@ -1,0 +1,21 @@
+name: Keep-alive ping
+# Бесплатный PythonAnywhere усыпляет воркер без трафика: каждый первый визит
+# после паузы платит за пробуждение (повторный импорт, холодные кэши, 10-40с).
+# Пинг каждые 13 минут держит воркер живым; ?warm=1 перегревает кэш в фоне.
+on:
+  schedule:
+    - cron: '*/13 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping app
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 150 "https://anazanaxus.pythonanywhere.com/ping?warm=1")
+          echo "ping: $code"
+          if [ "$code" != "200" ]; then
+            sleep 25
+            curl -s -o /dev/null -w "retry: %{http_code}\n" --max-time 150 "https://anazanaxus.pythonanywhere.com/ping?warm=1"
+          fi
